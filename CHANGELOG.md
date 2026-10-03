@@ -12,5 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Android and iOS Flutter app.
+- Shared API client, film-log models, light and dark themes, and form widgets.
 [Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/vhnam/meta-frames-app/releases/tag/v1.0.0
