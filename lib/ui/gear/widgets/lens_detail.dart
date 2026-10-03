@@ -11,11 +11,10 @@ import 'lens_form.dart';
 /// Cameras a lens can be used on (no dedicated endpoint: derived from links).
 final _lensCamerasProvider = FutureProvider.autoDispose
     .family<List<Camera>, String>((ref, lensId) async {
-      final api = ref.watch(apiProvider);
-      final cams = await api.cameras();
+      final cams = await ref.watch(cameraRepositoryProvider).cameras();
       final out = <Camera>[];
       for (final c in cams) {
-        final ls = await api.cameraLenses(c.id);
+        final ls = await ref.watch(cameraRepositoryProvider).lenses(c.id);
         if (ls.any((l) => l.id == lensId)) out.add(c);
       }
       return out;
@@ -49,7 +48,7 @@ class LensDetailScreen extends ConsumerWidget {
                 if (!context.mounted) return;
                 final ok = await guard(
                   context,
-                  () => ref.read(apiProvider).deleteLens(lensId),
+                  () => ref.read(lensRepositoryProvider).delete(lensId),
                 );
                 if (ok && context.mounted) {
                   refreshAll(ref);
@@ -99,7 +98,9 @@ class LensDetailScreen extends ConsumerWidget {
                     : (v) async {
                         final ok = await guard(
                           context,
-                          () => ref.read(apiProvider).setLensActive(l.id, v),
+                          () => ref
+                              .read(lensRepositoryProvider)
+                              .setActive(l.id, v),
                         );
                         if (ok) refreshAll(ref);
                       },

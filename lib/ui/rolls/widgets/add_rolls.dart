@@ -148,7 +148,10 @@ class _State extends ConsumerState<AddRollsScreen> {
       if (year.text.isNotEmpty) 'expiryYear': int.parse(year.text),
       if (year.text.isNotEmpty && month != null) 'expiryMonth': month,
     };
-    final ok = await guard(context, () => ref.read(apiProvider).addRolls(body));
+    final ok = await guard(
+      context,
+      () => ref.read(rollRepositoryProvider).addRolls(body),
+    );
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;

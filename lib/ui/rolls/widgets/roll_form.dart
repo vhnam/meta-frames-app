@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/api.dart';
+import '../../../domain/utils.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
@@ -212,7 +212,7 @@ class _State extends ConsumerState<RollFormScreen> {
     };
     final ok = await guard(
       context,
-      () => ref.read(apiProvider).updateRoll(r.id, body),
+      () => ref.read(rollRepositoryProvider).update(r.id, body),
     );
     if (!mounted) return;
     setState(() => busy = false);

@@ -39,12 +39,13 @@ Future<void> markReceived(
     ),
   );
   if (ok != true || !context.mounted) return;
-  final api = ref.read(apiProvider);
   final done = await guard(context, () async {
     if (negatives) {
-      await api.negativesReturned(p.id, date);
+      await ref
+          .read(processingRepositoryProvider)
+          .negativesReturned(p.id, date);
     } else {
-      await api.scansReceived(p.id, date);
+      await ref.read(processingRepositoryProvider).scansReceived(p.id, date);
     }
   });
   if (!done || !context.mounted) return;

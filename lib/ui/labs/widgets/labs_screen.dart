@@ -42,12 +42,11 @@ Future<Lab?> editLab(BuildContext context, WidgetRef ref, [Lab? lab]) {
                   ? null
                   : address.text.trim(),
             };
-            final api = ref.read(apiProvider);
             Lab? saved;
             final ok = await guard(c, () async {
               saved = lab == null
-                  ? await api.createLab(body)
-                  : await api.updateLab(lab.id, body);
+                  ? await ref.read(labRepositoryProvider).create(body)
+                  : await ref.read(labRepositoryProvider).update(lab.id, body);
             });
             if (ok && c.mounted) {
               refreshAll(ref);
@@ -99,7 +98,10 @@ class LabsScreen extends ConsumerWidget {
                     return false;
                   if (!c.mounted) return false;
                   // Server refuses (409) when the lab has processing history.
-                  return guard(c, () => ref.read(apiProvider).deleteLab(l.id));
+                  return guard(
+                    c,
+                    () => ref.read(labRepositoryProvider).delete(l.id),
+                  );
                 },
                 onDismissed: (_) => refreshAll(ref),
                 child: ListTile(

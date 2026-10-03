@@ -83,8 +83,8 @@ class _State extends ConsumerState<ManageLensesScreen> {
     final ok = await guard(
       context,
       () => ref
-          .read(apiProvider)
-          .setCameraLenses(widget.camera.id, selected!.toList()),
+          .read(cameraRepositoryProvider)
+          .setLenses(widget.camera.id, selected!.toList()),
     );
     if (!mounted || !ok) return;
     refreshAll(ref);

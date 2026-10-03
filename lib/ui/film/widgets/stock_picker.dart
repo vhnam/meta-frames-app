@@ -18,13 +18,12 @@ Future<FilmStock?> pickStock(
   String? exclude,
   bool allowCreate = true,
 }) async {
-  final api = ref.read(apiProvider);
   List<FilmStock> stocks;
   final counts = <String, int>{};
   try {
-    stocks = await api.stocks();
+    stocks = await ref.read(filmStockRepositoryProvider).stocks();
     if (withRollsFirst) {
-      for (final r in await api.rolls()) {
+      for (final r in await ref.read(rollRepositoryProvider).rolls()) {
         counts.update(r.filmStockId, (v) => v + 1, ifAbsent: () => 1);
       }
     }

@@ -37,7 +37,6 @@ class _State extends ConsumerState<ScanViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final api = ref.watch(apiProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -83,8 +82,9 @@ class _State extends ConsumerState<ScanViewerScreen> {
         controller: page,
         itemCount: widget.scans.length,
         onPageChanged: (i) => setState(() => current = i),
-        itemBuilder: (c, i) =>
-            ZoomableScan(url: api.absolute(widget.scans[i].fileUrl)),
+        itemBuilder: (c, i) => ZoomableScan(
+          url: ref.watch(scanRepositoryProvider).fileUrl(widget.scans[i]),
+        ),
       ),
     );
   }
@@ -96,7 +96,7 @@ Future<void> shareScan(BuildContext context, WidgetRef ref, Scan s) async {
   try {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/${s.fileName}');
-    await ref.read(apiProvider).downloadScan(s, file);
+    await ref.read(scanRepositoryProvider).download(s, file);
     await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
   } catch (e) {
     if (context.mounted) toast(context, e.toString());

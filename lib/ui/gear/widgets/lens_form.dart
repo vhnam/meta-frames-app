@@ -72,11 +72,10 @@ class _State extends ConsumerState<LensFormScreen> {
   /// No lens -> cameras endpoint exists, so derive it from each camera's links.
   Future<void> _loadLinked() async {
     try {
-      final api = ref.read(apiProvider);
       final ids = <String>{};
-      for (final c in await api.cameras()) {
+      for (final c in await ref.read(cameraRepositoryProvider).cameras()) {
         if (c.hasFixedLens) continue;
-        final ls = await api.cameraLenses(c.id);
+        final ls = await ref.read(cameraRepositoryProvider).lenses(c.id);
         if (ls.any((l) => l.id == widget.lens!.id)) ids.add(c.id);
       }
       if (!mounted) return;
@@ -420,13 +419,12 @@ class _State extends ConsumerState<LensFormScreen> {
         double.parse(aperture.text).toStringAsFixed(1),
       ),
     };
-    final api = ref.read(apiProvider);
     final cams = _compatibleCameras();
     Lens? saved;
     final ok = await guard(context, () async {
       saved = editing
-          ? await api.updateLens(widget.lens!.id, body)
-          : await api.createLens(body);
+          ? await ref.read(lensRepositoryProvider).update(widget.lens!.id, body)
+          : await ref.read(lensRepositoryProvider).create(body);
       if (builtIn || linked == null) return;
       // Only touch cameras the user could see; add or remove this lens.
       for (final c in cams) {
@@ -434,9 +432,11 @@ class _State extends ConsumerState<LensFormScreen> {
         final had = _initialLinked?.contains(c.id) ?? false;
         if (want == had && editing) continue;
         if (!want && !had) continue;
-        final cur = (await api.cameraLenses(c.id)).map((l) => l.id).toSet();
+        final cur = (await ref.read(cameraRepositoryProvider).lenses(c.id))
+            .map((l) => l.id)
+            .toSet();
         want ? cur.add(saved!.id) : cur.remove(saved!.id);
-        await api.setCameraLenses(c.id, cur.toList());
+        await ref.read(cameraRepositoryProvider).setLenses(c.id, cur.toList());
       }
     });
     if (!mounted) return;

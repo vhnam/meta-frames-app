@@ -34,7 +34,7 @@ class NegativesAtLabScreen extends ConsumerWidget {
                 trailing: TextButton(
                   onPressed: () async {
                     final p = await ref
-                        .read(apiProvider)
+                        .read(processingRepositoryProvider)
                         .processing(it.processingId);
                     if (c.mounted)
                       await markReceived(c, ref, p, negatives: true);

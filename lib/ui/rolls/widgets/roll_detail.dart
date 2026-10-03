@@ -51,7 +51,7 @@ class RollDetailScreen extends ConsumerWidget {
                   if (!context.mounted) return;
                   final ok = await guard(
                     context,
-                    () => ref.read(apiProvider).deleteRoll(rollId),
+                    () => ref.read(rollRepositoryProvider).delete(rollId),
                   );
                   if (ok && context.mounted) {
                     refreshAll(ref);

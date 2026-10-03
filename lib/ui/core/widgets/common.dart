@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/api.dart';
+import '../../../data/services/api_client.dart';
 import '../../../domain/models/models.dart';
 import '../theme.dart';
 import '../../more/widgets/settings_screen.dart';

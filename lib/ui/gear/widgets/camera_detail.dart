@@ -267,7 +267,9 @@ class _Body extends ConsumerWidget {
     }
     final ok = await guard(
       context,
-      () => ref.read(apiProvider).setCameraActive(camera.id, !camera.isActive),
+      () => ref
+          .read(cameraRepositoryProvider)
+          .setActive(camera.id, !camera.isActive),
     );
     if (ok) refreshAll(ref);
   }
@@ -284,7 +286,7 @@ class _Body extends ConsumerWidget {
     if (!context.mounted) return;
     final ok = await guard(
       context,
-      () => ref.read(apiProvider).deleteCamera(camera.id),
+      () => ref.read(cameraRepositoryProvider).delete(camera.id),
     );
     if (ok && context.mounted) {
       refreshAll(ref);

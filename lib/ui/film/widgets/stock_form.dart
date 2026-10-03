@@ -41,7 +41,7 @@ class _State extends ConsumerState<StockFormScreen> {
     super.initState();
     final id = widget.stock?.baseStockId;
     if (id != null && base == null) {
-      ref.read(apiProvider).stock(id).then((d) {
+      ref.read(filmStockRepositoryProvider).stock(id).then((d) {
         if (mounted) setState(() => base = d.stock);
       }, onError: (_) {});
     }
@@ -233,12 +233,13 @@ class _State extends ConsumerState<StockFormScreen> {
       'description': _t(desc),
       'baseStockId': base?.id,
     };
-    final api = ref.read(apiProvider);
     FilmStockDetail? saved;
     final ok = await guard(context, () async {
       saved = editing
-          ? await api.updateStock(widget.stock!.id, body)
-          : await api.createStock(body);
+          ? await ref
+                .read(filmStockRepositoryProvider)
+                .update(widget.stock!.id, body)
+          : await ref.read(filmStockRepositoryProvider).create(body);
     });
     if (!mounted) return;
     setState(() => busy = false);

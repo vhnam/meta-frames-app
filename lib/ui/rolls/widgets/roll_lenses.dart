@@ -30,10 +30,11 @@ class _State extends ConsumerState<RollLensesScreen> {
   }
 
   Future<void> _load() async {
-    final api = ref.read(apiProvider);
     try {
-      final linked = await api.cameraLenses(widget.cameraId);
-      final all = await api.lenses();
+      final linked = await ref
+          .read(cameraRepositoryProvider)
+          .lenses(widget.cameraId);
+      final all = await ref.read(lensRepositoryProvider).lenses();
       final byId = <String, Lens>{};
       for (final l in [...linked, ...widget.current]) {
         byId[l.id] = l;
@@ -72,8 +73,9 @@ class _State extends ConsumerState<RollLensesScreen> {
   Future<void> _save() async {
     final ok = await guard(
       context,
-      () =>
-          ref.read(apiProvider).setRollLenses(widget.rollId, selected.toList()),
+      () => ref
+          .read(rollRepositoryProvider)
+          .setLenses(widget.rollId, selected.toList()),
     );
     if (!mounted || !ok) return;
     refreshAll(ref);

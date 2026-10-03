@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/api.dart';
+import '../../../domain/utils.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
@@ -55,7 +55,7 @@ class _State extends ConsumerState<SendRollScreen> {
               label: 'Lab',
               value: lab?.name,
               onTap: () async {
-                final labs = await ref.read(apiProvider).labs();
+                final labs = await ref.read(labRepositoryProvider).labs();
                 if (!context.mounted) return;
                 final x = await pickOne<Lab>(
                   context,
@@ -153,7 +153,7 @@ class _State extends ConsumerState<SendRollScreen> {
     };
     final ok = await guard(
       context,
-      () => ref.read(apiProvider).sendRoll(widget.roll.id, body),
+      () => ref.read(processingRepositoryProvider).send(widget.roll.id, body),
     );
     if (!mounted) return;
     setState(() => busy = false);

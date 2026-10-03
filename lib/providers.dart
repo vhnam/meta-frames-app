@@ -1,13 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/api.dart';
+import 'data/providers.dart';
 import 'domain/models/models.dart';
 
-final prefsProvider = Provider<SharedPreferences>(
-  (_) => throw UnimplementedError(),
-);
-final apiProvider = Provider<Api>((ref) => Api(ref.watch(prefsProvider)));
+export 'data/providers.dart';
 
 typedef RollFilter = ({
   String? stockId,
@@ -30,45 +26,45 @@ const emptyRollFilter = (
 typedef InventoryFilter = ({String? type, String? process, int? iso});
 
 final camerasProvider = FutureProvider.autoDispose<List<Camera>>(
-  (ref) => ref.watch(apiProvider).cameras(),
+  (ref) => ref.watch(cameraRepositoryProvider).cameras(),
 );
 final cameraProvider = FutureProvider.autoDispose.family<Camera, String>(
-  (ref, id) => ref.watch(apiProvider).camera(id),
+  (ref, id) => ref.watch(cameraRepositoryProvider).camera(id),
 );
 final cameraLensesProvider = FutureProvider.autoDispose
     .family<List<Lens>, String>(
-      (ref, id) => ref.watch(apiProvider).cameraLenses(id),
+      (ref, id) => ref.watch(cameraRepositoryProvider).lenses(id),
     );
 
 final lensesProvider = FutureProvider.autoDispose<List<Lens>>(
-  (ref) => ref.watch(apiProvider).lenses(),
+  (ref) => ref.watch(lensRepositoryProvider).lenses(),
 );
 final lensProvider = FutureProvider.autoDispose.family<Lens, String>(
-  (ref, id) => ref.watch(apiProvider).lens(id),
+  (ref, id) => ref.watch(lensRepositoryProvider).lens(id),
 );
 
 final stocksProvider = FutureProvider.autoDispose<List<FilmStock>>(
-  (ref) => ref.watch(apiProvider).stocks(),
+  (ref) => ref.watch(filmStockRepositoryProvider).stocks(),
 );
 final stockDetailProvider = FutureProvider.autoDispose
     .family<FilmStockDetail, String>(
-      (ref, id) => ref.watch(apiProvider).stock(id),
+      (ref, id) => ref.watch(filmStockRepositoryProvider).stock(id),
     );
 final inventoryProvider = FutureProvider.autoDispose
     .family<List<InventoryItem>, InventoryFilter>(
       (ref, f) => ref
-          .watch(apiProvider)
+          .watch(filmStockRepositoryProvider)
           .inventory(type: f.type, process: f.process, iso: f.iso),
     );
 
 final labsProvider = FutureProvider.autoDispose<List<Lab>>(
-  (ref) => ref.watch(apiProvider).labs(),
+  (ref) => ref.watch(labRepositoryProvider).labs(),
 );
 
 final rollsProvider = FutureProvider.autoDispose
     .family<List<RollSummary>, RollFilter>(
       (ref, f) => ref
-          .watch(apiProvider)
+          .watch(rollRepositoryProvider)
           .rolls(
             filmStockId: f.stockId,
             cameraId: f.cameraId,
@@ -79,31 +75,33 @@ final rollsProvider = FutureProvider.autoDispose
           ),
     );
 final rollDetailProvider = FutureProvider.autoDispose
-    .family<RollDetail, String>((ref, id) => ref.watch(apiProvider).roll(id));
+    .family<RollDetail, String>(
+      (ref, id) => ref.watch(rollRepositoryProvider).roll(id),
+    );
 final expiryProvider = FutureProvider.autoDispose<ExpiryView>(
-  (ref) => ref.watch(apiProvider).expiry(),
+  (ref) => ref.watch(rollRepositoryProvider).expiry(),
 );
 final negativesAtLabProvider =
     FutureProvider.autoDispose<List<NegativesAtLabItem>>(
-      (ref) => ref.watch(apiProvider).negativesAtLab(),
+      (ref) => ref.watch(processingRepositoryProvider).negativesAtLab(),
     );
 
 final processingProvider = FutureProvider.autoDispose
     .family<Processing, String>(
-      (ref, id) => ref.watch(apiProvider).processing(id),
+      (ref, id) => ref.watch(processingRepositoryProvider).processing(id),
     );
 final scansProvider = FutureProvider.autoDispose
     .family<List<Scan>, (String, Scanner?)>(
-      (ref, k) async =>
-          [...await ref.watch(apiProvider).scans(k.$1, scanner: k.$2)]
-            ..sort((a, b) => a.frameNumber - b.frameNumber),
+      (ref, k) async => [
+        ...await ref.watch(scanRepositoryProvider).scans(k.$1, scanner: k.$2),
+      ]..sort((a, b) => a.frameNumber - b.frameNumber),
     );
 final compareProvider = FutureProvider.autoDispose
     .family<FrameComparison, (String, int)>(
-      (ref, k) => ref.watch(apiProvider).compare(k.$1, k.$2),
+      (ref, k) => ref.watch(scanRepositoryProvider).compare(k.$1, k.$2),
     );
 final frameProvider = FutureProvider.autoDispose.family<Frame, (String, int)>(
-  (ref, k) => ref.watch(apiProvider).frame(k.$1, k.$2),
+  (ref, k) => ref.watch(scanRepositoryProvider).frame(k.$1, k.$2),
 );
 
 /// Invalidate every list/detail cache after a mutation.

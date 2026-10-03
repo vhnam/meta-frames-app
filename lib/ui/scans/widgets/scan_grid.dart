@@ -33,7 +33,6 @@ class _State extends ConsumerState<ScanGrid> {
         ? scanner!
         : p.scanners.first;
     final scans = ref.watch(scansProvider((p.id, sel)));
-    final api = ref.watch(apiProvider);
     return SliverMainAxisGroup(
       slivers: [
         const SliverToBoxAdapter(child: SectionHeader('Scans')),
@@ -80,7 +79,7 @@ class _State extends ConsumerState<ScanGrid> {
                 itemCount: sorted.length,
                 itemBuilder: (c, i) => _Thumb(
                   scan: sorted[i],
-                  url: api.absolute(sorted[i].fileUrl),
+                  url: ref.watch(scanRepositoryProvider).fileUrl(sorted[i]),
                   onTap: () => Navigator.push(
                     c,
                     MaterialPageRoute(

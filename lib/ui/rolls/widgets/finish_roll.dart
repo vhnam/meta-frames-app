@@ -37,7 +37,7 @@ Future<void> finishRoll(
   if (ok != true || !context.mounted) return;
   final done = await guard(
     context,
-    () => ref.read(apiProvider).finishRoll(rollId, date),
+    () => ref.read(rollRepositoryProvider).finish(rollId, date),
   );
   if (done) {
     refreshAll(ref);

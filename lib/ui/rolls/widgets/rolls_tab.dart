@@ -159,7 +159,7 @@ class _State extends ConsumerState<RollsTab> {
               label: 'Camera',
               value: cameraLabel,
               onTap: () async {
-                final cams = await ref.read(apiProvider).cameras();
+                final cams = await ref.read(cameraRepositoryProvider).cameras();
                 if (!c.mounted) return;
                 final x = await pickOne<Camera>(
                   c,
@@ -198,7 +198,7 @@ class _State extends ConsumerState<RollsTab> {
               label: 'Lens',
               value: lensLabel,
               onTap: () async {
-                final ls = await ref.read(apiProvider).lenses();
+                final ls = await ref.read(lensRepositoryProvider).lenses();
                 if (!c.mounted) return;
                 final x = await pickOne<Lens>(
                   c,

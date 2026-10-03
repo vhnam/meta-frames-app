@@ -23,16 +23,17 @@ class _State extends ConsumerState<SearchScreen> {
     final q = ctrl.text.trim();
     if (q.isEmpty) return;
     setState(() => busy = true);
-    final api = ref.read(apiProvider);
     try {
       List<RollSummary> out;
       if (focal) {
         final mm = int.tryParse(q);
         if (mm == null) throw 'Enter focal length in mm, e.g. 40';
-        out = (await api.searchByFocalLength(mm)).map((r) => r.roll).toList();
+        out = (await ref.read(rollRepositoryProvider).searchByFocalLength(mm))
+            .map((r) => r.roll)
+            .toList();
       } else {
         final lower = q.toLowerCase();
-        final all = await api.rolls();
+        final all = await ref.read(rollRepositoryProvider).rolls();
         final byId = <String, RollSummary>{
           for (final r in all)
             if (r.stockLabel.toLowerCase().contains(lower) ||
@@ -40,11 +41,12 @@ class _State extends ConsumerState<SearchScreen> {
               r.id: r,
         };
         // Lens names are not on the roll summary: resolve via lens filter.
-        final lenses = (await api.lenses()).where(
+        final lenses = (await ref.read(lensRepositoryProvider).lenses()).where(
           (l) => l.name.toLowerCase().contains(lower),
         );
         for (final l in lenses) {
-          for (final r in await api.rolls(lensId: l.id)) {
+          for (final r
+              in await ref.read(rollRepositoryProvider).rolls(lensId: l.id)) {
             byId[r.id] = r;
           }
         }

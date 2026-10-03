@@ -50,7 +50,7 @@ class _State extends ConsumerState<ImportScansScreen> {
     if (items.isEmpty) return;
     try {
       final map = await ref
-          .read(apiProvider)
+          .read(scanRepositoryProvider)
           .previewImport(
             widget.processingId,
             items.map((e) => e.name).toList(),
@@ -109,7 +109,6 @@ class _State extends ConsumerState<ImportScansScreen> {
       busy = true;
       failures = [];
     });
-    final api = ref.read(apiProvider);
     var done = 0, skipped = 0;
     final failed = <ImportFailure>[];
     final failedItems = <_Item>[];
@@ -119,14 +118,16 @@ class _State extends ConsumerState<ImportScansScreen> {
             'Uploading ${done + failed.length + 1} of ${todo.length}…',
       );
       try {
-        final r = await api.importScan(
-          widget.processingId,
-          scanner: scanner,
-          path: it.path,
-          fileName: it.name,
-          frameNumber: it.frame!,
-          replace: replace,
-        );
+        final r = await ref
+            .read(scanRepositoryProvider)
+            .importScan(
+              widget.processingId,
+              scanner: scanner,
+              path: it.path,
+              fileName: it.name,
+              frameNumber: it.frame!,
+              replace: replace,
+            );
         done += r.imported.length;
         skipped += r.skipped.length;
         failed.addAll(r.failed);

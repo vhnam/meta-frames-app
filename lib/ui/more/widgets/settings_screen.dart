@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/api.dart';
+import '../../../data/repositories/settings_repository.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 
@@ -12,7 +12,9 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _State extends ConsumerState<SettingsScreen> {
-  late final url = TextEditingController(text: ref.read(apiProvider).baseUrl);
+  late final url = TextEditingController(
+    text: ref.read(settingsRepositoryProvider).baseUrl,
+  );
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -35,11 +37,11 @@ class _State extends ConsumerState<SettingsScreen> {
         gap,
         FilledButton(
           onPressed: () async {
-            final api = ref.read(apiProvider);
-            await api.setBaseUrl(url.text);
+            final settings = ref.read(settingsRepositoryProvider);
+            await settings.setBaseUrl(url.text);
             refreshAll(ref);
             if (!context.mounted) return;
-            toast(context, 'Saved. Server URL: ${api.baseUrl}');
+            toast(context, 'Saved. Server URL: ${settings.baseUrl}');
             Navigator.pop(context);
           },
           child: const Text('Save'),

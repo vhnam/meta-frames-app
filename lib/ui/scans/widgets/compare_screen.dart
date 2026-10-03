@@ -27,7 +27,6 @@ class _State extends ConsumerState<CompareScreen> {
   @override
   Widget build(BuildContext context) {
     final v = ref.watch(compareProvider((widget.processingId, frame)));
-    final api = ref.watch(apiProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -106,7 +105,7 @@ class _State extends ConsumerState<CompareScreen> {
                       }
                       return ZoomableScan(
                         key: ValueKey(s.fileUrl),
-                        url: api.absolute(s.fileUrl),
+                        url: ref.watch(scanRepositoryProvider).fileUrl(s),
                       );
                     },
                   ),

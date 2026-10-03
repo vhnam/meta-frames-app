@@ -1,19 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/api.dart';
+import '../../../domain/models/expiry.dart';
+import '../../../domain/utils.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
-
-int _expiryKey(ExpiryMonth? e) =>
-    e == null ? 1 << 30 : e.year * 12 + (e.month ?? 12);
-
-bool isExpired(ExpiryMonth? e) {
-  if (e == null) return false;
-  final now = DateTime.now();
-  return _expiryKey(e) < now.year * 12 + now.month;
-}
 
 /// M-19 load roll into camera. Pass [camera], [roll], both or neither.
 class LoadRollScreen extends ConsumerStatefulWidget {
@@ -48,7 +40,7 @@ class _State extends ConsumerState<LoadRollScreen> {
       return;
     }
     try {
-      final ls = await ref.read(apiProvider).cameraLenses(c.id);
+      final ls = await ref.read(cameraRepositoryProvider).lenses(c.id);
       if (mounted) setState(() => suggested = ls);
     } catch (e) {
       if (mounted) toast(context, e.toString());
@@ -58,12 +50,12 @@ class _State extends ConsumerState<LoadRollScreen> {
   Future<void> _pickRoll() async {
     List<RollSummary> rolls;
     try {
-      rolls = await ref.read(apiProvider).rolls(status: 'in_stock');
+      rolls = await ref.read(rollRepositoryProvider).rolls(status: 'in_stock');
     } catch (e) {
       if (mounted) toast(context, e.toString());
       return;
     }
-    rolls.sort((a, b) => _expiryKey(a.expiry).compareTo(_expiryKey(b.expiry)));
+    rolls.sort((a, b) => expiryKey(a.expiry).compareTo(expiryKey(b.expiry)));
     if (!mounted) return;
     final r = await pickOne<RollSummary>(
       context,
@@ -84,7 +76,7 @@ class _State extends ConsumerState<LoadRollScreen> {
   Future<void> _pickCamera() async {
     List<Camera> cams;
     try {
-      cams = await ref.read(apiProvider).cameras();
+      cams = await ref.read(cameraRepositoryProvider).cameras();
     } catch (e) {
       if (mounted) toast(context, e.toString());
       return;
@@ -111,7 +103,7 @@ class _State extends ConsumerState<LoadRollScreen> {
   }
 
   Future<void> _addOtherLens() async {
-    final all = await ref.read(apiProvider).lenses();
+    final all = await ref.read(lensRepositoryProvider).lenses();
     final cand = all
         .where(
           (l) =>
@@ -141,12 +133,14 @@ class _State extends ConsumerState<LoadRollScreen> {
           ok: 'Link',
         ) &&
         mounted) {
-      final api = ref.read(apiProvider);
       await guard(context, () async {
-        final cur = (await api.cameraLenses(camera!.id))
-            .map((x) => x.id)
-            .toList();
-        await api.setCameraLenses(camera!.id, {...cur, l.id}.toList());
+        final cur =
+            (await ref.read(cameraRepositoryProvider).lenses(camera!.id))
+                .map((x) => x.id)
+                .toList();
+        await ref
+            .read(cameraRepositoryProvider)
+            .setLenses(camera!.id, {...cur, l.id}.toList());
       });
       refreshAll(ref);
     }
@@ -240,7 +234,7 @@ class _State extends ConsumerState<LoadRollScreen> {
     };
     final ok = await guard(
       context,
-      () => ref.read(apiProvider).loadRoll(roll!.id, body),
+      () => ref.read(rollRepositoryProvider).load(roll!.id, body),
     );
     if (!mounted) return;
     setState(() => busy = false);

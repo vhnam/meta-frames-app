@@ -422,15 +422,18 @@ class _State extends ConsumerState<CameraFormScreen> {
         'model': ?_t(lensName),
       };
     }
-    final api = ref.read(apiProvider);
     Camera? saved;
     final ok = await guard(context, () async {
       saved = editing
-          ? await api.updateCamera(widget.camera!.id, body)
-          : await api.createCamera(body);
+          ? await ref
+                .read(cameraRepositoryProvider)
+                .update(widget.camera!.id, body)
+          : await ref.read(cameraRepositoryProvider).create(body);
       // Only touch links when the user could see and change them.
       if (!fixed && selected != null) {
-        await api.setCameraLenses(saved!.id, selected!.toList());
+        await ref
+            .read(cameraRepositoryProvider)
+            .setLenses(saved!.id, selected!.toList());
       }
     });
     if (!mounted) return;

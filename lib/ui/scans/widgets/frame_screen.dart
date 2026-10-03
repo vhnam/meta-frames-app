@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/api.dart';
+import '../../../data/services/api_client.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
@@ -28,7 +28,9 @@ class _State extends ConsumerState<FrameScreen> {
 
   Future<void> _load() async {
     try {
-      final f = await ref.read(apiProvider).frame(widget.rollId, widget.number);
+      final f = await ref
+          .read(scanRepositoryProvider)
+          .frame(widget.rollId, widget.number);
       frame = f;
       notes.text = f.notes ?? '';
     } on ApiException catch (e) {
@@ -40,7 +42,6 @@ class _State extends ConsumerState<FrameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final api = ref.watch(apiProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text('Frame #${widget.number}'),
@@ -73,7 +74,7 @@ class _State extends ConsumerState<FrameScreen> {
                           child: Column(
                             children: [
                               Image.network(
-                                api.absolute('/scans/${s.id}/file'),
+                                ref.watch(scanRepositoryProvider).scanUrl(s.id),
                                 height: 100,
                                 cacheHeight: 300,
                                 fit: BoxFit.cover,
@@ -99,7 +100,7 @@ class _State extends ConsumerState<FrameScreen> {
     final ok = await guard(
       context,
       () => ref
-          .read(apiProvider)
+          .read(scanRepositoryProvider)
           .saveFrameNotes(widget.rollId, widget.number, t.isEmpty ? null : t),
     );
     if (!mounted) return;
