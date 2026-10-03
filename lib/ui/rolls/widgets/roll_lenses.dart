@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/form_kit.dart';
 import '../view_models/roll_actions.dart';
 
 import '../../../routing/navigation.dart';
@@ -63,23 +65,33 @@ class _State extends ConsumerState<RollLensesScreen> {
       },
     );
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lenses used'),
-        actions: [TextButton(onPressed: _save, child: const Text('Save'))],
-      ),
+      appBar: formAppBar(context, 'Lenses used'),
       body: options.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: CircularProgressIndicator()),
         data: (options) => ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            for (final l in options)
-              CheckboxListTile(
-                value: selected.contains(l.id),
-                title: Text(l.name),
-                onChanged: (v) => setState(
-                  () => v! ? selected.add(l.id) : selected.remove(l.id),
-                ),
-              ),
+            CardList(
+              children: [
+                for (final l in options)
+                  CheckboxListTile(
+                    value: selected.contains(l.id),
+                    title: Text(
+                      l.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onChanged: (v) => setState(
+                      () => v! ? selected.add(l.id) : selected.remove(l.id),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            FormSaveBar(label: 'Save', busy: false, onPressed: _save),
           ],
         ),
       ),

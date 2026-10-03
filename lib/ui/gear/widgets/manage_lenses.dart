@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
+import '../../core/theme.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/form_kit.dart';
 import '../view_models/gear_actions.dart';
 import '../view_models/gear_view_model.dart';
 import '../../../routing/routes.dart';
@@ -28,47 +31,61 @@ class _State extends ConsumerState<ManageLensesScreen> {
     final all = ref.watch(linkableLensesProvider(widget.camera.mount));
     final linked = ref.watch(cameraLensesProvider(widget.camera.id));
     selected ??= linked.value?.map((l) => l.id).toSet();
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Lenses · ${widget.camera.name}'),
-        actions: [
-          TextButton(
-            onPressed: selected == null ? null : _save,
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await context.push(Routes.lensNew);
-        },
-        child: const Icon(Icons.add),
-      ),
+      appBar: formAppBar(context, 'Lenses · ${widget.camera.name}'),
       body: AsyncBody(
         value: all,
         onRefresh: () async => ref.refresh(lensesProvider.future),
         builder: (lenses) {
-          if (selected == null)
+          final sel = selected;
+          if (sel == null) {
             return const Center(child: CircularProgressIndicator());
+          }
           final mount = widget.camera.mount;
-          final active = lenses;
-          if (active.isEmpty)
-            return const EmptyState('No lenses yet. Tap + to add one.');
           return ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              for (final l in active)
-                CheckboxListTile(
-                  value: selected!.contains(l.id),
-                  title: Text(l.name),
-                  subtitle: Text(
-                    l.mount == mount
-                        ? 'Mount ${l.mount} · same mount'
-                        : 'Mount ${l.mount ?? '—'} · adapted',
-                  ),
-                  onChanged: (v) => setState(
-                    () => v! ? selected!.add(l.id) : selected!.remove(l.id),
-                  ),
+              if (lenses.isEmpty)
+                Text(
+                  'No lenses yet. Add one below.',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                )
+              else
+                CardList(
+                  children: [
+                    for (final l in lenses)
+                      CheckboxListTile(
+                        value: sel.contains(l.id),
+                        title: Text(
+                          l.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          l.mount == mount
+                              ? 'Mount ${l.mount} · same mount'
+                              : 'Mount ${l.mount ?? '—'} · adapted',
+                          style: monoStyle(
+                            fontSize: 11.5,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        onChanged: (v) => setState(
+                          () => v! ? sel.add(l.id) : sel.remove(l.id),
+                        ),
+                      ),
+                  ],
                 ),
+              const SizedBox(height: 8),
+              DashedButton(
+                label: 'New lens',
+                onTap: () => context.push(Routes.lensNew),
+              ),
+              const SizedBox(height: 24),
+              FormSaveBar(label: 'Save', busy: false, onPressed: _save),
             ],
           );
         },

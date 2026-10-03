@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/expiry.dart';
 import '../../../domain/models/models.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/form_kit.dart';
 import '../view_models/load_roll_view_model.dart';
 
 import '../../../routing/navigation.dart';
@@ -110,73 +112,102 @@ class _State extends ConsumerState<LoadRollScreen> {
     final s = ref.watch(_provider);
     final cam = s.camera;
     final roll = s.roll;
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Load roll')),
+      appBar: formAppBar(context, 'Load roll'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          PickerField(
+          LabeledField(
             label: 'Camera',
-            value: cam?.name,
-            onTap: widget.camera != null ? () {} : _pickCamera,
+            child: SelectField(
+              hint: 'Select a camera',
+              value: cam?.name,
+              onTap: widget.camera != null ? null : _pickCamera,
+            ),
           ),
-          gap,
-          PickerField(
+          LabeledField(
             label: 'Roll',
-            value: roll == null ? null : '${roll.stockLabel} · ${roll.format}',
-            onTap: widget.roll != null ? () {} : _pickRoll,
+            child: SelectField(
+              hint: 'Select a roll',
+              value: roll == null
+                  ? null
+                  : '${roll.stockLabel} · ${roll.format}',
+              onTap: widget.roll != null ? null : _pickRoll,
+            ),
           ),
           if (s.expired)
             const WarningBanner([
               'This roll is expired. You can still load it.',
             ]),
-          gap,
-          DateField(
+          LabeledField(
             label: 'Start date',
-            value: s.started,
-            onChanged: (d) => _vm.setStarted(d!),
-          ),
-          gap,
-          TextFormField(
-            controller: iso,
-            decoration: deco(
-              'Shot ISO',
-              hint: roll == null ? null : 'Box ISO (change to push/pull)',
+            child: SelectField(
+              hint: 'Select date',
+              value: fmtDate(s.started),
+              icon: Icons.calendar_today,
+              onTap: () async {
+                final d = await pickDate(context, s.started);
+                if (d != null) _vm.setStarted(d);
+              },
             ),
-            keyboardType: TextInputType.number,
           ),
-          const SectionHeader('Lenses'),
+          LabeledField(
+            label: 'Shot ISO (optional)',
+            child: TextFormField(
+              controller: iso,
+              decoration: formInputDecoration(
+                roll == null
+                    ? 'Empty = box ISO'
+                    : 'Box ISO (change to push/pull)',
+                cs,
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ),
+          const DetailLabel('LENSES', top: 4),
           if (cam == null)
-            const Text('Select a camera first.')
+            _note(cs, 'Select a camera first.')
           else if (cam.hasFixedLens)
-            const Text('Built-in lens is assigned automatically.')
+            _note(cs, 'Built-in lens is assigned automatically.')
           else if (s.suggested == null)
             const LinearProgressIndicator()
           else ...[
             if (s.suggested!.isEmpty && s.extra.isEmpty)
-              const Text('No linked lenses. Add one below or decide later.'),
-            for (final l in s.lensChoices)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: s.lensIds.contains(l.id),
-                title: Text(l.name),
-                onChanged: (v) => _vm.toggleLens(l.id, v!),
+              _note(cs, 'No linked lenses. Add one below or decide later.')
+            else
+              CardList(
+                children: [
+                  for (final l in s.lensChoices)
+                    CheckboxListTile(
+                      value: s.lensIds.contains(l.id),
+                      title: Text(
+                        l.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onChanged: (v) => _vm.toggleLens(l.id, v!),
+                    ),
+                ],
               ),
-            TextButton.icon(
-              onPressed: _addOtherLens,
-              icon: const Icon(Icons.add),
-              label: const Text('Other lens (adapted)'),
-            ),
+            const SizedBox(height: 8),
+            DashedButton(label: 'Other lens (adapted)', onTap: _addOtherLens),
           ],
-          gap,
-          FilledButton(
-            onPressed: busy || !s.canSubmit ? null : _save,
-            child: const Text('Load'),
+          const SizedBox(height: 24),
+          FormSaveBar(
+            label: 'Load',
+            busy: busy,
+            onPressed: s.canSubmit ? _save : null,
           ),
         ],
       ),
     );
   }
+
+  Widget _note(ColorScheme cs, String t) =>
+      Text(t, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant));
 
   Future<void> _save() async {
     setState(() => busy = true);
