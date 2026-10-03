@@ -9,10 +9,9 @@ import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/gear_view_model.dart';
-import 'camera_detail.dart';
-import 'camera_form.dart';
-import 'lens_detail.dart';
-import 'lens_form.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 class GearTab extends ConsumerStatefulWidget {
   const GearTab({super.key});
@@ -24,13 +23,7 @@ class _State extends ConsumerState<GearTab> {
   bool lenses = false;
   bool showInactive = false;
 
-  void _add() => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) =>
-          lenses ? const LensFormScreen() : const CameraFormScreen(),
-    ),
-  );
+  void _add() => context.push(lenses ? Routes.lensNew : Routes.cameraNew);
 
   @override
   Widget build(BuildContext context) {
@@ -363,10 +356,7 @@ class _CameraTile extends StatelessWidget {
       trailing: inactive || r == null
           ? Icon(Icons.chevron_right, color: cs.onSurfaceVariant)
           : null,
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => CameraDetailScreen(cameraId: cam.id)),
-      ),
+      onTap: () => context.push(Routes.camera(cam.id)),
     );
   }
 }
@@ -403,10 +393,7 @@ class _LensTile extends StatelessWidget {
         vertical: inactive ? 12 : 14,
       ),
       trailing: Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => LensDetailScreen(lensId: l.id)),
-      ),
+      onTap: () => context.push(Routes.lens(l.id)),
     );
   }
 }

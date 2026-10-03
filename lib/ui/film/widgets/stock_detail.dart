@@ -6,7 +6,9 @@ import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../../rolls/widgets/roll_tile.dart';
-import 'stock_form.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 /// M-13 view/edit stock, M-15 stocks sharing a base stock.
 class StockDetailScreen extends ConsumerWidget {
@@ -23,15 +25,8 @@ class StockDetailScreen extends ConsumerWidget {
           if (v.value != null)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => StockFormScreen(
-                    stock: v.value!.stock,
-                    baseStock: v.value!.baseStock,
-                  ),
-                ),
-              ),
+              onPressed: () =>
+                  context.push(Routes.stockEdit(v.value!.stock.id)),
             ),
         ],
       ),
@@ -41,10 +36,7 @@ class StockDetailScreen extends ConsumerWidget {
         builder: (d) {
           final s = d.stock;
           final rolls = ref.watch(rollsProvider(RollFilter(stockId: s.id)));
-          void open(FilmStock x) => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => StockDetailScreen(stockId: x.id)),
-          );
+          void open(FilmStock x) => context.push(Routes.stock(x.id));
           Widget stockList(List<FilmStock> l) => Column(
             children: [
               for (final x in l)

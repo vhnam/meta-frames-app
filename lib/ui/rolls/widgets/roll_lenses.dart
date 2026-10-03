@@ -6,6 +6,8 @@ import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/roll_actions.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-20 record lenses used on a roll (e.g. after swapping lenses mid-roll).
 class RollLensesScreen extends ConsumerStatefulWidget {
   const RollLensesScreen({
@@ -92,6 +94,6 @@ class _State extends ConsumerState<RollLensesScreen> {
           .setLenses(widget.rollId, selected.toList()),
     );
     if (!mounted || !ok) return;
-    Navigator.pop(context);
+    context.closeScreen();
   }
 }

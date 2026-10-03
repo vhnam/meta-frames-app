@@ -12,11 +12,11 @@ import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../view_models/gear_actions.dart';
 import '../../core/widgets/common.dart';
-import '../../rolls/widgets/load_roll.dart';
-import '../../rolls/widgets/roll_detail.dart';
-import 'camera_form.dart';
-import 'lens_detail.dart';
-import 'manage_lenses.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
+
+import '../../../routing/navigation.dart';
 
 /// M-11 camera details, M-05 activate/deactivate, M-09 entry point.
 /// Read-only summary the user checks before deactivating or deleting.
@@ -45,12 +45,7 @@ class CameraDetailScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CameraFormScreen(camera: cam.value),
-                  ),
-                ),
+                onPressed: () => context.push(Routes.cameraEdit(cam.value!.id)),
                 child: const Text(
                   'Edit',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -128,12 +123,7 @@ class _Body extends ConsumerWidget {
                         title: _lensTitle(l),
                         subtitle:
                             '${l.focalLength}mm · f/${_aperture(l.maxAperture)}',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => LensDetailScreen(lensId: l.id),
-                          ),
-                        ),
+                        onTap: () => context.push(Routes.lens(l.id)),
                       ),
                   ],
                 ),
@@ -144,12 +134,7 @@ class _Body extends ConsumerWidget {
           const SizedBox(height: 8),
           _DashedButton(
             label: 'Manage lenses',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ManageLensesScreen(camera: camera),
-              ),
-            ),
+            onTap: () => context.push(Routes.cameraLenses(camera.id)),
           ),
         ],
         const SizedBox(height: 20),
@@ -197,7 +182,7 @@ class _Body extends ConsumerWidget {
       context,
       () => ref.read(cameraActionsProvider).delete(camera.id),
     );
-    if (ok && context.mounted) Navigator.pop(context);
+    if (ok && context.mounted) context.closeScreen();
   }
 
   static String _aperture(double a) => a.toStringAsFixed(a % 1 == 0 ? 0 : 1);
@@ -371,12 +356,8 @@ class _LoadedRollCard extends StatelessWidget {
                 ),
                 if (camera.isActive)
                   FilledButton.tonal(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => LoadRollScreen(camera: camera),
-                      ),
-                    ),
+                    onPressed: () =>
+                        context.push(Routes.cameraLoadRoll(camera.id)),
                     child: const Text('Load roll'),
                   ),
               ],
@@ -397,12 +378,7 @@ class _LoadedRollCard extends StatelessWidget {
     return CardList(
       children: [
         InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RollDetailScreen(rollId: r.rollId),
-            ),
-          ),
+          onTap: () => context.push(Routes.roll(r.rollId)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Column(

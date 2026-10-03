@@ -4,16 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
-import '../../film/widgets/stock_detail.dart';
-import '../../gear/widgets/camera_detail.dart';
-import '../../labs/widgets/processing_detail.dart';
-import '../../labs/widgets/send_roll.dart';
-import '../../scans/widgets/frame_screen.dart';
 import '../view_models/roll_actions.dart';
 import 'finish_roll.dart';
-import 'load_roll.dart';
-import 'roll_form.dart';
-import 'roll_lenses.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
+
+import '../../../routing/navigation.dart';
 
 /// M-24 roll details; hosts the status-dependent actions (M-19..M-21, M-27, M-31).
 class RollDetailScreen extends ConsumerWidget {
@@ -30,12 +27,7 @@ class RollDetailScreen extends ConsumerWidget {
           if (v.value != null) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RollFormScreen(detail: v.value!),
-                ),
-              ),
+              onPressed: () => context.push(Routes.rollEdit(v.value!.roll.id)),
             ),
             if (v.value!.roll.status == RollStatus.inStock)
               IconButton(
@@ -54,7 +46,7 @@ class RollDetailScreen extends ConsumerWidget {
                     context,
                     () => ref.read(rollActionsProvider).delete(rollId),
                   );
-                  if (ok && context.mounted) Navigator.pop(context);
+                  if (ok && context.mounted) context.closeScreen();
                 },
               ),
           ],
@@ -94,10 +86,7 @@ class _Body extends ConsumerWidget {
                 FilledButton.icon(
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: const Text('Load into camera'),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => LoadRollScreen(roll: r)),
-                  ),
+                  onPressed: () => context.push(Routes.rollLoad(r.id)),
                 ),
               if (r.status == RollStatus.inCamera) ...[
                 FilledButton.icon(
@@ -109,45 +98,22 @@ class _Body extends ConsumerWidget {
                   OutlinedButton.icon(
                     icon: const Icon(Icons.lens_outlined),
                     label: const Text('Lenses'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => RollLensesScreen(
-                          rollId: r.id,
-                          cameraId: cam.id,
-                          current: detail.lenses,
-                        ),
-                      ),
-                    ),
+                    onPressed: () => context.push(Routes.rollLenses(r.id)),
                   ),
               ],
               if (r.status == RollStatus.doneShooting)
                 FilledButton.icon(
                   icon: const Icon(Icons.local_shipping_outlined),
                   label: const Text('Send to lab'),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          SendRollScreen(roll: r, stock: detail.stock),
-                    ),
-                  ),
+                  onPressed: () => context.push(Routes.rollSend(r.id)),
                 ),
               if (r.status == RollStatus.developed ||
                   r.status == RollStatus.scanned)
                 FilledButton.icon(
                   icon: const Icon(Icons.replay),
                   label: const Text('Send again'),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SendRollScreen(
-                        roll: r,
-                        stock: detail.stock,
-                        resend: true,
-                      ),
-                    ),
-                  ),
+                  onPressed: () =>
+                      context.push(Routes.rollSend(r.id, resend: true)),
                 ),
             ],
           ),
@@ -167,12 +133,7 @@ class _Body extends ConsumerWidget {
                 : 'Base: ${detail.baseStock!.label}',
           ),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => StockDetailScreen(stockId: detail.stock.id),
-            ),
-          ),
+          onTap: () => context.push(Routes.stock(detail.stock.id)),
         ),
         InfoRow('Format', '${r.format}'),
         InfoRow('Exposures', '${r.exposures}'),
@@ -190,12 +151,7 @@ class _Body extends ConsumerWidget {
             dense: true,
             title: Text(r.cameraName ?? 'Camera'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CameraDetailScreen(cameraId: r.cameraId!),
-              ),
-            ),
+            onTap: () => context.push(Routes.camera(r.cameraId!)),
           ),
         InfoRow(
           'Lenses',
@@ -240,12 +196,7 @@ class _Body extends ConsumerWidget {
                       visualDensity: VisualDensity.compact,
                     )
                   : null,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ProcessingDetailScreen(processingId: j.id),
-                ),
-              ),
+              onTap: () => context.push(Routes.processing(j.id)),
             ),
         SectionHeader(
           'Frames',
@@ -274,12 +225,7 @@ class _Body extends ConsumerWidget {
                 ),
               );
               if (n != null && context.mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => FrameScreen(rollId: r.id, number: n),
-                  ),
-                );
+                context.push(Routes.frame(r.id, n));
               }
             },
             child: const Text('Add notes'),
@@ -305,13 +251,7 @@ class _Body extends ConsumerWidget {
                     avatar: f.notes == null
                         ? null
                         : const Icon(Icons.notes, size: 14),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            FrameScreen(rollId: r.id, number: f.number),
-                      ),
-                    ),
+                    onPressed: () => context.push(Routes.frame(r.id, f.number)),
                   ),
               ],
             ),

@@ -6,7 +6,11 @@ import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/gear_actions.dart';
 import '../view_models/gear_view_model.dart';
-import 'lens_form.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
+
+import '../../../routing/navigation.dart';
 
 /// M-09 link lenses to a camera. Same-mount lenses listed first.
 class ManageLensesScreen extends ConsumerStatefulWidget {
@@ -36,10 +40,7 @@ class _State extends ConsumerState<ManageLensesScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const LensFormScreen()),
-          );
+          await context.push(Routes.lensNew);
         },
         child: const Icon(Icons.add),
       ),
@@ -83,6 +84,6 @@ class _State extends ConsumerState<ManageLensesScreen> {
           .setLenses(widget.camera.id, selected!.toList()),
     );
     if (!mounted || !ok) return;
-    Navigator.pop(context);
+    context.closeScreen();
   }
 }

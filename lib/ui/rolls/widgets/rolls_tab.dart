@@ -7,17 +7,15 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../film/widgets/stock_picker.dart';
 import '../view_models/rolls_view_model.dart';
-import 'add_rolls.dart';
-import 'roll_detail.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 /// M-22 browse rolls by status with filters.
 class RollsTab extends ConsumerWidget {
   const RollsTab({super.key});
 
-  void _add(BuildContext context) => Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const AddRollsScreen()),
-  );
+  void _add(BuildContext context) => context.push(Routes.rollNew());
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -310,10 +308,7 @@ class _RollCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: roll.id)),
-        ),
+        onTap: () => context.push(Routes.roll(roll.id)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(

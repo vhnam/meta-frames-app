@@ -5,7 +5,9 @@ import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/scan_actions.dart';
-import 'scan_viewer.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 /// M-35 grid of scans ordered by frame number, switchable per scanner.
 /// Returns slivers: place it directly inside a [CustomScrollView].
@@ -81,17 +83,7 @@ class _State extends ConsumerState<ScanGrid> {
                 itemBuilder: (c, i) => _Thumb(
                   scan: sorted[i],
                   url: ref.watch(scanUrlProvider)(sorted[i]),
-                  onTap: () => Navigator.push(
-                    c,
-                    MaterialPageRoute(
-                      builder: (_) => ScanViewerScreen(
-                        scans: sorted,
-                        index: i,
-                        processing: p,
-                        rollId: p.rollId,
-                      ),
-                    ),
-                  ),
+                  onTap: () => c.push(Routes.scanViewer(p.id, sel, i)),
                 ),
               ),
             ),

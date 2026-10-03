@@ -5,6 +5,8 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/settings_actions.dart';
 
+import '../../../routing/navigation.dart';
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
   @override
@@ -42,7 +44,7 @@ class _State extends ConsumerState<SettingsScreen> {
                 .saveBaseUrl(url.text);
             if (!context.mounted) return;
             toast(context, 'Saved. Server URL: $saved');
-            Navigator.pop(context);
+            context.closeScreen();
           },
           child: const Text('Save'),
         ),

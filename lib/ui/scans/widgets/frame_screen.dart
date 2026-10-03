@@ -5,6 +5,8 @@ import '../../core/widgets/common.dart';
 import '../view_models/import_scans_view_model.dart';
 import '../view_models/scan_actions.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-37 frame notes. The frame is created by the server on first save.
 class FrameScreen extends ConsumerStatefulWidget {
   const FrameScreen({super.key, required this.rollId, required this.number});
@@ -108,6 +110,6 @@ class _State extends ConsumerState<FrameScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    Navigator.pop(context);
+    context.closeScreen();
   }
 }

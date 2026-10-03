@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/models.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/stock_choices.dart';
-import 'stock_form.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 /// Pick a stock, with inline creation. [withRollsFirst] lists stocks that
 /// already have rolls first (M-17). [exclude] hides a stock id (M-14).
@@ -46,10 +48,7 @@ Future<FilmStock?> pickStock(
                 icon: const Icon(Icons.add),
                 label: const Text('Create new stock'),
                 onPressed: () async {
-                  final s = await Navigator.push<FilmStock>(
-                    c,
-                    MaterialPageRoute(builder: (_) => const StockFormScreen()),
-                  );
+                  final s = await c.push<FilmStock>(Routes.stockNew);
                   if (c.mounted && s != null) Navigator.pop(c, s);
                 },
               ),

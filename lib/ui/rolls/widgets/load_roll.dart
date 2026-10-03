@@ -6,6 +6,8 @@ import '../../../domain/models/models.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/load_roll_view_model.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-19 load roll into camera. Pass [camera], [roll], both or neither.
 class LoadRollScreen extends ConsumerStatefulWidget {
   const LoadRollScreen({super.key, this.camera, this.roll});
@@ -186,6 +188,6 @@ class _State extends ConsumerState<LoadRollScreen> {
     setState(() => busy = false);
     if (!ok) return;
     toast(context, 'Roll loaded');
-    Navigator.pop(context);
+    context.closeScreen();
   }
 }

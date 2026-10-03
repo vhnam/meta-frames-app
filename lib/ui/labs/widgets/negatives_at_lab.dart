@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
-import '../../rolls/widgets/roll_detail.dart';
 import 'processing_detail.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 /// M-30 track negatives still at lab; mark returned from the list.
 class NegativesAtLabScreen extends ConsumerWidget {
@@ -41,12 +43,7 @@ class NegativesAtLabScreen extends ConsumerWidget {
                   },
                   child: const Text('Returned'),
                 ),
-                onTap: () => Navigator.push(
-                  c,
-                  MaterialPageRoute(
-                    builder: (_) => RollDetailScreen(rollId: it.rollId),
-                  ),
-                ),
+                onTap: () => c.push(Routes.roll(it.rollId)),
               );
             },
           );

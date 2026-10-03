@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
-import '../../rolls/widgets/add_rolls.dart';
-import 'stock_detail.dart';
-import 'stock_form.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 class FilmTab extends ConsumerStatefulWidget {
   const FilmTab({super.key});
@@ -37,17 +37,11 @@ class _State extends ConsumerState<FilmTab> {
         ? FloatingActionButton.extended(
             icon: const Icon(Icons.add),
             label: const Text('Add rolls'),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddRollsScreen()),
-            ),
+            onPressed: () => context.push(Routes.rollNew()),
           )
         : FloatingActionButton(
             child: const Icon(Icons.add),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StockFormScreen()),
-            ),
+            onPressed: () => context.push(Routes.stockNew),
           ),
     body: inventory ? _inventory() : _stocks(),
   );
@@ -135,12 +129,7 @@ class _State extends ConsumerState<FilmTab> {
                         if (it.soonestExpiry != null) 'exp ${it.soonestExpiry}',
                       ].join(' · '),
                     ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StockDetailScreen(stockId: it.stock.id),
-                      ),
-                    ),
+                    onTap: () => context.push(Routes.stock(it.stock.id)),
                   );
                 },
               );
@@ -182,12 +171,7 @@ class _State extends ConsumerState<FilmTab> {
                   subtitle: Text(
                     '${shown[i].type.name.toUpperCase()} · ISO ${shown[i].boxIso} · ${shown[i].process.wire} · ${shown[i].packaging.name}',
                   ),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StockDetailScreen(stockId: shown[i].id),
-                    ),
-                  ),
+                  onTap: () => context.push(Routes.stock(shown[i].id)),
                 ),
               );
             },

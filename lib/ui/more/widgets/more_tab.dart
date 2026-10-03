@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../labs/widgets/labs_screen.dart';
-import '../../labs/widgets/negatives_at_lab.dart';
-import '../../rolls/widgets/expiry_screen.dart';
-import 'search_screen.dart';
-import 'settings_screen.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 class MoreTab extends StatelessWidget {
   const MoreTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    void open(Widget w) =>
-        Navigator.push(context, MaterialPageRoute(builder: (_) => w));
+    void open(String route) => context.push(route);
     return Scaffold(
       appBar: AppBar(title: const Text('More')),
       body: ListView(
@@ -20,27 +17,27 @@ class MoreTab extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.search),
             title: const Text('Search rolls'),
-            onTap: () => open(const SearchScreen()),
+            onTap: () => open(Routes.search),
           ),
           ListTile(
             leading: const Icon(Icons.hourglass_bottom),
             title: const Text('Expiry'),
-            onTap: () => open(const ExpiryScreen()),
+            onTap: () => open(Routes.expiry),
           ),
           ListTile(
             leading: const Icon(Icons.local_shipping_outlined),
             title: const Text('Negatives at lab'),
-            onTap: () => open(const NegativesAtLabScreen()),
+            onTap: () => open(Routes.negativesAtLab),
           ),
           ListTile(
             leading: const Icon(Icons.store_outlined),
             title: const Text('Labs'),
-            onTap: () => open(const LabsScreen()),
+            onTap: () => open(Routes.labs),
           ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Settings'),
-            onTap: () => open(const SettingsScreen()),
+            onTap: () => open(Routes.settings),
           ),
         ],
       ),

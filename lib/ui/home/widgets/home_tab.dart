@@ -8,12 +8,10 @@ import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
-import '../../gear/widgets/camera_detail.dart';
-import '../../labs/widgets/send_roll.dart';
-import '../../gear/widgets/camera_form.dart';
-import '../../rolls/widgets/add_rolls.dart';
-import '../../rolls/widgets/roll_detail.dart';
 import '../view_models/home_view_model.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 const _followUpDays = 14;
 
@@ -30,8 +28,7 @@ class HomeTab extends ConsumerWidget {
     final counters = ref.watch(homeCountersProvider);
     final stocks = ref.watch(stocksByIdProvider);
     final welcome = ref.watch(isNewUserProvider);
-    void open(Widget w) =>
-        Navigator.push(context, MaterialPageRoute(builder: (_) => w));
+    void open(String route) => context.push(route);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -65,8 +62,8 @@ class HomeTab extends ConsumerWidget {
                   children: [
                     if (welcome)
                       _Welcome(
-                        onAddCamera: () => open(const CameraFormScreen()),
-                        onAddRolls: () => open(const AddRollsScreen()),
+                        onAddCamera: () => open(Routes.cameraNew),
+                        onAddRolls: () => open(Routes.rollNew()),
                       )
                     else
                       Padding(
@@ -402,10 +399,7 @@ class _LoadedCameraTile extends StatelessWidget {
       subtitle: subtitle,
       badge: stock == null ? null : ProcessBadge(stock!.process),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => CameraDetailScreen(cameraId: c.id)),
-      ),
+      onTap: () => context.push(Routes.camera(c.id)),
     );
   }
 }
@@ -435,18 +429,10 @@ class _ReadyRollTile extends StatelessWidget {
         ),
         onPressed: stock == null
             ? null
-            : () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SendRollScreen(roll: r, stock: stock!),
-                ),
-              ),
+            : () => context.push(Routes.rollSend(r.id)),
         child: const Text('Send'),
       ),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: r.id)),
-      ),
+      onTap: () => context.push(Routes.roll(r.id)),
     );
   }
 }
@@ -472,10 +458,7 @@ class _NegativeTile extends StatelessWidget {
       trailing: late
           ? Icon(Icons.warning_rounded, size: 18, color: cs.error)
           : null,
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: it.rollId)),
-      ),
+      onTap: () => context.push(Routes.roll(it.rollId)),
     );
   }
 }
@@ -498,10 +481,7 @@ class _ExpiringTile extends StatelessWidget {
       subtitleColor: cs.error,
       compact: true,
       badge: stock == null ? null : ProcessBadge(stock!.process),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: e.roll.id)),
-      ),
+      onTap: () => context.push(Routes.roll(e.roll.id)),
     );
   }
 }

@@ -6,6 +6,8 @@ import '../../../domain/models/models.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/import_scans_view_model.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-33 import scans from device, M-34 offset / start frame numbering.
 class ImportScansScreen extends ConsumerStatefulWidget {
   const ImportScansScreen({super.key, required this.processingId});
@@ -90,7 +92,7 @@ class _State extends ConsumerState<ImportScansScreen> {
     final summary = await _vm.import();
     if (!mounted) return;
     toast(context, summary.message);
-    if (summary.complete) Navigator.pop(context);
+    if (summary.complete) context.closeScreen();
   }
 
   @override

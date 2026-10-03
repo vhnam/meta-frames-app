@@ -12,6 +12,8 @@ import '../../core/widgets/common.dart';
 import '../view_models/gear_actions.dart';
 import '../../core/widgets/form_kit.dart';
 
+import '../../../routing/navigation.dart';
+
 String? validFocal(String? v) {
   final n = int.tryParse(v ?? '');
   return n == null || n <= 0 ? 'Positive whole number' : null;
@@ -438,7 +440,7 @@ class _State extends ConsumerState<LensFormScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    Navigator.pop(context, saved);
+    context.closeScreen(saved);
   }
 }
 

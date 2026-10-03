@@ -8,6 +8,8 @@ import '../../core/widgets/common.dart';
 import '../view_models/processing_actions.dart';
 import 'labs_screen.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-27 send roll for processing, M-31 re-send for rescan or print.
 class SendRollScreen extends ConsumerStatefulWidget {
   const SendRollScreen({
@@ -159,6 +161,6 @@ class _State extends ConsumerState<SendRollScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    Navigator.pop(context);
+    context.closeScreen();
   }
 }

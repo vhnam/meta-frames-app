@@ -8,9 +8,10 @@ import 'package:share_plus/share_plus.dart';
 import '../../../domain/models/models.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/scan_actions.dart';
-import 'compare_screen.dart';
-import 'frame_screen.dart';
 import 'zoomable_scan.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 /// Full size scan viewer (M-35) with save/share (M-42).
 class ScanViewerScreen extends ConsumerStatefulWidget {
@@ -48,28 +49,15 @@ class _State extends ConsumerState<ScanViewerScreen> {
             IconButton(
               tooltip: 'Compare scanners',
               icon: const Icon(Icons.compare),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CompareScreen(
-                    processingId: widget.processing.id,
-                    frameNumber: scan.frameNumber,
-                  ),
-                ),
+              onPressed: () => context.push(
+                Routes.compare(widget.processing.id, scan.frameNumber),
               ),
             ),
           IconButton(
             tooltip: 'Frame notes',
             icon: const Icon(Icons.notes),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FrameScreen(
-                  rollId: widget.rollId,
-                  number: scan.frameNumber,
-                ),
-              ),
-            ),
+            onPressed: () =>
+                context.push(Routes.frame(widget.rollId, scan.frameNumber)),
           ),
           IconButton(
             tooltip: 'Save or share',

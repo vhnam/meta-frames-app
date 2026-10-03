@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
-import '../../scans/widgets/import_scans.dart';
 import '../../scans/widgets/scan_grid.dart';
 import '../view_models/processing_actions.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 /// Marks scans received / negatives returned. Date defaults to today.
 Future<void> markReceived(
@@ -58,10 +60,7 @@ Future<void> markReceived(
         ok: 'Import',
       ) &&
       context.mounted) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ImportScansScreen(processingId: p.id)),
-    );
+    context.push(Routes.importScans(p.id));
   }
 }
 
@@ -111,13 +110,8 @@ class ProcessingDetailScreen extends ConsumerWidget {
                         FilledButton.icon(
                           icon: const Icon(Icons.upload_file),
                           label: const Text('Import scans'),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ImportScansScreen(processingId: p.id),
-                            ),
-                          ),
+                          onPressed: () =>
+                              context.push(Routes.importScans(p.id)),
                         ),
                     ],
                   ),

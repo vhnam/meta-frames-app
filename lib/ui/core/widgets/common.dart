@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../data/services/api_client.dart';
 import '../../../domain/models/models.dart';
 import '../theme.dart';
-import '../../more/widgets/settings_screen.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 final _dateFmt = DateFormat('d MMM yyyy');
 final _vndFmt = NumberFormat.decimalPattern('en_US');
@@ -44,10 +46,7 @@ Future<bool> guard(BuildContext context, Future<void> Function() action) async {
             ),
             TextButton(
               onPressed: () async {
-                await Navigator.push(
-                  c,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                );
+                await c.push(Routes.settings);
               },
               child: const Text('Settings'),
             ),
@@ -155,10 +154,7 @@ class _ErrorView extends StatelessWidget {
                 ),
                 if (network)
                   OutlinedButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                    ),
+                    onPressed: () => context.push(Routes.settings),
                     child: const Text('Server settings'),
                   ),
               ],

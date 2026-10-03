@@ -9,6 +9,8 @@ import '../../film/widgets/stock_picker.dart';
 import '../view_models/roll_actions.dart';
 import 'roll_form_kit.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-17 add rolls in bulk.
 class AddRollsScreen extends ConsumerStatefulWidget {
   const AddRollsScreen({super.key, this.stock});
@@ -157,6 +159,6 @@ class _State extends ConsumerState<AddRollsScreen> {
     setState(() => busy = false);
     if (!ok) return;
     toast(context, '$n roll${n == 1 ? '' : 's'} added to stock');
-    Navigator.pop(context);
+    context.closeScreen();
   }
 }

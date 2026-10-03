@@ -9,6 +9,8 @@ import '../../film/widgets/stock_picker.dart';
 import '../view_models/roll_actions.dart';
 import 'roll_form_kit.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-18 edit roll. Stock can change only while `in_stock`.
 class RollFormScreen extends ConsumerStatefulWidget {
   const RollFormScreen({super.key, required this.detail});
@@ -201,7 +203,7 @@ class _State extends ConsumerState<RollFormScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    Navigator.pop(context);
+    context.closeScreen();
   }
 }
 

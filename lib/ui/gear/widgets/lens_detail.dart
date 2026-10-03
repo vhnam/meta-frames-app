@@ -6,8 +6,11 @@ import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/gear_actions.dart';
 import '../../rolls/widgets/roll_tile.dart';
-import 'camera_detail.dart';
-import 'lens_form.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
+
+import '../../../routing/navigation.dart';
 
 /// M-11 lens details, M-08 activate/deactivate.
 class LensDetailScreen extends ConsumerWidget {
@@ -39,18 +42,13 @@ class LensDetailScreen extends ConsumerWidget {
                   context,
                   () => ref.read(lensActionsProvider).delete(lensId),
                 );
-                if (ok && context.mounted) Navigator.pop(context);
+                if (ok && context.mounted) context.closeScreen();
               },
             ),
           if (lens.value != null)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => LensFormScreen(lens: lens.value),
-                ),
-              ),
+              onPressed: () => context.push(Routes.lensEdit(lens.value!.id)),
             ),
         ],
       ),
@@ -104,13 +102,7 @@ class LensDetailScreen extends ConsumerWidget {
                         for (final c in cs)
                           ListTile(
                             title: Text(c.name),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    CameraDetailScreen(cameraId: c.id),
-                              ),
-                            ),
+                            onTap: () => context.push(Routes.camera(c.id)),
                           ),
                       ],
                 loading: () => [const LinearProgressIndicator()],

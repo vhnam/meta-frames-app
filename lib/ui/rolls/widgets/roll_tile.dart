@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/models/models.dart';
 import '../../core/widgets/common.dart';
-import 'roll_detail.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
 
 class RollTile extends StatelessWidget {
   const RollTile({super.key, required this.roll, this.trailing});
@@ -38,9 +40,6 @@ class RollTile extends StatelessWidget {
               ),
           ],
         ),
-    onTap: () => Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: roll.id)),
-    ),
+    onTap: () => context.push(Routes.roll(roll.id)),
   );
 }

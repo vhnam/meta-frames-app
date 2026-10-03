@@ -10,6 +10,8 @@ import '../../core/widgets/form_kit.dart';
 import 'iso_field.dart';
 import 'stock_picker.dart';
 
+import '../../../routing/navigation.dart';
+
 /// M-12 add stock, M-13 edit stock, M-14 set base stock.
 /// Pops the saved [FilmStock] so callers can create stocks inline.
 class StockFormScreen extends ConsumerStatefulWidget {
@@ -244,6 +246,6 @@ class _State extends ConsumerState<StockFormScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    Navigator.pop(context, saved!.stock);
+    context.closeScreen(saved!.stock);
   }
 }

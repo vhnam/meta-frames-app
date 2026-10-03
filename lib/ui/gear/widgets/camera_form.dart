@@ -13,6 +13,11 @@ import '../../core/widgets/common.dart';
 import '../view_models/gear_actions.dart';
 import '../../core/widgets/form_kit.dart';
 import 'lens_form.dart';
+import '../../../routing/routes.dart';
+
+import 'package:go_router/go_router.dart';
+
+import '../../../routing/navigation.dart';
 
 /// M-02 add camera, M-03 fixed-lens camera, M-04 edit camera.
 /// Linked lenses are picked inline instead of on a follow-up screen.
@@ -256,10 +261,7 @@ class _State extends ConsumerState<CameraFormScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LensFormScreen()),
-                ),
+                onPressed: () => context.push(Routes.lensNew),
                 child: const Text('Add a lens first'),
               ),
             ],
@@ -405,7 +407,7 @@ class _State extends ConsumerState<CameraFormScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    Navigator.of(context).pop(saved);
+    context.closeScreen(saved);
   }
 }
 
