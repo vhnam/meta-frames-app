@@ -52,3 +52,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local agent skills
+.agents/
+.claude/
+skills-lock.json
