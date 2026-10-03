@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/models.dart';
 import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../rolls/widgets/roll_tile.dart';
 import '../../../routing/routes.dart';
@@ -18,77 +19,111 @@ class StockDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final v = ref.watch(stockDetailProvider(stockId));
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: cs.surfaceContainerLow,
       appBar: AppBar(
-        title: Text(v.value?.stock.label ?? 'Film stock'),
+        backgroundColor: cs.surface,
+        scrolledUnderElevation: 0,
+        shape: Border(
+          bottom: BorderSide(color: cs.outlineVariant, width: 0.65),
+        ),
+        title: Text(
+          v.value?.stock.label ?? 'Film stock',
+          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+        ),
         actions: [
           if (v.value != null)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () =>
-                  context.push(Routes.stockEdit(v.value!.stock.id)),
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton(
+                onPressed: () =>
+                    context.push(Routes.stockEdit(v.value!.stock.id)),
+                child: const Text(
+                  'Edit',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
             ),
         ],
       ),
       body: AsyncBody(
         value: v,
         onRefresh: () async => ref.refresh(stockDetailProvider(stockId).future),
-        builder: (d) {
-          final s = d.stock;
-          final rolls = ref.watch(rollsProvider(RollFilter(stockId: s.id)));
-          void open(FilmStock x) => context.push(Routes.stock(x.id));
-          Widget stockList(List<FilmStock> l) => Column(
-            children: [
-              for (final x in l)
-                ListTile(
-                  title: Text(x.label),
-                  subtitle: Text('ISO ${x.boxIso} · ${x.packaging.name}'),
-                  onTap: () => open(x),
-                ),
-            ],
-          );
-          return ListView(
-            children: [
-              WarningBanner(d.warnings),
-              InfoRow('Type', s.type.name.toUpperCase()),
-              InfoRow('Box ISO', '${s.boxIso}'),
-              InfoRow('Process', s.process.wire),
-              InfoRow('Packaging', s.packaging.name),
-              InfoRow('Stock origin', s.stockOrigin),
-              InfoRow('Pack origin', s.packOrigin),
-              InfoRow('Description', s.description),
-              if (d.baseStock != null) ...[
-                const SectionHeader('Base stock'),
-                stockList([d.baseStock!]),
-              ],
-              if (d.siblings.isNotEmpty) ...[
-                const SectionHeader('Same base stock'),
-                stockList(d.siblings),
-              ],
-              if (d.derived.isNotEmpty) ...[
-                const SectionHeader('Based on this stock'),
-                stockList(d.derived),
-              ],
-              const SectionHeader('Rolls'),
-              ...rolls.when(
-                data: (rs) => rs.isEmpty
-                    ? [
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('No rolls'),
-                        ),
-                      ]
-                    : [for (final r in rs) RollTile(roll: r)],
-                loading: () => [const LinearProgressIndicator()],
-                error: (e, _) => [
-                  Padding(padding: const EdgeInsets.all(16), child: Text('$e')),
-                ],
-              ),
-              const SizedBox(height: 32),
-            ],
-          );
-        },
+        builder: (d) => _Body(detail: d),
       ),
+    );
+  }
+}
+
+class _Body extends ConsumerWidget {
+  const _Body({required this.detail});
+  final FilmStockDetail detail;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final d = detail;
+    final s = d.stock;
+    final cs = Theme.of(context).colorScheme;
+    final rolls = ref.watch(rollsProvider(RollFilter(stockId: s.id)));
+    final notes = s.description?.trim() ?? '';
+    Widget muted(String t) =>
+        Text(t, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant));
+    Widget stockList(List<FilmStock> l) => CardList(
+      children: [
+        for (final x in l)
+          CardTile(
+            compact: true,
+            title: x.label,
+            subtitle: 'ISO ${x.boxIso} · ${x.packaging.name}',
+            trailing: Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: cs.onSurfaceVariant,
+            ),
+            onTap: () => context.push(Routes.stock(x.id)),
+          ),
+      ],
+    );
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        WarningBanner(d.warnings),
+        CardList(
+          children: [
+            DetailInfoRow('Type', s.type.name.toUpperCase()),
+            DetailInfoRow('Box ISO', '${s.boxIso}'),
+            DetailInfoRow('Process', s.process.wire),
+            DetailInfoRow('Packaging', s.packaging.name),
+            DetailInfoRow('Stock origin', s.stockOrigin),
+            if (s.packaging != Packaging.factory)
+              DetailInfoRow('Pack origin', s.packOrigin),
+            if (notes.isNotEmpty) DetailInfoRow('Notes', notes),
+          ],
+        ),
+        if (d.baseStock != null) ...[
+          const DetailLabel('BASE STOCK'),
+          stockList([d.baseStock!]),
+        ],
+        if (d.siblings.isNotEmpty) ...[
+          const DetailLabel('SAME BASE STOCK'),
+          stockList(d.siblings),
+        ],
+        if (d.derived.isNotEmpty) ...[
+          const DetailLabel('BASED ON THIS STOCK'),
+          stockList(d.derived),
+        ],
+        const DetailLabel('ROLLS'),
+        rolls.when(
+          data: (rs) => rs.isEmpty
+              ? muted('No rolls')
+              : CardList(children: [for (final r in rs) RollTile(roll: r)]),
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+        ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../domain/models/models.dart';
 import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/gear_actions.dart';
 import '../../rolls/widgets/roll_tile.dart';
@@ -20,35 +22,30 @@ class LensDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final lens = ref.watch(lensProvider(lensId));
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: cs.surfaceContainerLow,
       appBar: AppBar(
-        title: Text(lens.value?.name ?? 'Lens'),
+        backgroundColor: cs.surface,
+        scrolledUnderElevation: 0,
+        shape: Border(
+          bottom: BorderSide(color: cs.outlineVariant, width: 0.65),
+        ),
+        title: Text(
+          lens.value?.name ?? 'Lens',
+          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+        ),
         actions: [
-          if (lens.value != null && !lens.value!.isBuiltIn)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete lens',
-              onPressed: () async {
-                if (!await confirm(
-                  context,
-                  'Delete lens?',
-                  '${lens.value!.name} will be removed. Refused if used on a roll; deactivate instead.',
-                  ok: 'Delete',
-                )) {
-                  return;
-                }
-                if (!context.mounted) return;
-                final ok = await guard(
-                  context,
-                  () => ref.read(lensActionsProvider).delete(lensId),
-                );
-                if (ok && context.mounted) context.closeScreen();
-              },
-            ),
           if (lens.value != null)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => context.push(Routes.lensEdit(lens.value!.id)),
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton(
+                onPressed: () => context.push(Routes.lensEdit(lens.value!.id)),
+                child: const Text(
+                  'Edit',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
             ),
         ],
       ),
@@ -60,76 +57,120 @@ class LensDetailScreen extends ConsumerWidget {
             ..invalidate(rollsProvider(RollFilter(lensId: lensId)));
           return ref.refresh(lensProvider(lensId).future);
         },
-        builder: (l) {
-          final cams = ref.watch(lensCamerasProvider(l.id));
-          final rolls = ref.watch(rollsProvider(RollFilter(lensId: l.id)));
-          return ListView(
-            children: [
-              SwitchListTile(
-                title: const Text('Active'),
-                subtitle: Text(
-                  l.isBuiltIn
-                      ? 'Built-in lens follows its camera'
-                      : 'Inactive lenses are hidden from pickers',
-                ),
-                value: l.isActive,
-                onChanged: l.isBuiltIn
-                    ? null
-                    : (v) async {
-                        await guard(
-                          context,
-                          () =>
-                              ref.read(lensActionsProvider).setActive(l.id, v),
-                        );
-                      },
-              ),
-              InfoRow('Brand', l.brand),
-              InfoRow('Model', l.model),
-              InfoRow('Mount', l.isBuiltIn ? 'Built-in' : l.mount),
-              InfoRow('Focal length', '${l.focalLength} mm'),
-              InfoRow('Max aperture', 'f/${l.maxAperture.toStringAsFixed(1)}'),
-              InfoRow('Description', l.description),
-              const SectionHeader('Cameras'),
-              ...cams.when(
-                data: (cs) => cs.isEmpty
-                    ? [
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('Not linked to any camera'),
-                        ),
-                      ]
-                    : [
-                        for (final c in cs)
-                          ListTile(
-                            title: Text(c.name),
-                            onTap: () => context.push(Routes.camera(c.id)),
-                          ),
-                      ],
-                loading: () => [const LinearProgressIndicator()],
-                error: (e, _) => [
-                  Padding(padding: const EdgeInsets.all(16), child: Text('$e')),
-                ],
-              ),
-              const SectionHeader('Rolls shot'),
-              ...rolls.when(
-                data: (rs) => rs.isEmpty
-                    ? [
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('No rolls yet'),
-                        ),
-                      ]
-                    : [for (final r in rs) RollTile(roll: r)],
-                loading: () => [const LinearProgressIndicator()],
-                error: (e, _) => [
-                  Padding(padding: const EdgeInsets.all(16), child: Text('$e')),
-                ],
-              ),
-              const SizedBox(height: 32),
-            ],
-          );
-        },
+        builder: (l) => _Body(lens: l),
       ),
     );
+  }
+}
+
+class _Body extends ConsumerWidget {
+  const _Body({required this.lens});
+  final Lens lens;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = lens;
+    final cs = Theme.of(context).colorScheme;
+    final cams = ref.watch(lensCamerasProvider(l.id));
+    final rolls = ref.watch(rollsProvider(RollFilter(lensId: l.id)));
+    final notes = l.description?.trim() ?? '';
+    Widget muted(String t) =>
+        Text(t, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant));
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        CardList(
+          children: [
+            DetailInfoRow('Brand', l.brand),
+            DetailInfoRow('Model', l.model),
+            DetailInfoRow('Mount', l.isBuiltIn ? 'Built-in' : l.mount),
+            DetailInfoRow('Focal length', '${l.focalLength} mm'),
+            DetailInfoRow(
+              'Max aperture',
+              'f/${l.maxAperture.toStringAsFixed(1)}',
+            ),
+            if (notes.isNotEmpty) DetailInfoRow('Notes', notes),
+            DetailInfoRow('Status', l.isActive ? 'Active' : 'Inactive'),
+          ],
+        ),
+        const DetailLabel('CAMERAS'),
+        cams.when(
+          data: (cs2) => cs2.isEmpty
+              ? muted('Not linked to any camera')
+              : CardList(
+                  children: [
+                    for (final c in cs2)
+                      CardTile(
+                        compact: true,
+                        leading: Icon(
+                          Icons.photo_camera_outlined,
+                          size: 20,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        title: c.name,
+                        subtitle: 'Camera',
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          size: 20,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        onTap: () => context.push(Routes.camera(c.id)),
+                      ),
+                  ],
+                ),
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+        ),
+        const DetailLabel('ROLLS SHOT'),
+        rolls.when(
+          data: (rs) => rs.isEmpty
+              ? muted('No rolls yet')
+              : CardList(children: [for (final r in rs) RollTile(roll: r)]),
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+        ),
+        if (!l.isBuiltIn) ...[
+          const SizedBox(height: 20),
+          CardList(
+            children: [
+              DetailActionRow(
+                label: l.isActive ? 'Deactivate lens' : 'Activate lens',
+                color: cs.onPrimaryContainer,
+                onTap: () => guard(
+                  context,
+                  () => ref
+                      .read(lensActionsProvider)
+                      .setActive(l.id, !l.isActive),
+                ),
+              ),
+              DetailActionRow(
+                label: 'Delete lens',
+                color: cs.error,
+                onTap: () => _delete(context, ref),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    if (!await confirm(
+      context,
+      'Delete lens?',
+      '${lens.name} will be removed. Refused if used on a roll; deactivate instead.',
+      ok: 'Delete',
+    )) {
+      return;
+    }
+    if (!context.mounted) return;
+    final ok = await guard(
+      context,
+      () => ref.read(lensActionsProvider).delete(lens.id),
+    );
+    if (ok && context.mounted) context.closeScreen();
   }
 }
