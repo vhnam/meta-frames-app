@@ -6,7 +6,10 @@ class LabEdit {
   final String name;
   final String? address;
 
-  Map<String, dynamic> toJson() => {'name': name, 'address': address};
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    if (address != null) 'address': address,
+  };
 }
 
 /// Sends a roll for processing. A null [labId] means home processing.
@@ -27,7 +30,7 @@ class NewProcessing {
   final String? notes;
 
   Map<String, dynamic> toJson() => {
-    'labId': labId,
+    if (labId != null) 'labId': labId,
     'type': type.wire,
     'process': process.wire,
     'sentAt': ymd(sentAt),

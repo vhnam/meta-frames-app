@@ -26,7 +26,7 @@ class NewRolls {
   };
 }
 
-/// Full replacement of an editable roll. Nulls are sent to clear a field.
+/// Editable roll. Unset optional fields are omitted.
 class RollEdit {
   const RollEdit({
     required this.filmStockId,
@@ -50,13 +50,13 @@ class RollEdit {
     'filmStockId': filmStockId,
     'format': format,
     'exposures': exposures,
-    'price': price,
-    'expiryYear': expiryYear,
-    'expiryMonth': expiryYear == null ? null : expiryMonth,
-    'shotIso': shotIso,
-    'startedAt': startedAt == null ? null : ymd(startedAt!),
-    'finishedAt': finishedAt == null ? null : ymd(finishedAt!),
-    'description': description,
+    if (price != null) 'price': price,
+    if (expiryYear != null) 'expiryYear': expiryYear,
+    if (expiryYear != null && expiryMonth != null) 'expiryMonth': expiryMonth,
+    if (shotIso != null) 'shotIso': shotIso,
+    if (startedAt != null) 'startedAt': ymd(startedAt!),
+    if (finishedAt != null) 'finishedAt': ymd(finishedAt!),
+    if (description != null) 'description': description,
   };
 }
 

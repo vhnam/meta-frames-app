@@ -190,7 +190,7 @@ void main() {
       expect(rec.last.url.queryParameters, {'type': 'color', 'iso': '400'});
     });
 
-    test('writes send explicit nulls', () async {
+    test('create omits null description and base stock', () async {
       final rec = Recorder({'stock': _stock});
       final repo = FilmStockRepositoryRemote(rec.client);
       const edit = FilmStockEdit(
@@ -205,11 +205,29 @@ void main() {
       await repo.create(edit);
       expect(rec.call, 'POST /film-stocks');
       expect(rec.body['process'], 'C-41');
-      expect(rec.body.containsKey('baseStockId'), isTrue);
-      expect(rec.body['baseStockId'], isNull);
+      expect(rec.body.containsKey('stockOrigin'), isFalse);
+      expect(rec.body.containsKey('description'), isFalse);
+      expect(rec.body.containsKey('baseStockId'), isFalse);
+      expect(rec.body.containsKey('packOrigin'), isFalse);
 
       await repo.update('s1', edit);
       expect(rec.call, 'PUT /film-stocks/s1');
+      expect(rec.body.containsKey('stockOrigin'), isFalse);
+      expect(rec.body.containsKey('description'), isFalse);
+      expect(rec.body.containsKey('baseStockId'), isFalse);
+      expect(rec.body.containsKey('packOrigin'), isFalse);
+
+      const repack = FilmStockEdit(
+        brand: 'Kodak',
+        name: 'Gold',
+        type: StockType.color,
+        boxIso: 200,
+        process: Process.c41,
+        packaging: Packaging.repack,
+        packOrigin: 'Japan',
+      );
+      await repo.create(repack);
+      expect(rec.body['packOrigin'], 'Japan');
     });
   });
 
@@ -220,7 +238,7 @@ void main() {
 
       await repo.create(const LabEdit(name: 'Lab'));
       expect(rec.call, 'POST /labs');
-      expect(rec.body, {'name': 'Lab', 'address': null});
+      expect(rec.body, {'name': 'Lab'});
 
       await repo.update('b1', const LabEdit(name: 'Lab', address: 'Hanoi'));
       expect(rec.call, 'PUT /labs/b1');
@@ -343,7 +361,6 @@ void main() {
       expect(rec.last.url.path, isNot(first));
       expect(rec.last.method, 'PUT');
       expect(rec.body, {
-        'labId': null,
         'type': 'develop_scan',
         'process': 'C-41',
         'sentAt': '2026-02-03',

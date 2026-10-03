@@ -34,18 +34,19 @@ void main() {
     expect(noYear.toJson().containsKey('expiryMonth'), isFalse);
   });
 
-  test('RollEdit sends explicit nulls to clear fields', () {
+  test('RollEdit omits unset optional fields', () {
     final json = const RollEdit(
       filmStockId: 's1',
       format: 120,
       exposures: 12,
-      startedAt: null,
     ).toJson();
-    expect(json['price'], isNull);
-    expect(json.containsKey('price'), isTrue);
-    expect(json['expiryMonth'], isNull);
-    expect(json['startedAt'], isNull);
-    expect(json['description'], isNull);
+    expect(json.containsKey('price'), isFalse);
+    expect(json.containsKey('expiryYear'), isFalse);
+    expect(json.containsKey('expiryMonth'), isFalse);
+    expect(json.containsKey('shotIso'), isFalse);
+    expect(json.containsKey('startedAt'), isFalse);
+    expect(json.containsKey('finishedAt'), isFalse);
+    expect(json.containsKey('description'), isFalse);
   });
 
   test('RollEdit formats dates as yyyy-MM-dd', () {

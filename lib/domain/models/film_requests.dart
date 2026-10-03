@@ -1,6 +1,7 @@
 import 'models.dart';
 
-/// Full replacement of a film stock. Nulls are sent to clear a field.
+/// Film stock write. Unset optional fields are omitted. [packOrigin] is omitted
+/// when packaging is factory.
 class FilmStockEdit {
   const FilmStockEdit({
     required this.brand,
@@ -28,9 +29,10 @@ class FilmStockEdit {
     'boxIso': boxIso,
     'process': process.wire,
     'packaging': packaging.name,
-    'stockOrigin': stockOrigin,
-    'packOrigin': packOrigin,
-    'description': description,
-    'baseStockId': baseStockId,
+    if (stockOrigin != null) 'stockOrigin': stockOrigin,
+    if (packaging != Packaging.factory && packOrigin != null)
+      'packOrigin': packOrigin,
+    if (description != null) 'description': description,
+    if (baseStockId != null) 'baseStockId': baseStockId,
   };
 }

@@ -161,20 +161,16 @@ class _State extends ConsumerState<StockFormScreen> {
                     ),
                   ),
                 ),
-                Expanded(
-                  child: LabeledField(
-                    label: 'Pack origin',
-                    child: TextFormField(
-                      controller: packOrigin,
-                      decoration: formInputDecoration(
-                        packaging == Packaging.factory
-                            ? 'Usually empty'
-                            : 'e.g. Japan',
-                        cs,
+                if (packaging != Packaging.factory)
+                  Expanded(
+                    child: LabeledField(
+                      label: 'Pack origin',
+                      child: TextFormField(
+                        controller: packOrigin,
+                        decoration: formInputDecoration('e.g. Japan', cs),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
             LabeledField(
@@ -233,7 +229,7 @@ class _State extends ConsumerState<StockFormScreen> {
       process: process,
       packaging: packaging,
       stockOrigin: _t(stockOrigin),
-      packOrigin: _t(packOrigin),
+      packOrigin: packaging == Packaging.factory ? null : _t(packOrigin),
       description: _t(desc),
       baseStockId: base?.id,
     );
