@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
@@ -51,7 +52,7 @@ class ApiClient {
     final req = http.Request(method, uri(path, query))
       ..headers.addAll({..._headers, ...?extraHeaders});
     if (body != null) req.body = jsonEncode(body);
-    return _decode(await _roundTrip(req, const Duration(seconds: 20)));
+    return _decode(await _sendLogged(req, const Duration(seconds: 20)));
   }
 
   /// POST a single file as multipart form data.
@@ -73,7 +74,7 @@ class ApiClient {
         ),
       );
     return _decode(
-      await _roundTrip(req, const Duration(minutes: 2), ' Upload failed.'),
+      await _sendLogged(req, const Duration(minutes: 2), ' Upload failed.'),
     );
   }
 
@@ -93,6 +94,51 @@ class ApiClient {
       rethrow;
     }
   }
+
+  Future<http.Response> _sendLogged(
+    http.BaseRequest req,
+    Duration timeout, [
+    String suffix = '',
+  ]) async {
+    try {
+      final res = await _roundTrip(req, timeout, suffix);
+      if (res.statusCode < 200 || res.statusCode >= 300) _logFailed(req, res);
+      return res;
+    } on ApiException {
+      _logFailed(req);
+      rethrow;
+    }
+  }
+
+  void _logFailed(http.BaseRequest req, [http.Response? res]) {
+    debugPrint(_curl(req), wrapWidth: 100000);
+    if (res != null) {
+      debugPrint('HTTP ${res.statusCode} ${res.body}', wrapWidth: 100000);
+    }
+  }
+
+  /// One line, safe to paste into a shell. Single quotes in values are escaped.
+  String _curl(http.BaseRequest req) {
+    final parts = <String>['curl -X ${req.method}'];
+    for (final e in req.headers.entries) {
+      if (e.key.toLowerCase() == 'content-length') continue;
+      parts.add("-H '${_shell(e.key)}: ${_shell(e.value)}'");
+    }
+    if (req is http.Request && req.body.isNotEmpty) {
+      parts.add("-d '${_shell(req.body)}'");
+    } else if (req is http.MultipartRequest) {
+      for (final e in req.fields.entries) {
+        parts.add("-F '${_shell(e.key)}=${_shell(e.value)}'");
+      }
+      for (final f in req.files) {
+        parts.add("-F '${_shell(f.field)}=@${_shell(f.filename ?? 'file')}'");
+      }
+    }
+    parts.add("'${_shell(req.url.toString())}'");
+    return parts.join(' ');
+  }
+
+  String _shell(String value) => value.replaceAll("'", r"'\''");
 
   Future<http.Response> _roundTrip(
     http.BaseRequest req,
