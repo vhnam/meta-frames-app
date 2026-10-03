@@ -27,7 +27,11 @@ class RollsTab extends ConsumerWidget {
     final v = ref.watch(visibleRollsProvider);
     final processes = ref.watch(stockProcessByIdProvider);
     final expiring = ref.watch(expiringRollIdsProvider);
-    final noRolls = !state.filtered && (v.value?.isEmpty ?? false);
+    // Status chips narrow [v] on the client. The global empty state is only
+    // for an account with no rolls; an empty chip keeps the chips on screen.
+    final noRolls =
+        !state.filtered &&
+        (ref.watch(rollsProvider(state.filter)).value?.isEmpty ?? false);
     final counts = ref.watch(rollStatusCountsProvider);
 
     return Scaffold(

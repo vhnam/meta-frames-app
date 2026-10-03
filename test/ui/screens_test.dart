@@ -57,6 +57,23 @@ void main() {
     expect(find.text('Kodak Gold'), findsOneWidget);
   });
 
+  testWidgets('an empty status chip keeps the chips and says none here', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      app(const RollsTab(), rolls: FakeRollRepository([roll('a')])),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('IN CAMERA 0'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No rolls here.'), findsOneWidget);
+    expect(find.text('No rolls yet'), findsNothing);
+    expect(find.text('ALL 1'), findsOneWidget);
+    expect(find.byTooltip('Filter'), findsOneWidget);
+  });
+
   testWidgets('rolls tab filter sheet opens and clears', (tester) async {
     await tester.pumpWidget(
       app(const RollsTab(), rolls: FakeRollRepository([roll('a')])),
