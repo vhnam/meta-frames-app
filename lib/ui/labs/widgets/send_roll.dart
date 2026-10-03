@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../domain/utils.dart';
+import '../../../domain/models/lab_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/processing_actions.dart';
 import 'labs_screen.dart';
 
 /// M-27 send roll for processing, M-31 re-send for rescan or print.
@@ -55,7 +56,7 @@ class _State extends ConsumerState<SendRollScreen> {
               label: 'Lab',
               value: lab?.name,
               onTap: () async {
-                final labs = await ref.read(labRepositoryProvider).labs();
+                final labs = await ref.read(labsProvider.future);
                 if (!context.mounted) return;
                 final x = await pickOne<Lab>(
                   context,
@@ -143,22 +144,21 @@ class _State extends ConsumerState<SendRollScreen> {
       return;
     }
     setState(() => busy = true);
-    final body = {
-      'labId': home ? null : lab!.id,
-      'type': type.wire,
-      'process': process.wire,
-      'sentAt': ymd(sent),
-      if (price.text.isNotEmpty) 'price': int.tryParse(price.text),
-      if (notes.text.trim().isNotEmpty) 'notes': notes.text.trim(),
-    };
+    final job = NewProcessing(
+      labId: home ? null : lab!.id,
+      type: type,
+      process: process,
+      sentAt: sent,
+      price: int.tryParse(price.text),
+      notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
+    );
     final ok = await guard(
       context,
-      () => ref.read(processingRepositoryProvider).send(widget.roll.id, body),
+      () => ref.read(processingActionsProvider).send(widget.roll.id, job),
     );
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     Navigator.pop(context);
   }
 }

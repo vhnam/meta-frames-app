@@ -4,11 +4,13 @@ import '../../core/theme.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../domain/models/gear_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/gear_actions.dart';
 import '../../core/widgets/form_kit.dart';
 import 'lens_form.dart';
 
@@ -398,40 +400,32 @@ class _State extends ConsumerState<CameraFormScreen> {
     }
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
-    final body = <String, dynamic>{
-      'brand': brand.text.trim(),
-      'model': model.text.trim(),
-      'mount': ?(fixed ? null : _t(mount)),
-      'description': ?_t(desc),
-      'hasFixedLens': fixed,
-    };
-    if (fixed && !editing) {
-      body['fixedLens'] = {
-        'focalLength': int.parse(lensFocal.text),
-        'maxAperture': double.parse(lensAperture.text),
-        // The built-in lens shares the camera brand; the user names the lens.
-        'brand': brand.text.trim(),
-        'model': ?_t(lensName),
-      };
-    }
+    final camera = CameraEdit(
+      brand: brand.text.trim(),
+      model: model.text.trim(),
+      hasFixedLens: fixed,
+      mount: fixed ? null : _t(mount),
+      description: _t(desc),
+      fixedLens: fixed && !editing
+          ? FixedLensSpec(
+              focalLength: int.parse(lensFocal.text),
+              maxAperture: double.parse(lensAperture.text),
+              // The built-in lens shares the camera brand; the user names the lens.
+              brand: brand.text.trim(),
+              model: _t(lensName),
+            )
+          : null,
+    );
     Camera? saved;
     final ok = await guard(context, () async {
-      saved = editing
-          ? await ref
-                .read(cameraRepositoryProvider)
-                .update(widget.camera!.id, body)
-          : await ref.read(cameraRepositoryProvider).create(body);
-      // Only touch links when the user could see and change them.
-      if (!fixed && selected != null) {
-        await ref
-            .read(cameraRepositoryProvider)
-            .setLenses(saved!.id, selected!.toList());
-      }
+      saved = await ref
+          .read(cameraActionsProvider)
+          // Only touch links when the user could see and change them.
+          .save(camera, existing: widget.camera, lensIds: selected);
     });
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     Navigator.of(context).pop(saved);
   }
 }

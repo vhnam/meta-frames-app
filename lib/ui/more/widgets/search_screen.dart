@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
-import '../../../providers.dart';
+import '../view_models/roll_search.dart';
 import '../../core/widgets/common.dart';
 import '../../rolls/widgets/roll_tile.dart';
 
@@ -24,33 +24,14 @@ class _State extends ConsumerState<SearchScreen> {
     if (q.isEmpty) return;
     setState(() => busy = true);
     try {
-      List<RollSummary> out;
+      final search = ref.read(rollSearchProvider);
+      final List<RollSummary> out;
       if (focal) {
         final mm = int.tryParse(q);
         if (mm == null) throw 'Enter focal length in mm, e.g. 40';
-        out = (await ref.read(rollRepositoryProvider).searchByFocalLength(mm))
-            .map((r) => r.roll)
-            .toList();
+        out = await search.byFocalLength(mm);
       } else {
-        final lower = q.toLowerCase();
-        final all = await ref.read(rollRepositoryProvider).rolls();
-        final byId = <String, RollSummary>{
-          for (final r in all)
-            if (r.stockLabel.toLowerCase().contains(lower) ||
-                (r.cameraName ?? '').toLowerCase().contains(lower))
-              r.id: r,
-        };
-        // Lens names are not on the roll summary: resolve via lens filter.
-        final lenses = (await ref.read(lensRepositoryProvider).lenses()).where(
-          (l) => l.name.toLowerCase().contains(lower),
-        );
-        for (final l in lenses) {
-          for (final r
-              in await ref.read(rollRepositoryProvider).rolls(lensId: l.id)) {
-            byId[r.id] = r;
-          }
-        }
-        out = byId.values.toList();
+        out = await search.byName(q);
       }
       if (mounted) setState(() => results = out);
     } catch (e) {

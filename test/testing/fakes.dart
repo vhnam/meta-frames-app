@@ -4,6 +4,7 @@ import 'package:meta_frames/data/repositories/camera_repository.dart';
 import 'package:meta_frames/data/repositories/lens_repository.dart';
 import 'package:meta_frames/data/repositories/roll_repository.dart';
 import 'package:meta_frames/data/repositories/scan_repository.dart';
+import 'package:meta_frames/domain/models/gear_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
 
@@ -83,9 +84,28 @@ RollDetail rollDetail(String id) => RollDetail.fromJson({
   },
 });
 
+/// Roll fixtures with extra fields.
+class RollSummaryFixture {
+  static RollSummary withCamera(String id, String cameraName) =>
+      RollSummary.fromJson({
+        'id': id,
+        'filmStockId': 's1',
+        'stockBrand': 'Ilford',
+        'stockName': 'HP5',
+        'cameraId': 'c-$id',
+        'cameraName': cameraName,
+        'format': 135,
+        'exposures': 36,
+        'status': 'in_camera',
+      });
+}
+
 class FakeRollRepository implements RollRepository {
   FakeRollRepository([this.all = const []]);
   List<RollSummary> all;
+
+  /// Roll ids per lens id, for the `lensId` filter.
+  final rollIdsByLens = <String, Set<String>>{};
 
   /// Every write, in order, e.g. `finish:r1` or `load:r1`.
   final calls = <String>[];
@@ -106,7 +126,9 @@ class FakeRollRepository implements RollRepository {
     return [
       for (final r in all)
         if ((status == null || r.status.wire == status) &&
-            (filmStockId == null || r.filmStockId == filmStockId))
+            (filmStockId == null || r.filmStockId == filmStockId) &&
+            (lensId == null ||
+                (rollIdsByLens[lensId]?.contains(r.id) ?? false)))
           r,
     ];
   }
@@ -164,6 +186,10 @@ class FakeCameraRepository implements CameraRepository {
   Map<String, List<Lens>> linked;
   int listCalls = 0;
 
+  /// Lens ids last written per camera id by [setLenses].
+  final lensWrites = <String, List<String>>{};
+  final calls = <String>[];
+
   @override
   Future<List<Camera>> cameras() async {
     listCalls++;
@@ -174,22 +200,40 @@ class FakeCameraRepository implements CameraRepository {
   Future<List<Lens>> lenses(String id) async => linked[id] ?? const [];
 
   @override
-  Future<void> setLenses(String id, List<String> lensIds) async {}
+  Future<void> setLenses(String id, List<String> lensIds) async {
+    lensWrites[id] = lensIds;
+  }
 
   @override
   Future<Camera> camera(String id) async =>
       cameraList.firstWhere((c) => c.id == id);
+
   @override
-  Future<Camera> create(Map<String, dynamic> body) =>
-      throw UnimplementedError();
+  Future<Camera> create(CameraEdit camera) async {
+    calls.add('create');
+    return Camera.fromJson({
+      'id': 'new',
+      'brand': camera.brand,
+      'model': camera.model,
+      'hasFixedLens': camera.hasFixedLens,
+      'isActive': true,
+    });
+  }
+
   @override
-  Future<Camera> update(String id, Map<String, dynamic> body) =>
-      throw UnimplementedError();
+  Future<Camera> update(String id, CameraEdit camera) async {
+    calls.add('update:$id');
+    return cameraList.firstWhere((c) => c.id == id);
+  }
+
   @override
-  Future<void> delete(String id) => throw UnimplementedError();
+  Future<void> delete(String id) async => calls.add('delete:$id');
+
   @override
-  Future<Camera> setActive(String id, bool active) =>
-      throw UnimplementedError();
+  Future<Camera> setActive(String id, bool active) async {
+    calls.add('setActive:$id:$active');
+    return cameraList.firstWhere((c) => c.id == id);
+  }
 }
 
 class FakeLensRepository implements LensRepository {
@@ -205,15 +249,29 @@ class FakeLensRepository implements LensRepository {
 
   @override
   Future<Lens> lens(String id) async => all.firstWhere((l) => l.id == id);
+
   @override
-  Future<Lens> create(Map<String, dynamic> body) => throw UnimplementedError();
+  Future<Lens> create(LensEdit lens) async => _find('new');
+
   @override
-  Future<Lens> update(String id, Map<String, dynamic> body) =>
-      throw UnimplementedError();
+  Future<Lens> update(String id, LensEdit lens) async => _find(id);
+
+  Lens _find(String id) => all.firstWhere(
+    (l) => l.id == id,
+    orElse: () => Lens.fromJson({
+      'id': id,
+      'focalLength': 50,
+      'maxAperture': 1.8,
+      'isBuiltIn': false,
+      'isActive': true,
+    }),
+  );
+
   @override
-  Future<void> delete(String id) => throw UnimplementedError();
+  Future<void> delete(String id) async {}
+
   @override
-  Future<Lens> setActive(String id, bool active) => throw UnimplementedError();
+  Future<Lens> setActive(String id, bool active) async => _find(id);
 }
 
 class FakeScanRepository implements ScanRepository {

@@ -1,3 +1,4 @@
+import '../../domain/models/gear_requests.dart';
 import '../../domain/models/models.dart';
 import '../services/api_client.dart';
 import 'camera_repository.dart';
@@ -13,11 +14,13 @@ class CameraRepositoryRemote implements CameraRepository {
   Future<Camera> camera(String id) async =>
       Camera.fromJson(await _api.send('GET', '/cameras/$id'));
   @override
-  Future<Camera> create(Map<String, dynamic> body) async =>
-      Camera.fromJson(await _api.send('POST', '/cameras', body: body));
+  Future<Camera> create(CameraEdit camera) async => Camera.fromJson(
+    await _api.send('POST', '/cameras', body: camera.toJson()),
+  );
   @override
-  Future<Camera> update(String id, Map<String, dynamic> body) async =>
-      Camera.fromJson(await _api.send('PUT', '/cameras/$id', body: body));
+  Future<Camera> update(String id, CameraEdit camera) async => Camera.fromJson(
+    await _api.send('PUT', '/cameras/$id', body: camera.toJson()),
+  );
   @override
   Future<void> delete(String id) => _api.send('DELETE', '/cameras/$id');
   @override

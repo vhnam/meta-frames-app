@@ -8,6 +8,7 @@ import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/gear_view_model.dart';
 import 'camera_detail.dart';
 import 'camera_form.dart';
 import 'lens_detail.dart';
@@ -31,12 +32,16 @@ class _State extends ConsumerState<GearTab> {
     ),
   );
 
-  /// Contextual label while the current tab has no data, as in the empty design.
-  String _addLabel = '+ Add';
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Contextual label while the current tab has no data, as in the empty design.
+    final groups = lenses
+        ? ref.watch(lensGroupsProvider)
+        : ref.watch(cameraGroupsProvider);
+    final addLabel = (groups.value?.active.isEmpty ?? false)
+        ? (lenses ? '+ Lens' : '+ Camera')
+        : '+ Add';
     return Scaffold(
       backgroundColor: cs.surface,
       body: SafeArea(
@@ -46,7 +51,7 @@ class _State extends ConsumerState<GearTab> {
             ScreenHeader(
               kicker: 'MetaFrames · Gear locker',
               title: 'Gear',
-              trailing: TextButton(onPressed: _add, child: Text(_addLabel)),
+              trailing: TextButton(onPressed: _add, child: Text(addLabel)),
             ),
             _Switcher(
               lenses: lenses,
@@ -61,26 +66,18 @@ class _State extends ConsumerState<GearTab> {
 
   /// Active list in a card plus a collapsible inactive section.
   Widget _body<T>({
-    required List<T> all,
-    required bool Function(T) isActive,
+    required GearGroups<T> groups,
     required Widget Function(T, bool inactive) tile,
     required IconData emptyIcon,
     required String emptyTitle,
     required String emptyText,
-    required String addLabel,
     required String noneActiveText,
     required Future<void> Function() onRefresh,
   }) {
-    final active = all.where(isActive).toList();
-    final inactive = all.where((e) => !isActive(e)).toList();
-    final onlyInactive = active.isEmpty && inactive.isNotEmpty;
+    final active = groups.active;
+    final inactive = groups.inactive;
+    final onlyInactive = groups.onlyInactive;
     final expanded = onlyInactive || showInactive;
-    final label = active.isEmpty ? addLabel : '+ Add';
-    if (label != _addLabel) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _addLabel = label);
-      });
-    }
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
@@ -122,15 +119,13 @@ class _State extends ConsumerState<GearTab> {
   }
 
   Widget _cameras() => AsyncBody(
-    value: ref.watch(camerasProvider),
+    value: ref.watch(cameraGroupsProvider),
     onRefresh: () async => ref.refresh(camerasProvider.future),
-    builder: (cams) => _body<Camera>(
-      all: cams,
-      isActive: (c) => c.isActive,
+    builder: (groups) => _body<Camera>(
+      groups: groups,
       emptyIcon: Icons.camera_outlined,
       emptyTitle: 'No cameras yet',
       emptyText: 'Tap the button below to add your first camera body.',
-      addLabel: '+ Camera',
       noneActiveText: 'Your inactive cameras are kept below for your roll history. Add a new camera with + Camera.',
       onRefresh: () async => ref.refresh(camerasProvider.future),
       tile: _cameraTile,
@@ -172,15 +167,13 @@ class _State extends ConsumerState<GearTab> {
   }
 
   Widget _lenses() => AsyncBody(
-    value: ref.watch(lensesProvider),
+    value: ref.watch(lensGroupsProvider),
     onRefresh: () async => ref.refresh(lensesProvider.future),
-    builder: (all) => _body<Lens>(
-      all: [...all]..sort((a, b) => a.focalLength - b.focalLength),
-      isActive: (l) => l.isActive,
+    builder: (groups) => _body<Lens>(
+      groups: groups,
       emptyIcon: Icons.adjust,
       emptyTitle: 'No lenses yet',
       emptyText: 'Tap the button below to add interchangeable lenses and link them to your cameras.',
-      addLabel: '+ Lens',
       noneActiveText: 'Your inactive lenses are kept below for your roll history. Add a new lens with + Lens.',
       onRefresh: () async => ref.refresh(lensesProvider.future),
       tile: _lensTile,

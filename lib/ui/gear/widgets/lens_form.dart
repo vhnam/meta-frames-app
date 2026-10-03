@@ -4,10 +4,12 @@ import '../../core/theme.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../domain/models/gear_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/gear_actions.dart';
 import '../../core/widgets/form_kit.dart';
 
 String? validFocal(String? v) {
@@ -69,15 +71,14 @@ class _State extends ConsumerState<LensFormScreen> {
     }
   }
 
-  /// No lens -> cameras endpoint exists, so derive it from each camera's links.
+  /// Cameras currently linked to the lens, derived from each camera's links.
   Future<void> _loadLinked() async {
     try {
-      final ids = <String>{};
-      for (final c in await ref.read(cameraRepositoryProvider).cameras()) {
-        if (c.hasFixedLens) continue;
-        final ls = await ref.read(cameraRepositoryProvider).lenses(c.id);
-        if (ls.any((l) => l.id == widget.lens!.id)) ids.add(c.id);
-      }
+      final cams = await ref.read(lensCamerasProvider(widget.lens!.id).future);
+      final ids = {
+        for (final c in cams)
+          if (!c.hasFixedLens) c.id,
+      };
       if (!mounted) return;
       setState(() {
         _initialLinked = {...ids};
@@ -409,40 +410,34 @@ class _State extends ConsumerState<LensFormScreen> {
   Future<void> _save() async {
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
-    final body = {
-      'brand': ?_t(brand),
-      'model': ?_t(model),
-      'mount': ?(builtIn ? null : _t(mount)),
-      'description': ?_t(desc),
-      'focalLength': int.parse(focal.text),
-      'maxAperture': double.parse(
-        double.parse(aperture.text).toStringAsFixed(1),
-      ),
-    };
-    final cams = _compatibleCameras();
+    final lens = LensEdit(
+      brand: _t(brand),
+      model: _t(model),
+      mount: builtIn ? null : _t(mount),
+      description: _t(desc),
+      focalLength: int.parse(focal.text),
+      maxAperture: double.parse(double.parse(aperture.text).toStringAsFixed(1)),
+    );
     Lens? saved;
     final ok = await guard(context, () async {
-      saved = editing
-          ? await ref.read(lensRepositoryProvider).update(widget.lens!.id, body)
-          : await ref.read(lensRepositoryProvider).create(body);
-      if (builtIn || linked == null) return;
-      // Only touch cameras the user could see; add or remove this lens.
-      for (final c in cams) {
-        final want = linked!.contains(c.id);
-        final had = _initialLinked?.contains(c.id) ?? false;
-        if (want == had && editing) continue;
-        if (!want && !had) continue;
-        final cur = (await ref.read(cameraRepositoryProvider).lenses(c.id))
-            .map((l) => l.id)
-            .toSet();
-        want ? cur.add(saved!.id) : cur.remove(saved!.id);
-        await ref.read(cameraRepositoryProvider).setLenses(c.id, cur.toList());
-      }
+      saved = await ref
+          .read(lensActionsProvider)
+          .save(
+            lens,
+            existing: widget.lens,
+            // Only touch cameras the user could see; add or remove this lens.
+            links: builtIn || linked == null
+                ? null
+                : LensLinks(
+                    cameras: _compatibleCameras(),
+                    wanted: linked!,
+                    initial: _initialLinked ?? const {},
+                  ),
+          );
     });
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     Navigator.pop(context, saved);
   }
 }

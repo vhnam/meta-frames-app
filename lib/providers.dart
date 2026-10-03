@@ -99,8 +99,10 @@ final frameProvider = FutureProvider.autoDispose.family<Frame, (String, int)>(
   (ref, k) => ref.watch(scanRepositoryProvider).frame(k.$1, k.$2),
 );
 
-/// Invalidate every list/detail cache after a mutation.
-void refreshAll(WidgetRef ref) {
+/// Drops every cached list and detail. For changes that affect all data, such
+/// as pointing the app at another server. Mutations invalidate only what they
+/// change, in their own actions classes.
+void invalidateAllData(Ref ref) {
   ref
     ..invalidate(camerasProvider)
     ..invalidate(cameraProvider)

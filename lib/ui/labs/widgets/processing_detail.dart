@@ -6,6 +6,7 @@ import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../../scans/widgets/import_scans.dart';
 import '../../scans/widgets/scan_grid.dart';
+import '../view_models/processing_actions.dart';
 
 /// Marks scans received / negatives returned. Date defaults to today.
 Future<void> markReceived(
@@ -40,16 +41,14 @@ Future<void> markReceived(
   );
   if (ok != true || !context.mounted) return;
   final done = await guard(context, () async {
+    final actions = ref.read(processingActionsProvider);
     if (negatives) {
-      await ref
-          .read(processingRepositoryProvider)
-          .negativesReturned(p.id, date);
+      await actions.markNegativesReturned(p.id, date);
     } else {
-      await ref.read(processingRepositoryProvider).scansReceived(p.id, date);
+      await actions.markScansReceived(p.id, date);
     }
   });
   if (!done || !context.mounted) return;
-  refreshAll(ref);
   // M-28: offer to import the files now.
   if (!negatives &&
       await confirm(
@@ -84,7 +83,8 @@ class ProcessingDetailScreen extends ConsumerWidget {
       ),
       body: AsyncBody(
         value: v,
-        onRefresh: () async => refreshAll(ref),
+        onRefresh: () async =>
+            ref.refresh(processingProvider(processingId).future),
         builder: (p) => CustomScrollView(
           slivers: [
             SliverList(

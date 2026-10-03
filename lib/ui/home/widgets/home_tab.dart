@@ -5,7 +5,6 @@ import '../../core/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
-import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
@@ -14,6 +13,7 @@ import '../../labs/widgets/send_roll.dart';
 import '../../gear/widgets/camera_form.dart';
 import '../../rolls/widgets/add_rolls.dart';
 import '../../rolls/widgets/roll_detail.dart';
+import '../view_models/home_view_model.dart';
 
 const _followUpDays = 14;
 
@@ -23,16 +23,13 @@ class HomeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cams = ref.watch(camerasProvider);
-    final done = ref.watch(rollsProvider(RollFilter.empty));
+    final cams = ref.watch(loadedCamerasProvider);
+    final done = ref.watch(readyRollsProvider);
     final neg = ref.watch(negativesAtLabProvider);
     final exp = ref.watch(expiryProvider);
-    final stocks = {
-      for (final s in ref.watch(stocksProvider).value ?? const <FilmStock>[])
-        s.id: s,
-    };
-    final welcome =
-        (cams.value?.isEmpty ?? false) && (done.value?.isEmpty ?? false);
+    final counters = ref.watch(homeCountersProvider);
+    final stocks = ref.watch(stocksByIdProvider);
+    final welcome = ref.watch(isNewUserProvider);
     void open(Widget w) =>
         Navigator.push(context, MaterialPageRoute(builder: (_) => w));
 
@@ -51,20 +48,10 @@ class HomeTab extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: _Counter(
                   cells: [
-                    (
-                      'Loaded',
-                      cams.value
-                          ?.where((c) => c.isActive && c.loadedRoll != null)
-                          .length,
-                    ),
-                    (
-                      'Ready',
-                      done.value
-                          ?.where((r) => r.status == RollStatus.doneShooting)
-                          .length,
-                    ),
-                    ('At lab', neg.value?.length),
-                    ('Expiring', exp.value?.expiring.length),
+                    ('Loaded', counters.loaded),
+                    ('Ready', counters.ready),
+                    ('At lab', counters.atLab),
+                    ('Expiring', counters.expiring),
                   ],
                 ),
               ),
@@ -72,7 +59,7 @@ class HomeTab extends ConsumerWidget {
               Divider(color: Theme.of(context).colorScheme.outlineVariant),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () async => refreshAll(ref),
+                onRefresh: () => refreshHome(ref),
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 16),
                   children: [
@@ -91,11 +78,7 @@ class HomeTab extends ConsumerWidget {
                               no: '01',
                               label: 'LOADED CAMERAS',
                               value: cams,
-                              items: (list) => list
-                                  .where(
-                                    (c) => c.isActive && c.loadedRoll != null,
-                                  )
-                                  .toList(),
+                              items: (list) => list,
                               empty: 'No camera is loaded.',
                               builder: (items) => CardList(
                                 gap: 8,
@@ -113,11 +96,7 @@ class HomeTab extends ConsumerWidget {
                               no: '02',
                               label: 'READY FOR LAB',
                               value: done,
-                              items: (rolls) => rolls
-                                  .where(
-                                    (r) => r.status == RollStatus.doneShooting,
-                                  )
-                                  .toList(),
+                              items: (rolls) => rolls,
                               empty: 'No finished rolls waiting.',
                               builder: (items) => CardList(
                                 gap: 8,

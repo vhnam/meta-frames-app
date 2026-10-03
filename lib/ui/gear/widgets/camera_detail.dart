@@ -7,8 +7,10 @@ import '../../core/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
+import '../view_models/gear_actions.dart';
 import '../../core/widgets/common.dart';
 import '../../rolls/widgets/load_roll.dart';
 import '../../rolls/widgets/roll_detail.dart';
@@ -59,7 +61,12 @@ class CameraDetailScreen extends ConsumerWidget {
       ),
       body: AsyncBody(
         value: cam,
-        onRefresh: () async => refreshAll(ref),
+        onRefresh: () {
+          ref
+            ..invalidate(cameraLensesProvider(cameraId))
+            ..invalidate(rollsProvider(RollFilter(cameraId: cameraId)));
+          return ref.refresh(cameraProvider(cameraId).future);
+        },
         builder: (c) => _Body(camera: c),
       ),
     );
@@ -265,13 +272,10 @@ class _Body extends ConsumerWidget {
       toast(context, 'Camera is loaded. Finish the roll first.');
       return;
     }
-    final ok = await guard(
+    await guard(
       context,
-      () => ref
-          .read(cameraRepositoryProvider)
-          .setActive(camera.id, !camera.isActive),
+      () => ref.read(cameraActionsProvider).setActive(camera, !camera.isActive),
     );
-    if (ok) refreshAll(ref);
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
@@ -286,12 +290,9 @@ class _Body extends ConsumerWidget {
     if (!context.mounted) return;
     final ok = await guard(
       context,
-      () => ref.read(cameraRepositoryProvider).delete(camera.id),
+      () => ref.read(cameraActionsProvider).delete(camera.id),
     );
-    if (ok && context.mounted) {
-      refreshAll(ref);
-      Navigator.pop(context);
-    }
+    if (ok && context.mounted) Navigator.pop(context);
   }
 
   static String _aperture(double a) => a.toStringAsFixed(a % 1 == 0 ? 0 : 1);

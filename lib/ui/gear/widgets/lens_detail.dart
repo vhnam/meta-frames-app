@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/gear_actions.dart';
 import '../../rolls/widgets/roll_tile.dart';
 import 'camera_detail.dart';
 import 'lens_form.dart';
@@ -36,12 +37,9 @@ class LensDetailScreen extends ConsumerWidget {
                 if (!context.mounted) return;
                 final ok = await guard(
                   context,
-                  () => ref.read(lensRepositoryProvider).delete(lensId),
+                  () => ref.read(lensActionsProvider).delete(lensId),
                 );
-                if (ok && context.mounted) {
-                  refreshAll(ref);
-                  Navigator.pop(context);
-                }
+                if (ok && context.mounted) Navigator.pop(context);
               },
             ),
           if (lens.value != null)
@@ -58,7 +56,12 @@ class LensDetailScreen extends ConsumerWidget {
       ),
       body: AsyncBody(
         value: lens,
-        onRefresh: () async => refreshAll(ref),
+        onRefresh: () {
+          ref
+            ..invalidate(lensCamerasProvider(lensId))
+            ..invalidate(rollsProvider(RollFilter(lensId: lensId)));
+          return ref.refresh(lensProvider(lensId).future);
+        },
         builder: (l) {
           final cams = ref.watch(lensCamerasProvider(l.id));
           final rolls = ref.watch(rollsProvider(RollFilter(lensId: l.id)));
@@ -75,13 +78,11 @@ class LensDetailScreen extends ConsumerWidget {
                 onChanged: l.isBuiltIn
                     ? null
                     : (v) async {
-                        final ok = await guard(
+                        await guard(
                           context,
-                          () => ref
-                              .read(lensRepositoryProvider)
-                              .setActive(l.id, v),
+                          () =>
+                              ref.read(lensActionsProvider).setActive(l.id, v),
                         );
-                        if (ok) refreshAll(ref);
                       },
               ),
               InfoRow('Brand', l.brand),

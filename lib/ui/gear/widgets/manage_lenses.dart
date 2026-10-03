@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/gear_actions.dart';
+import '../view_models/gear_view_model.dart';
 import 'lens_form.dart';
 
 /// M-09 link lenses to a camera. Same-mount lenses listed first.
@@ -19,7 +21,7 @@ class _State extends ConsumerState<ManageLensesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final all = ref.watch(lensesProvider);
+    final all = ref.watch(linkableLensesProvider(widget.camera.mount));
     final linked = ref.watch(cameraLensesProvider(widget.camera.id));
     selected ??= linked.value?.map((l) => l.id).toSet();
     return Scaffold(
@@ -48,13 +50,7 @@ class _State extends ConsumerState<ManageLensesScreen> {
           if (selected == null)
             return const Center(child: CircularProgressIndicator());
           final mount = widget.camera.mount;
-          final active =
-              lenses.where((l) => l.isActive && !l.isBuiltIn).toList()
-                ..sort((a, b) {
-                  final am = a.mount == mount ? 0 : 1,
-                      bm = b.mount == mount ? 0 : 1;
-                  return am != bm ? am - bm : a.focalLength - b.focalLength;
-                });
+          final active = lenses;
           if (active.isEmpty)
             return const EmptyState('No lenses yet. Tap + to add one.');
           return ListView(
@@ -83,11 +79,10 @@ class _State extends ConsumerState<ManageLensesScreen> {
     final ok = await guard(
       context,
       () => ref
-          .read(cameraRepositoryProvider)
+          .read(cameraActionsProvider)
           .setLenses(widget.camera.id, selected!.toList()),
     );
     if (!mounted || !ok) return;
-    refreshAll(ref);
     Navigator.pop(context);
   }
 }

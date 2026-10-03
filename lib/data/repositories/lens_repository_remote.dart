@@ -1,3 +1,4 @@
+import '../../domain/models/gear_requests.dart';
 import '../../domain/models/models.dart';
 import '../services/api_client.dart';
 import 'lens_repository.dart';
@@ -15,11 +16,11 @@ class LensRepositoryRemote implements LensRepository {
   Future<Lens> lens(String id) async =>
       Lens.fromJson(await _api.send('GET', '/lenses/$id'));
   @override
-  Future<Lens> create(Map<String, dynamic> body) async =>
-      Lens.fromJson(await _api.send('POST', '/lenses', body: body));
+  Future<Lens> create(LensEdit lens) async =>
+      Lens.fromJson(await _api.send('POST', '/lenses', body: lens.toJson()));
   @override
-  Future<Lens> update(String id, Map<String, dynamic> body) async =>
-      Lens.fromJson(await _api.send('PUT', '/lenses/$id', body: body));
+  Future<Lens> update(String id, LensEdit lens) async =>
+      Lens.fromJson(await _api.send('PUT', '/lenses/$id', body: lens.toJson()));
   @override
   Future<void> delete(String id) => _api.send('DELETE', '/lenses/$id');
   @override

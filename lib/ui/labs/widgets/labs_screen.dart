@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../domain/models/lab_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/lab_actions.dart';
 
 /// Add or edit a lab in a dialog. Returns the saved [Lab].
 Future<Lab?> editLab(BuildContext context, WidgetRef ref, [Lab? lab]) {
@@ -36,22 +38,17 @@ Future<Lab?> editLab(BuildContext context, WidgetRef ref, [Lab? lab]) {
         FilledButton(
           onPressed: () async {
             if (name.text.trim().isEmpty) return;
-            final body = {
-              'name': name.text.trim(),
-              'address': address.text.trim().isEmpty
-                  ? null
-                  : address.text.trim(),
-            };
+            final edit = LabEdit(
+              name: name.text.trim(),
+              address: address.text.trim().isEmpty ? null : address.text.trim(),
+            );
             Lab? saved;
             final ok = await guard(c, () async {
-              saved = lab == null
-                  ? await ref.read(labRepositoryProvider).create(body)
-                  : await ref.read(labRepositoryProvider).update(lab.id, body);
+              saved = await ref
+                  .read(labActionsProvider)
+                  .save(edit, existing: lab);
             });
-            if (ok && c.mounted) {
-              refreshAll(ref);
-              Navigator.pop(c, saved);
-            }
+            if (ok && c.mounted) Navigator.pop(c, saved);
           },
           child: const Text('Save'),
         ),
@@ -100,10 +97,9 @@ class LabsScreen extends ConsumerWidget {
                   // Server refuses (409) when the lab has processing history.
                   return guard(
                     c,
-                    () => ref.read(labRepositoryProvider).delete(l.id),
+                    () => ref.read(labActionsProvider).delete(l.id),
                   );
                 },
-                onDismissed: (_) => refreshAll(ref),
                 child: ListTile(
                   title: Text(l.name),
                   subtitle: l.address == null ? null : Text(l.address!),

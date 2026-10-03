@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../domain/models/film_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/film_stock_actions.dart';
 import '../../core/widgets/form_kit.dart';
 import 'iso_field.dart';
 import 'stock_picker.dart';
@@ -41,7 +43,7 @@ class _State extends ConsumerState<StockFormScreen> {
     super.initState();
     final id = widget.stock?.baseStockId;
     if (id != null && base == null) {
-      ref.read(filmStockRepositoryProvider).stock(id).then((d) {
+      ref.read(stockDetailProvider(id).future).then((d) {
         if (mounted) setState(() => base = d.stock);
       }, onError: (_) {});
     }
@@ -221,30 +223,27 @@ class _State extends ConsumerState<StockFormScreen> {
   Future<void> _save() async {
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
-    final body = {
-      'brand': brand.text.trim(),
-      'name': name.text.trim(),
-      'type': type.name,
-      'boxIso': int.parse(iso.text),
-      'process': process.wire,
-      'packaging': packaging.name,
-      'stockOrigin': _t(stockOrigin),
-      'packOrigin': _t(packOrigin),
-      'description': _t(desc),
-      'baseStockId': base?.id,
-    };
+    final stock = FilmStockEdit(
+      brand: brand.text.trim(),
+      name: name.text.trim(),
+      type: type,
+      boxIso: int.parse(iso.text),
+      process: process,
+      packaging: packaging,
+      stockOrigin: _t(stockOrigin),
+      packOrigin: _t(packOrigin),
+      description: _t(desc),
+      baseStockId: base?.id,
+    );
     FilmStockDetail? saved;
     final ok = await guard(context, () async {
-      saved = editing
-          ? await ref
-                .read(filmStockRepositoryProvider)
-                .update(widget.stock!.id, body)
-          : await ref.read(filmStockRepositoryProvider).create(body);
+      saved = await ref
+          .read(filmStockActionsProvider)
+          .save(stock, existing: widget.stock);
     });
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     Navigator.pop(context, saved!.stock);
   }
 }

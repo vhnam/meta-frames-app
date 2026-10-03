@@ -1,3 +1,4 @@
+import '../../domain/models/lab_requests.dart';
 import '../../domain/models/models.dart';
 import '../../domain/utils.dart';
 import '../services/api_client.dart';
@@ -13,12 +14,12 @@ class ProcessingRepositoryRemote implements ProcessingRepository {
     Processing.fromJson,
   );
   @override
-  Future<Processing> send(String rollId, Map<String, dynamic> body) async =>
+  Future<Processing> send(String rollId, NewProcessing job) async =>
       Processing.fromJson(
         await _api.send(
           'PUT',
           '/rolls/$rollId/processing/${newId()}',
-          body: body,
+          body: job.toJson(),
         ),
       );
   @override

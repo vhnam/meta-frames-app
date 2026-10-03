@@ -1,3 +1,4 @@
+import '../../domain/models/film_requests.dart';
 import '../../domain/models/models.dart';
 import '../services/api_client.dart';
 import 'film_stock_repository.dart';
@@ -15,14 +16,14 @@ class FilmStockRepositoryRemote implements FilmStockRepository {
   Future<FilmStockDetail> stock(String id) async =>
       FilmStockDetail.fromJson(await _api.send('GET', '/film-stocks/$id'));
   @override
-  Future<FilmStockDetail> create(Map<String, dynamic> body) async =>
+  Future<FilmStockDetail> create(FilmStockEdit stock) async =>
       FilmStockDetail.fromJson(
-        await _api.send('POST', '/film-stocks', body: body),
+        await _api.send('POST', '/film-stocks', body: stock.toJson()),
       );
   @override
-  Future<FilmStockDetail> update(String id, Map<String, dynamic> body) async =>
+  Future<FilmStockDetail> update(String id, FilmStockEdit stock) async =>
       FilmStockDetail.fromJson(
-        await _api.send('PUT', '/film-stocks/$id', body: body),
+        await _api.send('PUT', '/film-stocks/$id', body: stock.toJson()),
       );
   @override
   Future<List<InventoryItem>> inventory({
