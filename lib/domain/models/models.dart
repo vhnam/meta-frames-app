@@ -391,11 +391,3 @@ class FrameComparison {
   final Scan? noritsu, frontier;
   final int? previousFrameNumber, nextFrameNumber;
 }
-
-class SearchResult {
-  SearchResult.fromJson(Map<String, dynamic> j)
-    : roll = RollSummary.fromJson(j['roll']),
-      scans = _list(j['scans'], ScanRef.fromJson);
-  final RollSummary roll;
-  final List<ScanRef> scans;
-}

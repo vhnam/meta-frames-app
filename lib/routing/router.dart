@@ -19,7 +19,6 @@ import '../ui/labs/widgets/negatives_at_lab.dart';
 import '../ui/labs/widgets/processing_detail.dart';
 import '../ui/labs/widgets/send_roll.dart';
 import '../ui/more/widgets/more_tab.dart';
-import '../ui/more/widgets/search_screen.dart';
 import '../ui/more/widgets/settings_screen.dart';
 import '../ui/rolls/widgets/add_rolls.dart';
 import '../ui/rolls/widgets/expiry_screen.dart';
@@ -77,7 +76,6 @@ GoRouter buildRouter({String initialLocation = Routes.home}) => GoRouter(
     _route(Routes.expiry, (_) => const ExpiryScreen()),
     _route(Routes.labs, (_) => const LabsScreen()),
     _route(Routes.negativesAtLab, (_) => const NegativesAtLabScreen()),
-    _route(Routes.search, (_) => const SearchScreen()),
     _route(Routes.settings, (_) => const SettingsScreen()),
 
     // Cameras. `new` is declared before `:id` so it is not read as an id.

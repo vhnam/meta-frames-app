@@ -89,28 +89,9 @@ RollDetail rollDetail(String id) => RollDetail.fromJson({
   },
 });
 
-/// Roll fixtures with extra fields.
-class RollSummaryFixture {
-  static RollSummary withCamera(String id, String cameraName) =>
-      RollSummary.fromJson({
-        'id': id,
-        'filmStockId': 's1',
-        'stockBrand': 'Ilford',
-        'stockName': 'HP5',
-        'cameraId': 'c-$id',
-        'cameraName': cameraName,
-        'format': 135,
-        'exposures': 36,
-        'status': 'in_camera',
-      });
-}
-
 class FakeRollRepository implements RollRepository {
   FakeRollRepository([this.all = const []]);
   List<RollSummary> all;
-
-  /// Roll ids per lens id, for the `lensId` filter.
-  final rollIdsByLens = <String, Set<String>>{};
 
   /// Every write, in order, e.g. `finish:r1` or `load:r1`.
   final calls = <String>[];
@@ -131,9 +112,7 @@ class FakeRollRepository implements RollRepository {
     return [
       for (final r in all)
         if ((status == null || r.status.wire == status) &&
-            (filmStockId == null || r.filmStockId == filmStockId) &&
-            (lensId == null ||
-                (rollIdsByLens[lensId]?.contains(r.id) ?? false)))
+            (filmStockId == null || r.filmStockId == filmStockId))
           r,
     ];
   }
@@ -178,9 +157,6 @@ class FakeRollRepository implements RollRepository {
 
   @override
   Future<RollDetail> roll(String id) async => _unusedDetail();
-
-  @override
-  Future<List<SearchResult>> searchByFocalLength(int mm) async => const [];
 
   RollDetail _unusedDetail() => rollDetail('r');
 }

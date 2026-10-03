@@ -167,7 +167,7 @@ void main() {
       final router = await pumpRouter(tester);
       String? result;
 
-      final future = router.push<String>(Routes.search);
+      final future = router.push<String>(Routes.settings);
       await tester.pumpAndSettle();
       future.then((v) => result = v);
       router.pop('done');
@@ -222,7 +222,6 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final label in [
-        'Search rolls',
         'Film stocks',
         'Expiry',
         'Negatives at lab',
@@ -236,7 +235,6 @@ void main() {
     testWidgets('each entry opens its screen over the tab bar', (tester) async {
       final router = await pumpRouter(tester, location: Routes.more);
       final entries = {
-        'Search rolls': Routes.search,
         'Film stocks': Routes.film,
         'Expiry': Routes.expiry,
         'Negatives at lab': Routes.negativesAtLab,

@@ -315,16 +315,11 @@ void main() {
       expect(rec.call, 'DELETE /rolls/r1');
     });
 
-    test('expiry and focal-length search', () async {
+    test('expiry', () async {
       final rec = Recorder({'expiring': [], 'noExpiry': []});
       final repo = RollRepositoryRemote(rec.client);
       await repo.expiry();
       expect(rec.call, 'GET /expiry');
-
-      rec.reply = [];
-      await repo.searchByFocalLength(40);
-      expect(rec.call, 'GET /search/rolls');
-      expect(rec.last.url.queryParameters, {'focalLength': '40'});
     });
   });
 

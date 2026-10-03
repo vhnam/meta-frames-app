@@ -14,7 +14,6 @@ abstract final class Routes {
   static const expiry = '/expiry';
   static const labs = '/labs';
   static const negativesAtLab = '/negatives-at-lab';
-  static const search = '/search';
   static const settings = '/settings';
 
   // Cameras.

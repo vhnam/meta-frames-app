@@ -69,9 +69,4 @@ class RollRepositoryRemote implements RollRepository {
       RollDetail.fromJson(
         await _api.send('PUT', '/rolls/$id/finish', body: {'date': ymd(date)}),
       );
-  @override
-  Future<List<SearchResult>> searchByFocalLength(int mm) async => decodeList(
-    await _api.send('GET', '/search/rolls', query: {'focalLength': '$mm'}),
-    SearchResult.fromJson,
-  );
 }

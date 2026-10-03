@@ -8,7 +8,6 @@ import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/ui/film/widgets/film_tab.dart';
 import 'package:meta_frames/ui/labs/widgets/labs_screen.dart';
 import 'package:meta_frames/ui/labs/widgets/negatives_at_lab.dart';
-import 'package:meta_frames/ui/more/widgets/search_screen.dart';
 import 'package:meta_frames/ui/more/widgets/settings_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/expiry_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/roll_card.dart';
@@ -86,14 +85,6 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('No film stocks'), findsOneWidget);
     });
-    testWidgets('search finds nothing', (t) async {
-      await pump(t, const SearchScreen());
-      await t.enterText(find.byType(TextField), 'nothing');
-      await t.testTextInput.receiveAction(TextInputAction.search);
-      await t.pumpAndSettle();
-      expect(find.byType(EmptyCard), findsOneWidget);
-      expect(find.text('No rolls found'), findsOneWidget);
-    });
   });
 
   group('lists are cards, not plain list tiles', () {
@@ -156,17 +147,6 @@ void main() {
       await pump(t, const ExpiryScreen(), rolls: rolls);
       expect(find.byType(RollCard), findsNWidgets(2));
       expect(find.byType(ListTile), findsNothing);
-    });
-    testWidgets('search results', (t) async {
-      await pump(
-        t,
-        const SearchScreen(),
-        rolls: FakeRollRepository([roll('a'), roll('b')]),
-      );
-      await t.enterText(find.byType(TextField), 'gold');
-      await t.testTextInput.receiveAction(TextInputAction.search);
-      await t.pumpAndSettle();
-      expect(find.byType(RollCard), findsNWidgets(2));
     });
   });
 

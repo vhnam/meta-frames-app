@@ -19,5 +19,4 @@ abstract class RollRepository {
   Future<RollDetail> load(String id, LoadRollRequest request);
   Future<void> setLenses(String id, List<String> lensIds);
   Future<RollDetail> finish(String id, DateTime date);
-  Future<List<SearchResult>> searchByFocalLength(int mm);
 }

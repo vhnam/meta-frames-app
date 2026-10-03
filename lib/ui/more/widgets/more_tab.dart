@@ -27,7 +27,6 @@ class MoreTab extends StatelessWidget {
             Expanded(
               child: ListView(
                 children: [
-                  entry(Icons.search, 'Search rolls', Routes.search),
                   entry(
                     Icons.local_movies_outlined,
                     'Film stocks',
