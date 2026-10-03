@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../../rolls/widgets/roll_tile.dart';
@@ -39,16 +40,7 @@ class StockDetailScreen extends ConsumerWidget {
         onRefresh: () async => ref.refresh(stockDetailProvider(stockId).future),
         builder: (d) {
           final s = d.stock;
-          final rolls = ref.watch(
-            rollsProvider((
-              stockId: s.id,
-              cameraId: null,
-              lensId: null,
-              format: null,
-              from: null,
-              to: null,
-            )),
-          );
+          final rolls = ref.watch(rollsProvider(RollFilter(stockId: s.id)));
           void open(FilmStock x) => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => StockDetailScreen(stockId: x.id)),

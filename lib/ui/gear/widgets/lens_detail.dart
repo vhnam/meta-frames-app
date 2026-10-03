@@ -1,24 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../../rolls/widgets/roll_tile.dart';
 import 'camera_detail.dart';
 import 'lens_form.dart';
-
-/// Cameras a lens can be used on (no dedicated endpoint: derived from links).
-final _lensCamerasProvider = FutureProvider.autoDispose
-    .family<List<Camera>, String>((ref, lensId) async {
-      final cams = await ref.watch(cameraRepositoryProvider).cameras();
-      final out = <Camera>[];
-      for (final c in cams) {
-        final ls = await ref.watch(cameraRepositoryProvider).lenses(c.id);
-        if (ls.any((l) => l.id == lensId)) out.add(c);
-      }
-      return out;
-    });
 
 /// M-11 lens details, M-08 activate/deactivate.
 class LensDetailScreen extends ConsumerWidget {
@@ -72,17 +60,8 @@ class LensDetailScreen extends ConsumerWidget {
         value: lens,
         onRefresh: () async => refreshAll(ref),
         builder: (l) {
-          final cams = ref.watch(_lensCamerasProvider(l.id));
-          final rolls = ref.watch(
-            rollsProvider((
-              stockId: null,
-              cameraId: null,
-              lensId: l.id,
-              format: null,
-              from: null,
-              to: null,
-            )),
-          );
+          final cams = ref.watch(lensCamerasProvider(l.id));
+          final rolls = ref.watch(rollsProvider(RollFilter(lensId: l.id)));
           return ListView(
             children: [
               SwitchListTile(

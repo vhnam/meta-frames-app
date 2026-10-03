@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
-import '../../../providers.dart';
+import '../../../domain/models/roll_requests.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
 import '../../film/widgets/stock_picker.dart';
+import '../view_models/roll_actions.dart';
 import 'roll_form_kit.dart';
 
 /// M-17 add rolls in bulk.
@@ -139,23 +140,22 @@ class _State extends ConsumerState<AddRollsScreen> {
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
     final n = int.parse(quantity.text);
-    final body = <String, dynamic>{
-      'filmStockId': stock!.id,
-      'format': format,
-      'exposures': int.parse(exposures.text),
-      'quantity': n,
-      if (price.text.isNotEmpty) 'price': int.parse(price.text),
-      if (year.text.isNotEmpty) 'expiryYear': int.parse(year.text),
-      if (year.text.isNotEmpty && month != null) 'expiryMonth': month,
-    };
+    final rolls = NewRolls(
+      filmStockId: stock!.id,
+      format: format,
+      exposures: int.parse(exposures.text),
+      quantity: n,
+      price: price.text.isEmpty ? null : int.parse(price.text),
+      expiryYear: year.text.isEmpty ? null : int.parse(year.text),
+      expiryMonth: month,
+    );
     final ok = await guard(
       context,
-      () => ref.read(rollRepositoryProvider).addRolls(body),
+      () => ref.read(rollActionsProvider).add(rolls),
     );
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     toast(context, '$n roll${n == 1 ? '' : 's'} added to stock');
     Navigator.pop(context);
   }

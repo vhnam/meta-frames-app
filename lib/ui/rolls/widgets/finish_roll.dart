@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/roll_actions.dart';
 
 /// M-21 mark roll as finished shooting. Date defaults to today.
 Future<void> finishRoll(
@@ -37,10 +37,7 @@ Future<void> finishRoll(
   if (ok != true || !context.mounted) return;
   final done = await guard(
     context,
-    () => ref.read(rollRepositoryProvider).finish(rollId, date),
+    () => ref.read(rollActionsProvider).finish(rollId, date),
   );
-  if (done) {
-    refreshAll(ref);
-    if (context.mounted) toast(context, 'Roll finished. Camera is free.');
-  }
+  if (done && context.mounted) toast(context, 'Roll finished. Camera is free.');
 }

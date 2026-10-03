@@ -2,47 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
-import '../../core/theme.dart';
 import '../../../providers.dart';
+import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../film/widgets/stock_picker.dart';
+import '../view_models/rolls_view_model.dart';
 import 'add_rolls.dart';
 import 'roll_detail.dart';
 
 /// M-22 browse rolls by status with filters.
-class RollsTab extends ConsumerStatefulWidget {
+class RollsTab extends ConsumerWidget {
   const RollsTab({super.key});
-  @override
-  ConsumerState<RollsTab> createState() => _State();
-}
 
-class _State extends ConsumerState<RollsTab> {
-  RollFilter filter = emptyRollFilter;
-  String? stockLabel, cameraLabel, lensLabel;
-
-  /// Selected status chip; null is the "All" chip.
-  RollStatus? status;
-
-  bool get filtered => filter != emptyRollFilter;
-
-  void _add() => Navigator.push(
+  void _add(BuildContext context) => Navigator.push(
     context,
     MaterialPageRoute(builder: (_) => const AddRollsScreen()),
   );
 
   @override
-  Widget build(BuildContext context) {
-    final v = ref.watch(rollsProvider(filter));
-    final stocks = {
-      for (final s in ref.watch(stocksProvider).value ?? const <FilmStock>[])
-        s.id: s,
-    };
-    final expiring = {
-      for (final e
-          in ref.watch(expiryProvider).value?.expiring ?? const <ExpiryRoll>[])
-        e.roll.id,
-    };
-    final noRolls = !filtered && (v.value?.isEmpty ?? false);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(rollsViewModelProvider);
+    final vm = ref.read(rollsViewModelProvider.notifier);
+    final v = ref.watch(visibleRollsProvider);
+    final processes = ref.watch(stockProcessByIdProvider);
+    final expiring = ref.watch(expiringRollIdsProvider);
+    final noRolls = !state.filtered && (v.value?.isEmpty ?? false);
+    final counts = ref.watch(rollStatusCountsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -59,13 +44,13 @@ class _State extends ConsumerState<RollsTab> {
                     IconButton(
                       tooltip: 'Filter',
                       icon: Badge(
-                        isLabelVisible: filtered,
+                        isLabelVisible: state.filtered,
                         child: const Icon(Icons.filter_list),
                       ),
-                      onPressed: _openFilter,
+                      onPressed: () => _openFilter(context),
                     ),
                   TextButton(
-                    onPressed: _add,
+                    onPressed: () => _add(context),
                     child: Text(noRolls ? '+ Roll' : '+ Add'),
                   ),
                 ],
@@ -73,20 +58,17 @@ class _State extends ConsumerState<RollsTab> {
             ),
             if (!noRolls)
               _StatusChips(
-                rolls: v.value,
-                selected: status,
-                onSelected: (s) => setState(() => status = s),
+                counts: counts,
+                selected: state.status,
+                onSelected: vm.selectStatus,
               ),
             Expanded(
               child: AsyncBody(
                 value: v,
                 onRefresh: () async =>
-                    ref.refresh(rollsProvider(filter).future),
-                builder: (all) {
+                    ref.refresh(rollsProvider(state.filter).future),
+                builder: (rs) {
                   if (noRolls) return const _NoRolls();
-                  final rs = status == null
-                      ? all
-                      : all.where((r) => r.status == status).toList();
                   if (rs.isEmpty) return const EmptyState('No rolls here.');
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -94,7 +76,7 @@ class _State extends ConsumerState<RollsTab> {
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, i) => _RollCard(
                       roll: rs[i],
-                      process: stocks[rs[i].filmStockId]?.process,
+                      process: processes[rs[i].filmStockId],
                       expiring: expiring.contains(rs[i].id),
                     ),
                   );
@@ -107,229 +89,133 @@ class _State extends ConsumerState<RollsTab> {
     );
   }
 
-  void _openFilter() => showModalBottomSheet(
+  void _openFilter(BuildContext context) => showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (c) => StatefulBuilder(
-      builder: (c, setS) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          16 + MediaQuery.of(c).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: 12,
-          children: [
-            PickerField(
-              label: 'Film stock',
-              value: stockLabel,
-              onTap: () async {
-                final s = await pickStock(c, ref);
-                if (s == null) return;
-                stockLabel = s.label;
-                filter = (
-                  stockId: s.id,
-                  cameraId: filter.cameraId,
-                  lensId: filter.lensId,
-                  format: filter.format,
-                  from: filter.from,
-                  to: filter.to,
-                );
-                setS(() {});
-                setState(() {});
-              },
-              onClear: () {
-                stockLabel = null;
-                filter = (
-                  stockId: null,
-                  cameraId: filter.cameraId,
-                  lensId: filter.lensId,
-                  format: filter.format,
-                  from: filter.from,
-                  to: filter.to,
-                );
-                setS(() {});
-                setState(() {});
-              },
-            ),
-            PickerField(
-              label: 'Camera',
-              value: cameraLabel,
-              onTap: () async {
-                final cams = await ref.read(cameraRepositoryProvider).cameras();
-                if (!c.mounted) return;
-                final x = await pickOne<Camera>(
-                  c,
-                  title: 'Camera',
-                  items: cams,
-                  label: (e) => e.name,
-                );
-                if (x == null) return;
-                cameraLabel = x.name;
-                filter = (
-                  stockId: filter.stockId,
-                  cameraId: x.id,
-                  lensId: filter.lensId,
-                  format: filter.format,
-                  from: filter.from,
-                  to: filter.to,
-                );
-                setS(() {});
-                setState(() {});
-              },
-              onClear: () {
-                cameraLabel = null;
-                filter = (
-                  stockId: filter.stockId,
-                  cameraId: null,
-                  lensId: filter.lensId,
-                  format: filter.format,
-                  from: filter.from,
-                  to: filter.to,
-                );
-                setS(() {});
-                setState(() {});
-              },
-            ),
-            PickerField(
-              label: 'Lens',
-              value: lensLabel,
-              onTap: () async {
-                final ls = await ref.read(lensRepositoryProvider).lenses();
-                if (!c.mounted) return;
-                final x = await pickOne<Lens>(
-                  c,
-                  title: 'Lens',
-                  items: ls,
-                  label: (e) => e.name,
-                );
-                if (x == null) return;
-                lensLabel = x.name;
-                filter = (
-                  stockId: filter.stockId,
-                  cameraId: filter.cameraId,
-                  lensId: x.id,
-                  format: filter.format,
-                  from: filter.from,
-                  to: filter.to,
-                );
-                setS(() {});
-                setState(() {});
-              },
-              onClear: () {
-                lensLabel = null;
-                filter = (
-                  stockId: filter.stockId,
-                  cameraId: filter.cameraId,
-                  lensId: null,
-                  format: filter.format,
-                  from: filter.from,
-                  to: filter.to,
-                );
-                setS(() {});
-                setState(() {});
-              },
-            ),
-            DropdownButtonFormField<int?>(
-              initialValue: filter.format,
-              decoration: deco('Format'),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Any')),
-                DropdownMenuItem(value: 135, child: Text('135')),
-                DropdownMenuItem(value: 120, child: Text('120')),
-                DropdownMenuItem(value: 220, child: Text('220')),
-              ],
-              onChanged: (v) {
-                filter = (
-                  stockId: filter.stockId,
-                  cameraId: filter.cameraId,
-                  lensId: filter.lensId,
-                  format: v,
-                  from: filter.from,
-                  to: filter.to,
-                );
-                setState(() {});
-              },
-            ),
-            Row(
-              spacing: 12,
-              children: [
-                Expanded(
-                  child: DateField(
-                    label: 'Started from',
-                    value: filter.from,
-                    clearable: true,
-                    onChanged: (d) {
-                      filter = (
-                        stockId: filter.stockId,
-                        cameraId: filter.cameraId,
-                        lensId: filter.lensId,
-                        format: filter.format,
-                        from: d,
-                        to: filter.to,
-                      );
-                      setS(() {});
-                      setState(() {});
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: DateField(
-                    label: 'Started to',
-                    value: filter.to,
-                    clearable: true,
-                    onChanged: (d) {
-                      filter = (
-                        stockId: filter.stockId,
-                        cameraId: filter.cameraId,
-                        lensId: filter.lensId,
-                        format: filter.format,
-                        from: filter.from,
-                        to: d,
-                      );
-                      setS(() {});
-                      setState(() {});
-                    },
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: () {
-                    stockLabel = cameraLabel = lensLabel = null;
-                    filter = emptyRollFilter;
-                    setS(() {});
-                    setState(() {});
-                  },
-                  child: const Text('Clear all'),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: () => Navigator.pop(c),
-                  child: const Text('Done'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
+    builder: (_) => const _FilterSheet(),
   );
+}
+
+class _FilterSheet extends ConsumerWidget {
+  const _FilterSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(rollsViewModelProvider);
+    final vm = ref.read(rollsViewModelProvider.notifier);
+    final filter = state.filter;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        16 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 12,
+        children: [
+          PickerField(
+            label: 'Film stock',
+            value: state.stockLabel,
+            onTap: () async {
+              final s = await pickStock(context, ref);
+              if (s != null) vm.setStock(s);
+            },
+            onClear: () => vm.setStock(null),
+          ),
+          PickerField(
+            label: 'Camera',
+            value: state.cameraLabel,
+            onTap: () async {
+              final cams = await ref.read(camerasProvider.future);
+              if (!context.mounted) return;
+              final x = await pickOne<Camera>(
+                context,
+                title: 'Camera',
+                items: cams,
+                label: (e) => e.name,
+              );
+              if (x != null) vm.setCamera(x);
+            },
+            onClear: () => vm.setCamera(null),
+          ),
+          PickerField(
+            label: 'Lens',
+            value: state.lensLabel,
+            onTap: () async {
+              final ls = await ref.read(lensesProvider.future);
+              if (!context.mounted) return;
+              final x = await pickOne<Lens>(
+                context,
+                title: 'Lens',
+                items: ls,
+                label: (e) => e.name,
+              );
+              if (x != null) vm.setLens(x);
+            },
+            onClear: () => vm.setLens(null),
+          ),
+          DropdownButtonFormField<int?>(
+            initialValue: filter.format,
+            decoration: deco('Format'),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('Any')),
+              DropdownMenuItem(value: 135, child: Text('135')),
+              DropdownMenuItem(value: 120, child: Text('120')),
+              DropdownMenuItem(value: 220, child: Text('220')),
+            ],
+            onChanged: vm.setFormat,
+          ),
+          Row(
+            spacing: 12,
+            children: [
+              Expanded(
+                child: DateField(
+                  label: 'Started from',
+                  value: filter.from,
+                  clearable: true,
+                  onChanged: vm.setFrom,
+                ),
+              ),
+              Expanded(
+                child: DateField(
+                  label: 'Started to',
+                  value: filter.to,
+                  clearable: true,
+                  onChanged: vm.setTo,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              TextButton(
+                onPressed: vm.clearFilters,
+                child: const Text('Clear all'),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// "All (10)  In stock (3)  In camera (2) ..." selectable chips.
 class _StatusChips extends StatelessWidget {
   const _StatusChips({
-    required this.rolls,
+    required this.counts,
     required this.selected,
     required this.onSelected,
   });
-  final List<RollSummary>? rolls;
+  final Map<RollStatus?, int>? counts;
   final RollStatus? selected;
   final ValueChanged<RollStatus?> onSelected;
 
@@ -371,11 +257,7 @@ class _StatusChips extends StatelessWidget {
       );
     }
 
-    int? count(RollStatus? s) => rolls == null
-        ? null
-        : s == null
-        ? rolls!.length
-        : rolls!.where((r) => r.status == s).length;
+    int? count(RollStatus? s) => counts?[s];
 
     return SizedBox(
       height: 60,

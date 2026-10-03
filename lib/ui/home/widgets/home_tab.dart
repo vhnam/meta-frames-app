@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
@@ -23,7 +24,7 @@ class HomeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cams = ref.watch(camerasProvider);
-    final done = ref.watch(rollsProvider(emptyRollFilter));
+    final done = ref.watch(rollsProvider(RollFilter.empty));
     final neg = ref.watch(negativesAtLabProvider);
     final exp = ref.watch(expiryProvider);
     final stocks = {

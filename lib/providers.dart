@@ -2,26 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/providers.dart';
 import 'domain/models/models.dart';
+import 'domain/models/roll_filter.dart';
 
 export 'data/providers.dart';
-
-typedef RollFilter = ({
-  String? stockId,
-  String? cameraId,
-  String? lensId,
-  int? format,
-  DateTime? from,
-  DateTime? to,
-});
-
-const emptyRollFilter = (
-  stockId: null,
-  cameraId: null,
-  lensId: null,
-  format: null,
-  from: null,
-  to: null,
-);
 
 typedef InventoryFilter = ({String? type, String? process, int? iso});
 
@@ -42,6 +25,18 @@ final lensesProvider = FutureProvider.autoDispose<List<Lens>>(
 final lensProvider = FutureProvider.autoDispose.family<Lens, String>(
   (ref, id) => ref.watch(lensRepositoryProvider).lens(id),
 );
+
+/// Cameras a lens can be used on (no dedicated endpoint: derived from links).
+final lensCamerasProvider = FutureProvider.autoDispose
+    .family<List<Camera>, String>((ref, lensId) async {
+      final cams = await ref.watch(cameraRepositoryProvider).cameras();
+      final out = <Camera>[];
+      for (final c in cams) {
+        final ls = await ref.watch(cameraRepositoryProvider).lenses(c.id);
+        if (ls.any((l) => l.id == lensId)) out.add(c);
+      }
+      return out;
+    });
 
 final stocksProvider = FutureProvider.autoDispose<List<FilmStock>>(
   (ref) => ref.watch(filmStockRepositoryProvider).stocks(),
@@ -112,6 +107,7 @@ void refreshAll(WidgetRef ref) {
     ..invalidate(cameraLensesProvider)
     ..invalidate(lensesProvider)
     ..invalidate(lensProvider)
+    ..invalidate(lensCamerasProvider)
     ..invalidate(stocksProvider)
     ..invalidate(stockDetailProvider)
     ..invalidate(inventoryProvider)

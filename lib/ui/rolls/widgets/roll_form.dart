@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../domain/utils.dart';
 import '../../../domain/models/models.dart';
-import '../../../providers.dart';
+import '../../../domain/models/roll_requests.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
 import '../../film/widgets/stock_picker.dart';
+import '../view_models/roll_actions.dart';
 import 'roll_form_kit.dart';
 
 /// M-18 edit roll. Stock can change only while `in_stock`.
@@ -197,27 +197,26 @@ class _State extends ConsumerState<RollFormScreen> {
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
     final shot = int.tryParse(iso.text);
-    final body = {
-      'filmStockId': stock.id,
-      'format': format,
-      'exposures': int.parse(exposures.text),
-      'price': price.text.isEmpty ? null : int.parse(price.text),
-      'expiryYear': year.text.isEmpty ? null : int.parse(year.text),
-      'expiryMonth': year.text.isEmpty ? null : month,
+    final edit = RollEdit(
+      filmStockId: stock.id,
+      format: format,
+      exposures: int.parse(exposures.text),
+      price: price.text.isEmpty ? null : int.parse(price.text),
+      expiryYear: year.text.isEmpty ? null : int.parse(year.text),
+      expiryMonth: month,
       // Stored as null when equal to the box ISO.
-      'shotIso': shot == null || shot == stock.boxIso ? null : shot,
-      'startedAt': started == null ? null : ymd(started!),
-      'finishedAt': finished == null ? null : ymd(finished!),
-      'description': desc.text.trim().isEmpty ? null : desc.text.trim(),
-    };
+      shotIso: shot == null || shot == stock.boxIso ? null : shot,
+      startedAt: started,
+      finishedAt: finished,
+      description: desc.text.trim().isEmpty ? null : desc.text.trim(),
+    );
     final ok = await guard(
       context,
-      () => ref.read(rollRepositoryProvider).update(r.id, body),
+      () => ref.read(rollActionsProvider).edit(r.id, edit),
     );
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     Navigator.pop(context);
   }
 }

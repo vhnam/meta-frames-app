@@ -9,6 +9,7 @@ import '../../gear/widgets/camera_detail.dart';
 import '../../labs/widgets/processing_detail.dart';
 import '../../labs/widgets/send_roll.dart';
 import '../../scans/widgets/frame_screen.dart';
+import '../view_models/roll_actions.dart';
 import 'finish_roll.dart';
 import 'load_roll.dart';
 import 'roll_form.dart';
@@ -51,12 +52,9 @@ class RollDetailScreen extends ConsumerWidget {
                   if (!context.mounted) return;
                   final ok = await guard(
                     context,
-                    () => ref.read(rollRepositoryProvider).delete(rollId),
+                    () => ref.read(rollActionsProvider).delete(rollId),
                   );
-                  if (ok && context.mounted) {
-                    refreshAll(ref);
-                    Navigator.pop(context);
-                  }
+                  if (ok && context.mounted) Navigator.pop(context);
                 },
               ),
           ],

@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
@@ -47,16 +48,7 @@ class _State extends ConsumerState<CameraFormScreen> {
     // M-04: fixed-lens flag locked once the camera has rolls.
     final hasRolls = editing
         ? ref
-                  .watch(
-                    rollsProvider((
-                      stockId: null,
-                      cameraId: widget.camera!.id,
-                      lensId: null,
-                      format: null,
-                      from: null,
-                      to: null,
-                    )),
-                  )
+                  .watch(rollsProvider(RollFilter(cameraId: widget.camera!.id)))
                   .value
                   ?.isNotEmpty ??
               true

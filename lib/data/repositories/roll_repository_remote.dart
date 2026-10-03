@@ -1,4 +1,5 @@
 import '../../domain/models/models.dart';
+import '../../domain/models/roll_requests.dart';
 import '../../domain/utils.dart';
 import '../services/api_client.dart';
 import 'roll_repository.dart';
@@ -33,16 +34,15 @@ class RollRepositoryRemote implements RollRepository {
     RollSummary.fromJson,
   );
   @override
-  Future<List<RollSummary>> addRolls(Map<String, dynamic> body) async =>
-      decodeList(
-        await _api.send(
-          'POST',
-          '/rolls/bulk',
-          body: body,
-          extraHeaders: {'Idempotency-Key': newId()},
-        ),
-        RollSummary.fromJson,
-      );
+  Future<List<RollSummary>> addRolls(NewRolls rolls) async => decodeList(
+    await _api.send(
+      'POST',
+      '/rolls/bulk',
+      body: rolls.toJson(),
+      extraHeaders: {'Idempotency-Key': newId()},
+    ),
+    RollSummary.fromJson,
+  );
   @override
   Future<ExpiryView> expiry() async =>
       ExpiryView.fromJson(await _api.send('GET', '/expiry'));
@@ -50,14 +50,16 @@ class RollRepositoryRemote implements RollRepository {
   Future<RollDetail> roll(String id) async =>
       RollDetail.fromJson(await _api.send('GET', '/rolls/$id'));
   @override
-  Future<RollDetail> update(String id, Map<String, dynamic> body) async =>
-      RollDetail.fromJson(await _api.send('PUT', '/rolls/$id', body: body));
+  Future<RollDetail> update(String id, RollEdit edit) async =>
+      RollDetail.fromJson(
+        await _api.send('PUT', '/rolls/$id', body: edit.toJson()),
+      );
   @override
   Future<void> delete(String id) => _api.send('DELETE', '/rolls/$id');
   @override
-  Future<RollDetail> load(String id, Map<String, dynamic> body) async =>
+  Future<RollDetail> load(String id, LoadRollRequest request) async =>
       RollDetail.fromJson(
-        await _api.send('PUT', '/rolls/$id/load', body: body),
+        await _api.send('PUT', '/rolls/$id/load', body: request.toJson()),
       );
   @override
   Future<void> setLenses(String id, List<String> lensIds) =>

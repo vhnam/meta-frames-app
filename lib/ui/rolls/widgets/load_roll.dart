@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/expiry.dart';
-import '../../../domain/utils.dart';
 import '../../../domain/models/models.dart';
-import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/load_roll_view_model.dart';
 
 /// M-19 load roll into camera. Pass [camera], [roll], both or neither.
 class LoadRollScreen extends ConsumerStatefulWidget {
@@ -17,45 +16,30 @@ class LoadRollScreen extends ConsumerStatefulWidget {
 }
 
 class _State extends ConsumerState<LoadRollScreen> {
-  late Camera? camera = widget.camera;
-  late RollSummary? roll = widget.roll;
-  DateTime started = DateTime.now();
   final iso = TextEditingController();
-  final Set<String> lensIds = {};
-  List<Lens>? suggested; // lenses linked to the camera
-  final Map<String, Lens> extra = {};
   bool busy = false;
 
+  late final _provider = loadRollViewModelProvider((
+    camera: widget.camera,
+    roll: widget.roll,
+  ));
+
   @override
-  void initState() {
-    super.initState();
-    if (roll != null) iso.text = '';
-    if (camera != null) _loadLenses();
+  void dispose() {
+    iso.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadLenses() async {
-    final c = camera!;
-    if (c.hasFixedLens) {
-      setState(() => suggested = []);
-      return;
-    }
-    try {
-      final ls = await ref.read(cameraRepositoryProvider).lenses(c.id);
-      if (mounted) setState(() => suggested = ls);
-    } catch (e) {
-      if (mounted) toast(context, e.toString());
-    }
-  }
+  LoadRollViewModel get _vm => ref.read(_provider.notifier);
 
   Future<void> _pickRoll() async {
-    List<RollSummary> rolls;
+    final List<RollSummary> rolls;
     try {
-      rolls = await ref.read(rollRepositoryProvider).rolls(status: 'in_stock');
+      rolls = await _vm.inStockRolls();
     } catch (e) {
       if (mounted) toast(context, e.toString());
       return;
     }
-    rolls.sort((a, b) => expiryKey(a.expiry).compareTo(expiryKey(b.expiry)));
     if (!mounted) return;
     final r = await pickOne<RollSummary>(
       context,
@@ -66,22 +50,19 @@ class _State extends ConsumerState<LoadRollScreen> {
           '${r.format} · ${r.exposures} exp · ${r.expiry == null ? 'no expiry' : 'exp ${r.expiry}${isExpired(r.expiry) ? ' (expired)' : ''}'}',
     );
     if (r != null) {
-      setState(() {
-        roll = r;
-        iso.text = '';
-      });
+      _vm.selectRoll(r);
+      iso.text = '';
     }
   }
 
   Future<void> _pickCamera() async {
-    List<Camera> cams;
+    final List<Camera> cams;
     try {
-      cams = await ref.read(cameraRepositoryProvider).cameras();
+      cams = await _vm.emptyCameras();
     } catch (e) {
       if (mounted) toast(context, e.toString());
       return;
     }
-    cams = cams.where((c) => c.isActive && c.loadedRoll == null).toList();
     if (!mounted) return;
     final c = await pickOne<Camera>(
       context,
@@ -91,27 +72,11 @@ class _State extends ConsumerState<LoadRollScreen> {
       subtitle: (c) =>
           c.hasFixedLens ? 'Fixed lens' : 'Mount ${c.mount ?? '—'}',
     );
-    if (c != null) {
-      setState(() {
-        camera = c;
-        lensIds.clear();
-        extra.clear();
-        suggested = null;
-      });
-      _loadLenses();
-    }
+    if (c != null) _vm.selectCamera(c);
   }
 
   Future<void> _addOtherLens() async {
-    final all = await ref.read(lensRepositoryProvider).lenses();
-    final cand = all
-        .where(
-          (l) =>
-              l.isActive &&
-              !l.isBuiltIn &&
-              !(suggested ?? []).any((s) => s.id == l.id),
-        )
-        .toList();
+    final cand = await _vm.otherLenses();
     if (!mounted) return;
     final l = await pickOne<Lens>(
       context,
@@ -121,35 +86,28 @@ class _State extends ConsumerState<LoadRollScreen> {
       subtitle: (l) => 'Mount ${l.mount ?? '—'}',
     );
     if (l == null || !mounted) return;
-    setState(() {
-      extra[l.id] = l;
-      lensIds.add(l.id);
-    });
+    _vm.addExtraLens(l);
     // M-19 6a: offer to link adapted lens to the camera.
+    final camera = ref.read(_provider).camera!;
     if (await confirm(
           context,
           'Link lens?',
-          'Link ${l.name} to ${camera!.name} for future use?',
+          'Link ${l.name} to ${camera.name} for future use?',
           ok: 'Link',
         ) &&
         mounted) {
-      await guard(context, () async {
-        final cur =
-            (await ref.read(cameraRepositoryProvider).lenses(camera!.id))
-                .map((x) => x.id)
-                .toList();
-        await ref
-            .read(cameraRepositoryProvider)
-            .setLenses(camera!.id, {...cur, l.id}.toList());
-      });
-      refreshAll(ref);
+      await guard(context, () => _vm.linkLens(l));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final expired = isExpired(roll?.expiry);
-    final cam = camera;
+    ref.listen(_provider.select((s) => s.lensError), (_, e) {
+      if (e != null) toast(context, e);
+    });
+    final s = ref.watch(_provider);
+    final cam = s.camera;
+    final roll = s.roll;
     return Scaffold(
       appBar: AppBar(title: const Text('Load roll')),
       body: ListView(
@@ -163,20 +121,18 @@ class _State extends ConsumerState<LoadRollScreen> {
           gap,
           PickerField(
             label: 'Roll',
-            value: roll == null
-                ? null
-                : '${roll!.stockLabel} · ${roll!.format}',
+            value: roll == null ? null : '${roll.stockLabel} · ${roll.format}',
             onTap: widget.roll != null ? () {} : _pickRoll,
           ),
-          if (expired)
+          if (s.expired)
             const WarningBanner([
               'This roll is expired. You can still load it.',
             ]),
           gap,
           DateField(
             label: 'Start date',
-            value: started,
-            onChanged: (d) => setState(() => started = d!),
+            value: s.started,
+            onChanged: (d) => _vm.setStarted(d!),
           ),
           gap,
           TextFormField(
@@ -192,19 +148,17 @@ class _State extends ConsumerState<LoadRollScreen> {
             const Text('Select a camera first.')
           else if (cam.hasFixedLens)
             const Text('Built-in lens is assigned automatically.')
-          else if (suggested == null)
+          else if (s.suggested == null)
             const LinearProgressIndicator()
           else ...[
-            if (suggested!.isEmpty && extra.isEmpty)
+            if (s.suggested!.isEmpty && s.extra.isEmpty)
               const Text('No linked lenses. Add one below or decide later.'),
-            for (final l in [...suggested!, ...extra.values])
+            for (final l in s.lensChoices)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                value: lensIds.contains(l.id),
+                value: s.lensIds.contains(l.id),
                 title: Text(l.name),
-                onChanged: (v) => setState(
-                  () => v! ? lensIds.add(l.id) : lensIds.remove(l.id),
-                ),
+                onChanged: (v) => _vm.toggleLens(l.id, v!),
               ),
             TextButton.icon(
               onPressed: _addOtherLens,
@@ -214,7 +168,7 @@ class _State extends ConsumerState<LoadRollScreen> {
           ],
           gap,
           FilledButton(
-            onPressed: busy || roll == null || cam == null ? null : _save,
+            onPressed: busy || !s.canSubmit ? null : _save,
             child: const Text('Load'),
           ),
         ],
@@ -224,22 +178,13 @@ class _State extends ConsumerState<LoadRollScreen> {
 
   Future<void> _save() async {
     setState(() => busy = true);
-    final shot = int.tryParse(iso.text);
-    final body = {
-      'cameraId': camera!.id,
-      'startedAt': ymd(started),
-      'shotIso': ?shot,
-      if (!camera!.hasFixedLens && lensIds.isNotEmpty)
-        'lensIds': lensIds.toList(),
-    };
     final ok = await guard(
       context,
-      () => ref.read(rollRepositoryProvider).load(roll!.id, body),
+      () => _vm.submit(shotIso: int.tryParse(iso.text)),
     );
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     toast(context, 'Roll loaded');
     Navigator.pop(context);
   }
