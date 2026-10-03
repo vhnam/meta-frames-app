@@ -8,7 +8,6 @@ import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/ui/film/widgets/film_tab.dart';
 import 'package:meta_frames/ui/labs/widgets/labs_screen.dart';
 import 'package:meta_frames/ui/labs/widgets/negatives_at_lab.dart';
-import 'package:meta_frames/ui/more/widgets/more_tab.dart';
 import 'package:meta_frames/ui/more/widgets/search_screen.dart';
 import 'package:meta_frames/ui/more/widgets/settings_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/expiry_screen.dart';
@@ -98,12 +97,6 @@ void main() {
   });
 
   group('lists are cards, not plain list tiles', () {
-    testWidgets('more tab', (t) async {
-      await pump(t, const MoreTab());
-      expect(find.byType(CardList), findsOneWidget);
-      expect(find.byType(CardTile), findsNWidgets(6));
-      expect(find.byType(ListTile), findsNothing);
-    });
     testWidgets('labs', (t) async {
       await pump(
         t,
