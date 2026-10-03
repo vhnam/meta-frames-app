@@ -14,5 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Android and iOS Flutter app.
 - Shared API client, film-log models, light and dark themes, and form widgets.
 - Gear locker for cameras and lenses, including fixed-lens bodies.
+- Film stock catalog with ISO, process, and packaging.
 [Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/vhnam/meta-frames-app/releases/tag/v1.0.0
