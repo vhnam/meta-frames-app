@@ -19,5 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lab workflow for sending rolls, tracking negatives, and recording processing.
 - Scan import, frame viewing, and side-by-side compare.
 - Home dashboard for loaded cameras, rolls ready for the lab, negatives at the lab, and film expiring soon.
+- Search and a configurable API base URL.
+
 [Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/vhnam/meta-frames-app/releases/tag/v1.0.0
