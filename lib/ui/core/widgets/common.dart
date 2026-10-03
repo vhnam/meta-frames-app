@@ -9,6 +9,8 @@ import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
+import '../../../routing/navigation.dart';
+
 final _dateFmt = DateFormat('d MMM yyyy');
 final _vndFmt = NumberFormat.decimalPattern('en_US');
 
@@ -186,17 +188,20 @@ class EmptyState extends StatelessWidget {
   );
 }
 
-/// Header shared by the Home, Gear and Rolls tabs: mono kicker, heading title,
-/// optional trailing actions, then the sprocket rule.
+/// Header shared by the tabs and by list screens you add to (Labs, Film
+/// stocks): mono kicker, heading title, optional trailing actions, then the
+/// sprocket rule. [back] adds a back button for screens opened over a tab.
 class ScreenHeader extends StatelessWidget {
   const ScreenHeader({
     super.key,
     required this.kicker,
     required this.title,
     this.trailing,
+    this.back = false,
   });
   final String kicker, title;
   final Widget? trailing;
+  final bool back;
 
   @override
   Widget build(BuildContext context) {
@@ -204,9 +209,20 @@ class ScreenHeader extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(16, 20, trailing == null ? 16 : 8, 16),
+          padding: EdgeInsets.fromLTRB(
+            back ? 4 : 16,
+            back ? 12 : 20,
+            trailing == null ? 16 : 8,
+            16,
+          ),
           child: Row(
             children: [
+              if (back)
+                IconButton(
+                  tooltip: 'Back',
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: context.closeScreen,
+                ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

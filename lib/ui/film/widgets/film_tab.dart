@@ -23,30 +23,49 @@ class _State extends ConsumerState<FilmTab> {
   InventoryFilter filter = (type: null, process: null, iso: null);
 
   static const _listPadding = EdgeInsets.fromLTRB(16, 12, 16, 16);
+  static const _tilePadding = EdgeInsets.symmetric(
+    horizontal: 16,
+    vertical: 14,
+  );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Film stocks'),
-      actions: [
-        TextButton(
-          onPressed: () =>
-              context.push(inventory ? Routes.rollNew() : Routes.stockNew),
-          child: Text(inventory ? '+ Rolls' : '+ Stock'),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    // Contextual label while the current segment is empty, as on the Gear tab.
+    final empty = inventory
+        ? ref.watch(inventoryProvider(filter)).value?.isEmpty
+        : ref.watch(stocksProvider).value?.isEmpty;
+    final addLabel = (empty ?? false)
+        ? (inventory ? '+ Rolls' : '+ Stock')
+        : '+ Add';
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            ScreenHeader(
+              kicker: 'MetaFrames · Film catalog',
+              title: 'Film stocks',
+              back: true,
+              trailing: TextButton(
+                onPressed: () => context.push(
+                  inventory ? Routes.rollNew() : Routes.stockNew,
+                ),
+                child: Text(addLabel),
+              ),
+            ),
+            SegmentSwitcher(
+              labels: const ['Inventory', 'Stocks'],
+              selected: inventory ? 0 : 1,
+              onChanged: (i) => setState(() => inventory = i == 0),
+            ),
+            Expanded(child: inventory ? _inventory() : _stocks()),
+          ],
         ),
-      ],
-    ),
-    body: Column(
-      children: [
-        SegmentSwitcher(
-          labels: const ['Inventory', 'Stocks'],
-          selected: inventory ? 0 : 1,
-          onChanged: (i) => setState(() => inventory = i == 0),
-        ),
-        Expanded(child: inventory ? _inventory() : _stocks()),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 
   Widget _inventory() {
     final v = ref.watch(inventoryProvider(filter));
@@ -146,8 +165,10 @@ class _State extends ConsumerState<FilmTab> {
                       for (final it in items)
                         CardTile(
                           icon: Icons.local_movies_outlined,
+                          iconSize: 44,
                           iconBg: cs.surfaceContainer,
                           iconColor: cs.onSurfaceVariant,
+                          padding: _tilePadding,
                           title: it.stock.label,
                           subtitle: [
                             for (final f in it.formats) '${f.$2} × ${f.$1}',
@@ -155,7 +176,6 @@ class _State extends ConsumerState<FilmTab> {
                             if (it.soonestExpiry != null)
                               'exp ${it.soonestExpiry}',
                           ].join(' · '),
-                          compact: true,
                           badge: ProcessBadge(it.stock.process),
                           onTap: () => context.push(Routes.stock(it.stock.id)),
                         ),
@@ -217,12 +237,13 @@ class _State extends ConsumerState<FilmTab> {
                       for (final s in shown)
                         CardTile(
                           icon: Icons.local_movies_outlined,
+                          iconSize: 44,
                           iconBg: cs.surfaceContainer,
                           iconColor: cs.onSurfaceVariant,
+                          padding: _tilePadding,
                           title: s.label,
                           subtitle:
                               '${s.type.name.toUpperCase()} · ISO ${s.boxIso} · ${s.packaging.name}',
-                          compact: true,
                           badge: ProcessBadge(s.process),
                           onTap: () => context.push(Routes.stock(s.id)),
                         ),

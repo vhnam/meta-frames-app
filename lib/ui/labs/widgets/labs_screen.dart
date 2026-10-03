@@ -75,85 +75,97 @@ class LabsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final v = ref.watch(labsProvider);
     final cs = Theme.of(context).colorScheme;
+    // Contextual label while there are none, as on the Gear tab.
+    final addLabel = (v.value?.isEmpty ?? false) ? '+ Lab' : '+ Add';
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Labs'),
-        actions: [
-          TextButton(
-            onPressed: () => editLab(context, ref),
-            child: const Text('+ Add'),
-          ),
-        ],
-      ),
-      body: AsyncBody(
-        value: v,
-        onRefresh: () async => ref.refresh(labsProvider.future),
-        builder: (labs) {
-          if (labs.isEmpty) {
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              children: const [
-                EmptyCard(
-                  icon: Icons.store_outlined,
-                  title: 'No labs yet',
-                  text: 'Add the labs you send film to. You pick one each time you send a roll.',
-                ),
-              ],
-            );
-          }
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            children: [
-              SectionLabel('Labs · ${labs.length}'),
-              const SizedBox(height: 8),
-              CardList(
-                children: [
-                  for (final l in labs)
-                    Dismissible(
-                      key: ValueKey(l.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: cs.error,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Icon(Icons.delete, color: cs.onError),
-                      ),
-                      confirmDismiss: (_) async {
-                        if (!await confirm(
-                          context,
-                          'Delete lab?',
-                          l.name,
-                          ok: 'Delete',
-                        )) {
-                          return false;
-                        }
-                        if (!context.mounted) return false;
-                        // Server refuses (409) when the lab has processing history.
-                        return guard(
-                          context,
-                          () => ref.read(labActionsProvider).delete(l.id),
-                        );
-                      },
-                      child: CardTile(
-                        icon: Icons.store_outlined,
-                        title: l.name,
-                        subtitle: l.address ?? 'No address',
-                        compact: true,
-                        trailing: Icon(
-                          Icons.edit_outlined,
-                          size: 18,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        onTap: () => editLab(context, ref, l),
-                      ),
-                    ),
-                ],
+      backgroundColor: cs.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            ScreenHeader(
+              kicker: 'MetaFrames · Film labs',
+              title: 'Labs',
+              back: true,
+              trailing: TextButton(
+                onPressed: () => editLab(context, ref),
+                child: Text(addLabel),
               ),
-              const SizedBox(height: 12),
-              const FormNote('Swipe a lab left to delete it.'),
-            ],
-          );
-        },
+            ),
+            Expanded(
+              child: AsyncBody(
+                value: v,
+                onRefresh: () async => ref.refresh(labsProvider.future),
+                builder: (labs) => ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  children: [
+                    SectionLabel('Labs · ${labs.length}'),
+                    const SizedBox(height: 8),
+                    if (labs.isEmpty)
+                      const EmptyCard(
+                        icon: Icons.store_outlined,
+                        title: 'No labs yet',
+                        text: 'Add the labs you send film to. You pick one each time you send a roll.',
+                      )
+                    else ...[
+                      CardList(
+                        children: [
+                          for (final l in labs)
+                            Dismissible(
+                              key: ValueKey(l.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                color: cs.error,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 16),
+                                child: Icon(Icons.delete, color: cs.onError),
+                              ),
+                              confirmDismiss: (_) async {
+                                if (!await confirm(
+                                  context,
+                                  'Delete lab?',
+                                  l.name,
+                                  ok: 'Delete',
+                                )) {
+                                  return false;
+                                }
+                                if (!context.mounted) return false;
+                                // Server refuses (409) when the lab has processing history.
+                                return guard(
+                                  context,
+                                  () =>
+                                      ref.read(labActionsProvider).delete(l.id),
+                                );
+                              },
+                              child: CardTile(
+                                icon: Icons.store_outlined,
+                                iconSize: 44,
+                                iconBg: cs.surfaceContainer,
+                                iconColor: cs.onSurfaceVariant,
+                                title: l.name,
+                                subtitle: l.address ?? 'No address',
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                                onTap: () => editLab(context, ref, l),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const FormNote('Swipe a lab left to delete it.'),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/ui/core/widgets/cards.dart';
+import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/ui/film/widgets/film_tab.dart';
 import 'package:meta_frames/ui/labs/widgets/labs_screen.dart';
 import 'package:meta_frames/ui/labs/widgets/negatives_at_lab.dart';
@@ -176,19 +177,78 @@ void main() {
     });
   });
 
-  group('add actions sit in the app bar', () {
-    testWidgets('labs has + Add and no floating button', (t) async {
+  group('Labs and Film stocks follow the Gear layout', () {
+    testWidgets('both use the tab header with a back button', (t) async {
       await pump(t, const LabsScreen());
-      expect(find.text('+ Add'), findsOneWidget);
+      expect(find.byType(ScreenHeader), findsOneWidget);
+      expect(find.byType(AppBar), findsNothing);
+      expect(find.byTooltip('Back'), findsOneWidget);
+
+      await pump(t, const FilmTab());
+      expect(find.byType(ScreenHeader), findsOneWidget);
+      expect(find.byType(AppBar), findsNothing);
+      expect(find.byTooltip('Back'), findsOneWidget);
+    });
+
+    testWidgets('the add label names the item while the list is empty', (
+      t,
+    ) async {
+      await pump(t, const LabsScreen());
+      expect(find.text('+ Lab'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsNothing);
     });
-    testWidgets('film stocks switches between + Rolls and + Stock', (t) async {
+
+    testWidgets('and says + Add once there is something', (t) async {
+      await pump(
+        t,
+        const LabsScreen(),
+        labs: FakeLabRepository([lab('a', 'Foto Lab')]),
+      );
+      expect(find.text('+ Add'), findsOneWidget);
+      expect(find.text('+ Lab'), findsNothing);
+    });
+
+    testWidgets('film stocks: + Rolls, then + Add or + Stock by segment', (
+      t,
+    ) async {
       await pump(t, const FilmTab());
       expect(find.text('+ Rolls'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsNothing);
+
+      await t.tap(find.text('Stocks'));
+      await t.pumpAndSettle();
+      expect(find.text('+ Add'), findsOneWidget);
+    });
+
+    testWidgets('an empty catalog offers + Stock', (t) async {
+      await pump(t, const FilmTab(), stocks: FakeFilmStockRepository());
       await t.tap(find.text('Stocks'));
       await t.pumpAndSettle();
       expect(find.text('+ Stock'), findsOneWidget);
+    });
+
+    testWidgets('rows are the same size as Gear rows', (t) async {
+      await pump(
+        t,
+        const LabsScreen(),
+        labs: FakeLabRepository([lab('a', 'Foto Lab')]),
+      );
+      final tile = t.widget<CardTile>(find.byType(CardTile));
+      expect(tile.iconSize, 44);
+      expect(tile.compact, isFalse);
+      expect(
+        tile.padding,
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      );
+    });
+
+    testWidgets('film rows are the same size as Gear rows', (t) async {
+      await pump(t, const FilmTab());
+      await t.tap(find.text('Stocks'));
+      await t.pumpAndSettle();
+      final tile = t.widget<CardTile>(find.byType(CardTile));
+      expect(tile.iconSize, 44);
+      expect(tile.compact, isFalse);
     });
   });
 
@@ -205,7 +265,7 @@ void main() {
     });
     testWidgets('the lab dialog labels its fields', (t) async {
       await pump(t, const LabsScreen());
-      await t.tap(find.text('+ Add'));
+      await t.tap(find.text('+ Lab'));
       await t.pumpAndSettle();
       expect(find.text('NAME'), findsOneWidget);
       expect(find.text('ADDRESS (OPTIONAL)'), findsOneWidget);
