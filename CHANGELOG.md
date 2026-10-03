@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Camera, lens, roll, and film stock details share one card-based layout with a bordered app bar, an Edit button, and labelled sections.
+- Lens and roll details move activate, deactivate, and delete into action rows at the bottom, as camera details does.
+- Roll details lists gear, cost, processing history, and frames in cards. Its status actions are full-width buttons, with Manage lenses as a dashed button under the gear card.
+- Camera details shows Load roll as a full-width button below the lenses.
+- Load roll, Manage lenses, and Lenses used use the form style of the other forms, with a full-width Save or Load button at the bottom.
+
 ## [1.0.0] - 2026-10-03
 
 ### Added
