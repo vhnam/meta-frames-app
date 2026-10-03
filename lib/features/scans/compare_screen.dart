@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models.dart';
 import '../../providers.dart';
 import 'scan_viewer.dart';
+import 'zoomable_scan.dart';
 
 /// M-36 compare Noritsu vs Frontier. Toggle or swipe between the two scans;
 /// previous / next frame buttons keep compare mode.
@@ -103,11 +104,9 @@ class _State extends ConsumerState<CompareScreen> {
                           ),
                         );
                       }
-                      return InteractiveViewer(
-                        maxScale: 6,
-                        child: Center(
-                          child: Image.network(api.absolute(s.fileUrl)),
-                        ),
+                      return ZoomableScan(
+                        key: ValueKey(s.fileUrl),
+                        url: api.absolute(s.fileUrl),
                       );
                     },
                   ),

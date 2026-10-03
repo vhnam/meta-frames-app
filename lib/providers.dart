@@ -94,7 +94,9 @@ final processingProvider = FutureProvider.autoDispose
     );
 final scansProvider = FutureProvider.autoDispose
     .family<List<Scan>, (String, Scanner?)>(
-      (ref, k) => ref.watch(apiProvider).scans(k.$1, scanner: k.$2),
+      (ref, k) async =>
+          [...await ref.watch(apiProvider).scans(k.$1, scanner: k.$2)]
+            ..sort((a, b) => a.frameNumber - b.frameNumber),
     );
 final compareProvider = FutureProvider.autoDispose
     .family<FrameComparison, (String, int)>(

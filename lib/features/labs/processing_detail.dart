@@ -84,52 +84,57 @@ class ProcessingDetailScreen extends ConsumerWidget {
       body: AsyncBody(
         value: v,
         onRefresh: () async => refreshAll(ref),
-        builder: (p) => ListView(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (p.type.hasScans && p.scansReceivedAt == null)
-                    FilledButton.tonal(
-                      onPressed: () =>
-                          markReceived(context, ref, p, negatives: false),
-                      child: const Text('Scans received'),
-                    ),
-                  if (!p.isHome && p.negativesReturnedAt == null)
-                    FilledButton.tonal(
-                      onPressed: () =>
-                          markReceived(context, ref, p, negatives: true),
-                      child: const Text('Negatives returned'),
-                    ),
-                  if (p.type.hasScans)
-                    FilledButton.icon(
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Import scans'),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ImportScansScreen(processingId: p.id),
+        builder: (p) => CustomScrollView(
+          slivers: [
+            SliverList(
+              delegate: SliverChildListDelegate([
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (p.type.hasScans && p.scansReceivedAt == null)
+                        FilledButton.tonal(
+                          onPressed: () =>
+                              markReceived(context, ref, p, negatives: false),
+                          child: const Text('Scans received'),
                         ),
-                      ),
-                    ),
-                ],
-              ),
+                      if (!p.isHome && p.negativesReturnedAt == null)
+                        FilledButton.tonal(
+                          onPressed: () =>
+                              markReceived(context, ref, p, negatives: true),
+                          child: const Text('Negatives returned'),
+                        ),
+                      if (p.type.hasScans)
+                        FilledButton.icon(
+                          icon: const Icon(Icons.upload_file),
+                          label: const Text('Import scans'),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ImportScansScreen(processingId: p.id),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                InfoRow('Where', p.where),
+                InfoRow('Type', p.type.label),
+                InfoRow('Process', p.process.wire),
+                InfoRow('Sent', fmtDate(p.sentAt)),
+                InfoRow('Scans received', fmtDate(p.scansReceivedAt)),
+                if (!p.isHome)
+                  InfoRow('Negatives back', fmtDate(p.negativesReturnedAt)),
+                InfoRow('Price', fmtVnd(p.price)),
+                InfoRow('Notes', p.notes),
+                InfoRow('Status', p.isOpen ? 'Open' : 'Closed'),
+              ]),
             ),
-            InfoRow('Where', p.where),
-            InfoRow('Type', p.type.label),
-            InfoRow('Process', p.process.wire),
-            InfoRow('Sent', fmtDate(p.sentAt)),
-            InfoRow('Scans received', fmtDate(p.scansReceivedAt)),
-            if (!p.isHome)
-              InfoRow('Negatives back', fmtDate(p.negativesReturnedAt)),
-            InfoRow('Price', fmtVnd(p.price)),
-            InfoRow('Notes', p.notes),
-            InfoRow('Status', p.isOpen ? 'Open' : 'Closed'),
             if (p.type.hasScans) ScanGrid(processing: p),
-            const SizedBox(height: 32),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),

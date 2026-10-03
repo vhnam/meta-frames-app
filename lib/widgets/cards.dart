@@ -91,6 +91,8 @@ class CardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Fade through colour alpha: Opacity would force an offscreen layer per row.
+    Color fade(Color c, double a) => dim ? c.withValues(alpha: c.a * a) : c;
     final lead =
         leading ??
         (icon == null
@@ -100,22 +102,26 @@ class CardTile extends StatelessWidget {
                 height: iconSize,
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: cs.outlineVariant,
+                    color: fade(cs.outlineVariant, 0.6),
                     width: kHairline,
                   ),
-                  color:
-                      iconBg ??
-                      (iconSize > 40
-                          ? cs.primaryContainer
-                          : cs.secondaryContainer),
+                  color: fade(
+                    iconBg ??
+                        (iconSize > 40
+                            ? cs.primaryContainer
+                            : cs.secondaryContainer),
+                    0.6,
+                  ),
                   borderRadius: kCorners,
                 ),
                 child: Icon(
                   icon,
                   size: 24,
-                  color:
-                      iconColor ??
-                      (iconSize > 40 ? cs.primary : cs.onSecondaryContainer),
+                  color: fade(
+                    iconColor ??
+                        (iconSize > 40 ? cs.primary : cs.onSecondaryContainer),
+                    0.6,
+                  ),
                 ),
               ));
     return InkWell(
@@ -125,34 +131,33 @@ class CardTile extends StatelessWidget {
         child: Row(
           children: [
             if (lead != null) ...[
-              dim ? Opacity(opacity: 0.6, child: lead) : lead,
+              dim && leading != null
+                  ? Opacity(opacity: 0.6, child: lead)
+                  : lead,
               SizedBox(width: leading != null ? 10 : 12),
             ],
             Expanded(
-              child: Opacity(
-                opacity: dim ? 0.7 : 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: compact ? 14 : 15,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: compact ? 14 : 15,
+                      fontWeight: FontWeight.w600,
+                      color: fade(cs.onSurface, 0.7),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: monoStyle(
-                        letterSpacing: 0.2,
-                        fontSize: compact ? 11.5 : 12.5,
-                        color: subtitleColor ?? cs.onSurfaceVariant,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: monoStyle(
+                      letterSpacing: 0.2,
+                      fontSize: compact ? 11.5 : 12.5,
+                      color: fade(subtitleColor ?? cs.onSurfaceVariant, 0.7),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             if (badge != null) ...[const SizedBox(width: 12), badge!],

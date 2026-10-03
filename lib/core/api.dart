@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -304,12 +305,22 @@ class Api {
       FrameComparison.fromJson(
         await _send('GET', '/processing/$processingId/frames/$n/compare'),
       );
-  Future<List<int>> scanBytes(Scan s) async {
-    final res = await _http.get(Uri.parse(absolute(s.fileUrl)));
+
+  /// Streams a scan to [dest] so the whole file is never held in memory.
+  Future<void> downloadScan(Scan s, File dest) async {
+    final res = await _http.send(
+      http.Request('GET', Uri.parse(absolute(s.fileUrl))),
+    );
     if (res.statusCode != 200) {
       throw ApiException(res.statusCode, 'error', 'Cannot download scan.');
     }
-    return res.bodyBytes;
+    final sink = dest.openWrite();
+    try {
+      await res.stream.pipe(sink);
+    } catch (_) {
+      await dest.delete().catchError((_) => dest);
+      rethrow;
+    }
   }
 
   // Search

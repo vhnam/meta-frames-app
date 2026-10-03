@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Vintage darkroom look: flat paper surfaces, hairline rules, square corners,
 /// Space Grotesk headings, Geist Mono body, JetBrains Mono for labels and data.
@@ -88,6 +87,12 @@ const _dark = ColorScheme(
   scrim: Color(0xFF000000),
 );
 
+// Bundled variable fonts (assets/fonts, declared in pubspec.yaml); nothing is
+// fetched at runtime.
+const _heading = 'SpaceGrotesk';
+const _mono = 'JetBrainsMono';
+const _body = 'GeistMono';
+
 /// Heading face (Space Grotesk).
 TextStyle headingStyle({
   double? fontSize,
@@ -95,7 +100,8 @@ TextStyle headingStyle({
   double? letterSpacing,
   double? height,
   Color? color,
-}) => GoogleFonts.spaceGrotesk(
+}) => TextStyle(
+  fontFamily: _heading,
   fontSize: fontSize,
   fontWeight: fontWeight,
   letterSpacing: letterSpacing,
@@ -110,7 +116,8 @@ TextStyle monoStyle({
   double letterSpacing = 1.0,
   double? height,
   Color? color,
-}) => GoogleFonts.jetBrainsMono(
+}) => TextStyle(
+  fontFamily: _mono,
   fontSize: fontSize,
   fontWeight: fontWeight,
   letterSpacing: letterSpacing,
@@ -129,14 +136,14 @@ const _transitions = PageTransitionsTheme(
 TextTheme _textTheme(ColorScheme cs) {
   final base = ThemeData(brightness: cs.brightness).textTheme
       .apply(bodyColor: cs.onSurface, displayColor: cs.onSurface);
-  TextStyle? b(TextStyle? s) => GoogleFonts.geistMono(textStyle: s);
-  TextStyle? h(TextStyle? s) => GoogleFonts.spaceGrotesk(
-    textStyle: s,
+  TextStyle? b(TextStyle? s) => s?.copyWith(fontFamily: _body);
+  TextStyle? h(TextStyle? s) => s?.copyWith(
+    fontFamily: _heading,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.3,
   );
   TextStyle? m(TextStyle? s) =>
-      GoogleFonts.jetBrainsMono(textStyle: s, letterSpacing: 0.8);
+      s?.copyWith(fontFamily: _mono, letterSpacing: 0.8);
   return TextTheme(
     displayLarge: h(base.displayLarge),
     displayMedium: h(base.displayMedium),

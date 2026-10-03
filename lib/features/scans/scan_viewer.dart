@@ -10,6 +10,7 @@ import '../../providers.dart';
 import '../../widgets/common.dart';
 import 'compare_screen.dart';
 import 'frame_screen.dart';
+import 'zoomable_scan.dart';
 
 /// Full size scan viewer (M-35) with save/share (M-42).
 class ScanViewerScreen extends ConsumerStatefulWidget {
@@ -82,22 +83,8 @@ class _State extends ConsumerState<ScanViewerScreen> {
         controller: page,
         itemCount: widget.scans.length,
         onPageChanged: (i) => setState(() => current = i),
-        itemBuilder: (c, i) => InteractiveViewer(
-          maxScale: 6,
-          child: Center(
-            child: Image.network(
-              api.absolute(widget.scans[i].fileUrl),
-              loadingBuilder: (c, child, p) => p == null
-                  ? child
-                  : const Center(child: CircularProgressIndicator()),
-              errorBuilder: (_, _, _) => const Icon(
-                Icons.broken_image,
-                color: Colors.white54,
-                size: 48,
-              ),
-            ),
-          ),
-        ),
+        itemBuilder: (c, i) =>
+            ZoomableScan(url: api.absolute(widget.scans[i].fileUrl)),
       ),
     );
   }
@@ -107,10 +94,9 @@ class _State extends ConsumerState<ScanViewerScreen> {
 /// (which includes "Save to gallery"-style targets).
 Future<void> shareScan(BuildContext context, WidgetRef ref, Scan s) async {
   try {
-    final bytes = await ref.read(apiProvider).scanBytes(s);
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/${s.fileName}');
-    await file.writeAsBytes(bytes);
+    await ref.read(apiProvider).downloadScan(s, file);
     await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
   } catch (e) {
     if (context.mounted) toast(context, e.toString());

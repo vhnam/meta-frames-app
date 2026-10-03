@@ -7,6 +7,7 @@ import '../../widgets/common.dart';
 import 'scan_viewer.dart';
 
 /// M-35 grid of scans ordered by frame number, switchable per scanner.
+/// Returns slivers: place it directly inside a [CustomScrollView].
 class ScanGrid extends ConsumerStatefulWidget {
   const ScanGrid({super.key, required this.processing});
   final Processing processing;
@@ -21,9 +22,11 @@ class _State extends ConsumerState<ScanGrid> {
   Widget build(BuildContext context) {
     final p = widget.processing;
     if (p.scanners.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text('No scans imported yet.'),
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('No scans imported yet.'),
+        ),
       );
     }
     final sel = scanner != null && p.scanners.contains(scanner)
@@ -31,46 +34,53 @@ class _State extends ConsumerState<ScanGrid> {
         : p.scanners.first;
     final scans = ref.watch(scansProvider((p.id, sel)));
     final api = ref.watch(apiProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader('Scans'),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SegmentedButton<Scanner>(
-            showSelectedIcon: false,
-            segments: [
-              for (final s in p.scanners)
-                ButtonSegment(value: s, label: Text(s.label)),
-            ],
-            selected: {sel},
-            onSelectionChanged: (s) => setState(() => scanner = s.first),
+    return SliverMainAxisGroup(
+      slivers: [
+        const SliverToBoxAdapter(child: SectionHeader('Scans')),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: SegmentedButton<Scanner>(
+              showSelectedIcon: false,
+              segments: [
+                for (final s in p.scanners)
+                  ButtonSegment(value: s, label: Text(s.label)),
+              ],
+              selected: {sel},
+              onSelectionChanged: (s) => setState(() => scanner = s.first),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        scans.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (e, _) =>
-              Padding(padding: const EdgeInsets.all(16), child: Text('$e')),
-          data: (list) {
-            final sorted = [...list]
-              ..sort((a, b) => a.frameNumber - b.frameNumber);
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
+        ...scans.when(
+          loading: () => const [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
               ),
-              itemCount: sorted.length,
-              itemBuilder: (c, i) {
-                final s = sorted[i];
-                return GestureDetector(
+            ),
+          ],
+          error: (e, _) => [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('$e'),
+              ),
+            ),
+          ],
+          data: (sorted) => [
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverGrid.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
+                ),
+                itemCount: sorted.length,
+                itemBuilder: (c, i) => _Thumb(
+                  scan: sorted[i],
+                  url: api.absolute(sorted[i].fileUrl),
                   onTap: () => Navigator.push(
                     c,
                     MaterialPageRoute(
@@ -82,44 +92,50 @@ class _State extends ConsumerState<ScanGrid> {
                       ),
                     ),
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        api.absolute(s.fileUrl),
-                        fit: BoxFit.cover,
-                        cacheWidth: 300,
-                        errorBuilder: (_, _, _) => const ColoredBox(
-                          color: Colors.black12,
-                          child: Icon(Icons.broken_image),
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        bottom: 0,
-                        child: Container(
-                          color: Colors.black54,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          child: Text(
-                            '#${s.frameNumber}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
+}
+
+class _Thumb extends StatelessWidget {
+  const _Thumb({required this.scan, required this.url, required this.onTap});
+  final Scan scan;
+  final String url;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          url,
+          fit: BoxFit.cover,
+          cacheWidth: 300,
+          errorBuilder: (_, _, _) => const ColoredBox(
+            color: Colors.black12,
+            child: Icon(Icons.broken_image),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          bottom: 0,
+          child: Container(
+            color: Colors.black54,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            child: Text(
+              '#${scan.frameNumber}',
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }

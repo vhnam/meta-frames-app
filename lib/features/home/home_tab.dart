@@ -445,17 +445,23 @@ class _Counter extends StatelessWidget {
         borderRadius: kCorners,
         border: Border.all(color: cs.outline, width: kHairline),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            for (var i = 0; i < cells.length; i++) ...[
-              if (i > 0)
-                VerticalDivider(
-                  width: kHairline,
-                  thickness: kHairline,
-                  color: cs.outlineVariant,
+      // Every cell has the same content height, so the hairline dividers are
+      // cell borders rather than IntrinsicHeight + VerticalDivider.
+      child: Row(
+        children: [
+          for (var i = 0; i < cells.length; i++)
+            Expanded(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: i == 0
+                      ? null
+                      : Border(
+                          left: BorderSide(
+                            color: cs.outlineVariant,
+                            width: kHairline,
+                          ),
+                        ),
                 ),
-              Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
@@ -484,9 +490,8 @@ class _Counter extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
