@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/form_kit.dart';
 import '../view_models/settings_actions.dart';
 
 import '../../../routing/navigation.dart';
@@ -19,36 +20,41 @@ class _State extends ConsumerState<SettingsScreen> {
   );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Settings')),
-    body: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        TextField(
-          controller: url,
-          decoration: deco('Server URL', hint: defaultBaseUrl),
-          keyboardType: TextInputType.url,
-        ),
-        const Padding(
-          padding: EdgeInsets.only(top: 4, left: 12),
-          child: Text(
-            'Android emulator reaches the host machine at 10.0.2.2.',
-            style: TextStyle(fontSize: 12),
+  void dispose() {
+    url.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: formAppBar(context, 'Settings'),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          LabeledField(
+            label: 'Server URL',
+            gapAfter: 8,
+            child: TextField(
+              controller: url,
+              decoration: formInputDecoration(defaultBaseUrl, cs),
+              keyboardType: TextInputType.url,
+            ),
           ),
-        ),
-        gap,
-        FilledButton(
-          onPressed: () async {
-            final saved = await ref
-                .read(settingsActionsProvider)
-                .saveBaseUrl(url.text);
-            if (!context.mounted) return;
-            toast(context, 'Saved. Server URL: $saved');
-            context.closeScreen();
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    ),
-  );
+          const FormNote(
+            'Android emulator reaches the host machine at 10.0.2.2.',
+          ),
+          FormSaveBar(label: 'Save', busy: false, onPressed: _save),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final saved = await ref.read(settingsActionsProvider).saveBaseUrl(url.text);
+    if (!mounted) return;
+    toast(context, 'Saved. Server URL: $saved');
+    context.closeScreen();
+  }
 }

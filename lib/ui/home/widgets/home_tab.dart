@@ -8,12 +8,11 @@ import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../../../domain/utils.dart';
 import '../view_models/home_view_model.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
-
-const _followUpDays = 14;
 
 /// M-01 home overview.
 class HomeTab extends ConsumerWidget {
@@ -445,7 +444,7 @@ class _NegativeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final it = item;
     final cs = Theme.of(context).colorScheme;
-    final late = it.daysSinceSent >= _followUpDays;
+    final late = it.daysSinceSent >= followUpDays;
     return CardTile(
       icon: Icons.science,
       iconBg: late ? cs.errorContainer : cs.tertiaryContainer,

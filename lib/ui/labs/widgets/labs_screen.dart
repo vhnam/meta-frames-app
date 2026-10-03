@@ -4,29 +4,39 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/lab_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/form_kit.dart';
 import '../view_models/lab_actions.dart';
 
 /// Add or edit a lab in a dialog. Returns the saved [Lab].
 Future<Lab?> editLab(BuildContext context, WidgetRef ref, [Lab? lab]) {
   final name = TextEditingController(text: lab?.name);
   final address = TextEditingController(text: lab?.address);
+  final cs = Theme.of(context).colorScheme;
   return showDialog<Lab>(
     context: context,
     builder: (c) => AlertDialog(
       title: Text(lab == null ? 'Add lab' : 'Edit lab'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        spacing: 12,
         children: [
-          TextField(
-            controller: name,
-            decoration: deco('Name'),
-            autofocus: true,
+          LabeledField(
+            label: 'Name',
+            child: TextField(
+              controller: name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: formInputDecoration('e.g. Foto Lab', cs),
+            ),
           ),
-          TextField(
-            controller: address,
-            decoration: deco('Address (optional)'),
+          LabeledField(
+            label: 'Address (optional)',
+            gapAfter: 0,
+            child: TextField(
+              controller: address,
+              decoration: formInputDecoration('Street, city', cs),
+            ),
           ),
         ],
       ),
@@ -64,50 +74,84 @@ class LabsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final v = ref.watch(labsProvider);
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Labs')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => editLab(context, ref),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: const Text('Labs'),
+        actions: [
+          TextButton(
+            onPressed: () => editLab(context, ref),
+            child: const Text('+ Add'),
+          ),
+        ],
       ),
       body: AsyncBody(
         value: v,
         onRefresh: () async => ref.refresh(labsProvider.future),
         builder: (labs) {
-          if (labs.isEmpty)
-            return const EmptyState('No labs yet. Tap + to add one.');
-          return ListView.separated(
-            itemCount: labs.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (c, i) {
-              final l = labs[i];
-              return Dismissible(
-                key: ValueKey(l.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  color: Theme.of(c).colorScheme.error,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 16),
-                  child: const Icon(Icons.delete, color: Colors.white),
+          if (labs.isEmpty) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              children: const [
+                EmptyCard(
+                  icon: Icons.store_outlined,
+                  title: 'No labs yet',
+                  text: 'Add the labs you send film to. You pick one each time you send a roll.',
                 ),
-                confirmDismiss: (_) async {
-                  if (!await confirm(c, 'Delete lab?', l.name, ok: 'Delete'))
-                    return false;
-                  if (!c.mounted) return false;
-                  // Server refuses (409) when the lab has processing history.
-                  return guard(
-                    c,
-                    () => ref.read(labActionsProvider).delete(l.id),
-                  );
-                },
-                child: ListTile(
-                  title: Text(l.name),
-                  subtitle: l.address == null ? null : Text(l.address!),
-                  trailing: const Icon(Icons.edit_outlined, size: 18),
-                  onTap: () => editLab(c, ref, l),
-                ),
-              );
-            },
+              ],
+            );
+          }
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            children: [
+              SectionLabel('Labs · ${labs.length}'),
+              const SizedBox(height: 8),
+              CardList(
+                children: [
+                  for (final l in labs)
+                    Dismissible(
+                      key: ValueKey(l.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: cs.error,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Icon(Icons.delete, color: cs.onError),
+                      ),
+                      confirmDismiss: (_) async {
+                        if (!await confirm(
+                          context,
+                          'Delete lab?',
+                          l.name,
+                          ok: 'Delete',
+                        )) {
+                          return false;
+                        }
+                        if (!context.mounted) return false;
+                        // Server refuses (409) when the lab has processing history.
+                        return guard(
+                          context,
+                          () => ref.read(labActionsProvider).delete(l.id),
+                        );
+                      },
+                      child: CardTile(
+                        icon: Icons.store_outlined,
+                        title: l.name,
+                        subtitle: l.address ?? 'No address',
+                        compact: true,
+                        trailing: Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        onTap: () => editLab(context, ref, l),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const FormNote('Swipe a lab left to delete it.'),
+            ],
           );
         },
       ),

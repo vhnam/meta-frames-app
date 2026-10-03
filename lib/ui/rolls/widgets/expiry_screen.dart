@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
-import 'roll_tile.dart';
+import '../view_models/rolls_view_model.dart';
+import 'roll_card.dart';
 
 /// M-23 expired or soon-to-expire in-stock rolls.
 class ExpiryScreen extends ConsumerWidget {
@@ -12,6 +14,8 @@ class ExpiryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final v = ref.watch(expiryProvider);
+    final processes = ref.watch(stockProcessByIdProvider);
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Expiry')),
       body: AsyncBody(
@@ -19,45 +23,76 @@ class ExpiryScreen extends ConsumerWidget {
         onRefresh: () async => ref.refresh(expiryProvider.future),
         builder: (d) {
           if (d.expiring.isEmpty && d.noExpiry.isEmpty) {
-            return const EmptyState('No in-stock rolls to check.');
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              children: const [
+                EmptyCard(
+                  icon: Icons.hourglass_bottom,
+                  title: 'Nothing to check',
+                  text: 'Rolls in stock appear here once you add them.',
+                ),
+              ],
+            );
           }
           return CustomScrollView(
             slivers: [
-              const SliverToBoxAdapter(
-                child: SectionHeader('Expired or expiring within 6 months'),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                sliver: SliverToBoxAdapter(
+                  child: SectionLabel(
+                    'Expired or expiring within 6 months · ${d.expiring.length}',
+                  ),
+                ),
               ),
               if (d.expiring.isEmpty)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('None'),
+                const SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverToBoxAdapter(
+                    child: EmptyCard(
+                      icon: Icons.check_circle_outline,
+                      title: 'All clear',
+                      text: 'No film in stock expires within 6 months.',
+                    ),
                   ),
                 )
               else
-                SliverList.builder(
-                  itemCount: d.expiring.length,
-                  itemBuilder: (context, i) {
-                    final e = d.expiring[i];
-                    return RollTile(
-                      roll: e.roll,
-                      trailing: Text(
-                        e.expired ? 'Expired' : fmtDate(e.expiresOn),
-                        style: TextStyle(
-                          color: e.expired
-                              ? Theme.of(context).colorScheme.error
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.separated(
+                    itemCount: d.expiring.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final e = d.expiring[i];
+                      return RollCard(
+                        roll: e.roll,
+                        process: processes[e.roll.filmStockId],
+                        expiring: true,
+                        extraBadge: e.expired
+                            ? StampBadge('Expired', color: cs.error)
+                            : null,
+                      );
+                    },
+                  ),
                 ),
               if (d.noExpiry.isNotEmpty) ...[
-                const SliverToBoxAdapter(
-                  child: SectionHeader('No expiry information'),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                  sliver: SliverToBoxAdapter(
+                    child: SectionLabel(
+                      'No expiry information · ${d.noExpiry.length}',
+                    ),
+                  ),
                 ),
-                SliverList.builder(
-                  itemCount: d.noExpiry.length,
-                  itemBuilder: (_, i) => RollTile(roll: d.noExpiry[i]),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  sliver: SliverList.separated(
+                    itemCount: d.noExpiry.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) => RollCard(
+                      roll: d.noExpiry[i],
+                      process: processes[d.noExpiry[i].filmStockId],
+                    ),
+                  ),
                 ),
               ],
             ],

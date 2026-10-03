@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/form_kit.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
+/// Film catalog: unused rolls in stock, and every known film stock.
 class FilmTab extends ConsumerStatefulWidget {
   const FilmTab({super.key});
   @override
@@ -19,42 +22,42 @@ class _State extends ConsumerState<FilmTab> {
   String q = '';
   InventoryFilter filter = (type: null, process: null, iso: null);
 
+  static const _listPadding = EdgeInsets.fromLTRB(16, 12, 16, 16);
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      centerTitle: true,
-      title: SegmentedButton<bool>(
-        showSelectedIcon: false,
-        segments: const [
-          ButtonSegment(value: true, label: Text('Inventory')),
-          ButtonSegment(value: false, label: Text('Stocks')),
-        ],
-        selected: {inventory},
-        onSelectionChanged: (s) => setState(() => inventory = s.first),
-      ),
+      title: const Text('Film stocks'),
+      actions: [
+        TextButton(
+          onPressed: () =>
+              context.push(inventory ? Routes.rollNew() : Routes.stockNew),
+          child: Text(inventory ? '+ Rolls' : '+ Stock'),
+        ),
+      ],
     ),
-    floatingActionButton: inventory
-        ? FloatingActionButton.extended(
-            icon: const Icon(Icons.add),
-            label: const Text('Add rolls'),
-            onPressed: () => context.push(Routes.rollNew()),
-          )
-        : FloatingActionButton(
-            child: const Icon(Icons.add),
-            onPressed: () => context.push(Routes.stockNew),
-          ),
-    body: inventory ? _inventory() : _stocks(),
+    body: Column(
+      children: [
+        SegmentSwitcher(
+          labels: const ['Inventory', 'Stocks'],
+          selected: inventory ? 0 : 1,
+          onChanged: (i) => setState(() => inventory = i == 0),
+        ),
+        Expanded(child: inventory ? _inventory() : _stocks()),
+      ],
+    ),
   );
 
   Widget _inventory() {
     final v = ref.watch(inventoryProvider(filter));
+    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Row(
-            spacing: 8,
+        SizedBox(
+          height: 60,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             children: [
               PopupMenuButton<String?>(
                 onSelected: (v) => setState(
@@ -72,8 +75,12 @@ class _State extends ConsumerState<FilmTab> {
                       child: Text(t.name.toUpperCase()),
                     ),
                 ],
-                child: Chip(label: Text(filter.type?.toUpperCase() ?? 'Type')),
+                child: FilterPill(
+                  label: filter.type ?? 'Type',
+                  on: filter.type != null,
+                ),
               ),
+              const SizedBox(width: 6),
               PopupMenuButton<String?>(
                 onSelected: (v) => setState(
                   () =>
@@ -84,8 +91,12 @@ class _State extends ConsumerState<FilmTab> {
                   for (final p in Process.values)
                     PopupMenuItem(value: p.wire, child: Text(p.wire)),
                 ],
-                child: Chip(label: Text(filter.process ?? 'Process')),
+                child: FilterPill(
+                  label: filter.process ?? 'Process',
+                  on: filter.process != null,
+                ),
               ),
+              const SizedBox(width: 6),
               PopupMenuButton<int?>(
                 onSelected: (v) => setState(
                   () => filter = (
@@ -99,8 +110,9 @@ class _State extends ConsumerState<FilmTab> {
                   for (final i in [50, 100, 200, 400, 800, 1600, 3200])
                     PopupMenuItem(value: i, child: Text('ISO $i')),
                 ],
-                child: Chip(
-                  label: Text(filter.iso == null ? 'ISO' : 'ISO ${filter.iso}'),
+                child: FilterPill(
+                  label: filter.iso == null ? 'ISO' : 'ISO ${filter.iso}',
+                  on: filter.iso != null,
                 ),
               ),
             ],
@@ -112,26 +124,44 @@ class _State extends ConsumerState<FilmTab> {
             onRefresh: () async =>
                 ref.refresh(inventoryProvider(filter).future),
             builder: (items) {
-              if (items.isEmpty)
-                return const EmptyState('No unused rolls in stock.');
-              return ListView.separated(
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (c, i) {
-                  final it = items[i];
-                  return ListTile(
-                    title: Text(it.stock.label),
-                    subtitle: Text(
-                      [
-                        for (final f in it.formats) '${f.$2} × ${f.$1}',
-                        'ISO ${it.stock.boxIso}',
-                        it.stock.process.wire,
-                        if (it.soonestExpiry != null) 'exp ${it.soonestExpiry}',
-                      ].join(' · '),
+              if (items.isEmpty) {
+                return ListView(
+                  padding: _listPadding,
+                  children: const [
+                    EmptyCard(
+                      icon: Icons.inventory_2_outlined,
+                      title: 'No unused rolls',
+                      text: 'Rolls you add to stock show up here until you load them into a camera.',
                     ),
-                    onTap: () => context.push(Routes.stock(it.stock.id)),
-                  );
-                },
+                  ],
+                );
+              }
+              return ListView(
+                padding: _listPadding,
+                children: [
+                  SectionLabel('In stock · ${items.length}'),
+                  const SizedBox(height: 8),
+                  CardList(
+                    children: [
+                      for (final it in items)
+                        CardTile(
+                          icon: Icons.local_movies_outlined,
+                          iconBg: cs.surfaceContainer,
+                          iconColor: cs.onSurfaceVariant,
+                          title: it.stock.label,
+                          subtitle: [
+                            for (final f in it.formats) '${f.$2} × ${f.$1}',
+                            'ISO ${it.stock.boxIso}',
+                            if (it.soonestExpiry != null)
+                              'exp ${it.soonestExpiry}',
+                          ].join(' · '),
+                          compact: true,
+                          badge: ProcessBadge(it.stock.process),
+                          onTap: () => context.push(Routes.stock(it.stock.id)),
+                        ),
+                    ],
+                  ),
+                ],
               );
             },
           ),
@@ -142,15 +172,16 @@ class _State extends ConsumerState<FilmTab> {
 
   Widget _stocks() {
     final v = ref.watch(stocksProvider);
+    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'Search stocks',
-              prefixIcon: Icon(Icons.search),
-            ),
+            decoration: formInputDecoration(
+              'Search stocks',
+              cs,
+            ).copyWith(prefixIcon: const Icon(Icons.search)),
             onChanged: (s) => setState(() => q = s.toLowerCase()),
           ),
         ),
@@ -162,17 +193,42 @@ class _State extends ConsumerState<FilmTab> {
               final shown =
                   all.where((s) => s.label.toLowerCase().contains(q)).toList()
                     ..sort((a, b) => a.label.compareTo(b.label));
-              if (shown.isEmpty) return const EmptyState('No film stocks.');
-              return ListView.separated(
-                itemCount: shown.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (c, i) => ListTile(
-                  title: Text(shown[i].label),
-                  subtitle: Text(
-                    '${shown[i].type.name.toUpperCase()} · ISO ${shown[i].boxIso} · ${shown[i].process.wire} · ${shown[i].packaging.name}',
+              if (shown.isEmpty) {
+                return ListView(
+                  padding: _listPadding,
+                  children: [
+                    EmptyCard(
+                      icon: Icons.local_movies_outlined,
+                      title: q.isEmpty ? 'No film stocks' : 'No match',
+                      text: q.isEmpty
+                          ? 'Add the films you shoot to build your catalog.'
+                          : 'No film stock matches your search.',
+                    ),
+                  ],
+                );
+              }
+              return ListView(
+                padding: _listPadding,
+                children: [
+                  SectionLabel('Stocks · ${shown.length}'),
+                  const SizedBox(height: 8),
+                  CardList(
+                    children: [
+                      for (final s in shown)
+                        CardTile(
+                          icon: Icons.local_movies_outlined,
+                          iconBg: cs.surfaceContainer,
+                          iconColor: cs.onSurfaceVariant,
+                          title: s.label,
+                          subtitle:
+                              '${s.type.name.toUpperCase()} · ISO ${s.boxIso} · ${s.packaging.name}',
+                          compact: true,
+                          badge: ProcessBadge(s.process),
+                          onTap: () => context.push(Routes.stock(s.id)),
+                        ),
+                    ],
                   ),
-                  onTap: () => context.push(Routes.stock(shown[i].id)),
-                ),
+                ],
               );
             },
           ),

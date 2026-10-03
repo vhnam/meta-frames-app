@@ -168,3 +168,205 @@ class CardTile extends StatelessWidget {
     );
   }
 }
+
+/// Mono uppercase label above a group of cards.
+class SectionLabel extends StatelessWidget {
+  const SectionLabel(this.text, {super.key});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text.toUpperCase(),
+    style: monoStyle(
+      fontWeight: FontWeight.w600,
+      letterSpacing: 1.6,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+  );
+}
+
+/// Bordered card for a list with nothing in it: icon, title, one explanation.
+class EmptyCard extends StatelessWidget {
+  const EmptyCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+  final IconData icon;
+  final String title, text;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      decoration: BoxDecoration(
+        borderRadius: kCorners,
+        border: Border.all(color: cs.outline, width: kHairline),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: kCorners,
+            ),
+            child: Icon(icon, size: 24, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: 240,
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-width segmented switch under a screen header (Cameras / Lenses).
+class SegmentSwitcher extends StatelessWidget {
+  const SegmentSwitcher({
+    super.key,
+    required this.labels,
+    required this.selected,
+    required this.onChanged,
+  });
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget seg(int i) {
+      final on = selected == i;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: on,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(i),
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: on ? cs.surface : null,
+                borderRadius: kCorners,
+                border: on
+                    ? Border.all(color: cs.outline, width: kHairline)
+                    : null,
+              ),
+              child: Text(
+                labels[i],
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+                  color: on ? cs.onSurface : cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: cs.outlineVariant, width: 0.65),
+        ),
+      ),
+      child: Container(
+        height: 45,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: kCorners,
+        ),
+        child: Row(
+          children: [
+            for (var i = 0; i < labels.length; i++) ...[
+              if (i > 0) const SizedBox(width: 2),
+              seg(i),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Mono pill used for filters and status chips.
+class FilterPill extends StatelessWidget {
+  const FilterPill({
+    super.key,
+    required this.label,
+    required this.on,
+    this.onTap,
+  });
+  final String label;
+  final bool on;
+
+  /// Null when the pill only decorates a control that handles the tap, such as
+  /// a popup menu.
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = on ? cs.onPrimaryContainer : cs.onSurfaceVariant;
+    return Semantics(
+      button: true,
+      selected: on,
+      child: InkWell(
+        borderRadius: kCorners,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: on ? cs.primaryContainer : null,
+            borderRadius: kCorners,
+            border: Border.all(
+              color: on ? cs.onPrimaryContainer : cs.outlineVariant,
+              width: kHairline,
+            ),
+          ),
+          child: Text(
+            label.toUpperCase(),
+            style: monoStyle(
+              fontSize: 11.5,
+              fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: 1.0,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

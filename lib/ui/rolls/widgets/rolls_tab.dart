@@ -11,6 +11,9 @@ import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
+import '../../core/widgets/cards.dart';
+import 'roll_card.dart';
+
 /// M-22 browse rolls by status with filters.
 class RollsTab extends ConsumerWidget {
   const RollsTab({super.key});
@@ -72,7 +75,7 @@ class RollsTab extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                     itemCount: rs.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) => _RollCard(
+                    itemBuilder: (_, i) => RollCard(
                       roll: rs[i],
                       process: processes[rs[i].filmStockId],
                       expiring: expiring.contains(rs[i].id),
@@ -219,41 +222,11 @@ class _StatusChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    Widget chip(String label, RollStatus? value, int? count) {
-      final on = selected == value;
-      final color = on ? cs.onPrimaryContainer : cs.onSurfaceVariant;
-      return Semantics(
-        button: true,
-        selected: on,
-        child: InkWell(
-          borderRadius: kCorners,
-          onTap: () => onSelected(value),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 40),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: on ? cs.primaryContainer : null,
-              borderRadius: kCorners,
-              border: Border.all(
-                color: on ? cs.onPrimaryContainer : cs.outlineVariant,
-                width: kHairline,
-              ),
-            ),
-            child: Text(
-              '${label.toUpperCase()}${count == null ? '' : ' $count'}',
-              style: monoStyle(
-                fontSize: 11.5,
-                fontWeight: on ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: 1.0,
-                color: color,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    Widget chip(String label, RollStatus? value, int? count) => FilterPill(
+      label: '$label${count == null ? '' : ' $count'}',
+      on: selected == value,
+      onTap: () => onSelected(value),
+    );
 
     int? count(RollStatus? s) => counts?[s];
 
@@ -274,112 +247,6 @@ class _StatusChips extends StatelessWidget {
   }
 }
 
-/// One roll: status-tinted icon, name, meta line, status + process stamps.
-class _RollCard extends StatelessWidget {
-  const _RollCard({
-    required this.roll,
-    required this.process,
-    required this.expiring,
-  });
-  final RollSummary roll;
-  final Process? process;
-  final bool expiring;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tone = statusTone(context, roll.status);
-    final meta = [
-      '${roll.format} · ${roll.exposures} exp',
-      if (roll.cameraName != null) roll.cameraName!,
-      if (roll.shotIso != null) 'ISO ${roll.shotIso}',
-      if (roll.startedAt != null) fmtDate(roll.startedAt),
-      if (roll.expiry != null && roll.status == RollStatus.inStock)
-        'exp ${roll.expiry}',
-    ].join(' · ');
-    return Material(
-      color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: kCorners,
-        side: BorderSide(
-          color: expiring ? cs.error.withValues(alpha: 0.5) : cs.outlineVariant,
-          width: kHairline,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.push(Routes.roll(roll.id)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: tone.withValues(alpha: 0.1),
-                  borderRadius: kCorners,
-                  border: Border.all(
-                    color: tone.withValues(alpha: 0.5),
-                    width: kHairline,
-                  ),
-                ),
-                child: Icon(Icons.movie_outlined, size: 22, color: tone),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      roll.stockLabel,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      meta,
-                      style: monoStyle(
-                        letterSpacing: 0.2,
-                        fontSize: 12,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        StatusChip(roll.status),
-                        if (process != null) ProcessBadge(process!),
-                        if (roll.negativesAtLab)
-                          StampBadge(
-                            'Negatives at lab',
-                            color: cs.onPrimaryContainer,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (expiring) ...[
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'Expiring soon',
-                  child: Icon(Icons.warning_rounded, size: 18, color: cs.error),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Shown on every chip when the user has logged no rolls at all. Same card
 /// as the Gear empty state; the add action lives in the header.
 class _NoRolls extends StatelessWidget {
@@ -391,52 +258,10 @@ class _NoRolls extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          decoration: BoxDecoration(
-            borderRadius: kCorners,
-            border: Border.all(color: cs.outline, width: kHairline),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainer,
-                  borderRadius: kCorners,
-                ),
-                child: Icon(
-                  Icons.movie_outlined,
-                  size: 24,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'No rolls yet',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: 240,
-                child: Text(
-                  'Log the film you own, then track each roll from stock to camera, lab and scans.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.5,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        const EmptyCard(
+          icon: Icons.movie_outlined,
+          title: 'No rolls yet',
+          text: 'Log the film you own, then track each roll from stock to camera, lab and scans.',
         ),
         const SizedBox(height: 20),
         Row(

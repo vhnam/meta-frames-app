@@ -187,10 +187,13 @@ void main() {
     await tester.pumpWidget(app(const ExpiryScreen(), rolls: rolls));
     await tester.pumpAndSettle();
 
-    expect(find.text('EXPIRED OR EXPIRING WITHIN 6 MONTHS'), findsOneWidget);
+    expect(
+      find.text('EXPIRED OR EXPIRING WITHIN 6 MONTHS · 1'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Superia'), findsOneWidget);
-    expect(find.text('Expired'), findsOneWidget);
-    expect(find.text('NO EXPIRY INFORMATION'), findsOneWidget);
+    expect(find.text('EXPIRED'), findsOneWidget);
+    expect(find.text('NO EXPIRY INFORMATION · 1'), findsOneWidget);
     expect(find.textContaining('HP5'), findsOneWidget);
   });
 }

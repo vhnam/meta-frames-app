@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:meta_frames/data/repositories/camera_repository.dart';
 import 'package:meta_frames/data/repositories/film_stock_repository.dart';
+import 'package:meta_frames/data/repositories/lab_repository.dart';
 import 'package:meta_frames/data/repositories/lens_repository.dart';
 import 'package:meta_frames/data/repositories/processing_repository.dart';
 import 'package:meta_frames/data/repositories/roll_repository.dart';
@@ -377,8 +378,10 @@ class FakeFilmStockRepository implements FilmStockRepository {
 }
 
 class FakeProcessingRepository implements ProcessingRepository {
+  List<NegativesAtLabItem> atLab = [];
+
   @override
-  Future<List<NegativesAtLabItem>> negativesAtLab() async => const [];
+  Future<List<NegativesAtLabItem>> negativesAtLab() async => atLab;
 
   @override
   Future<List<Processing>> forRoll(String rollId) async => const [];
@@ -405,3 +408,23 @@ FilmStock stock(String id, {String brand = 'Kodak', String name = 'Gold'}) =>
       'process': 'C-41',
       'packaging': 'factory',
     });
+
+class FakeLabRepository implements LabRepository {
+  FakeLabRepository([List<Lab> labs = const []]) : all = [...labs];
+  List<Lab> all;
+
+  @override
+  Future<List<Lab>> labs() async => all;
+
+  @override
+  Future<Lab> create(LabEdit lab) async =>
+      Lab.fromJson({'id': 'new', 'name': lab.name, 'address': lab.address});
+  @override
+  Future<Lab> update(String id, LabEdit lab) async =>
+      all.firstWhere((l) => l.id == id);
+  @override
+  Future<void> delete(String id) async => all.removeWhere((l) => l.id == id);
+}
+
+Lab lab(String id, String name, {String? address}) =>
+    Lab.fromJson({'id': id, 'name': name, 'address': address});

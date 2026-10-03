@@ -181,7 +181,7 @@ void main() {
       router.push(Routes.settings);
       await tester.pumpAndSettle();
       expect(find.text('Settings'), findsWidgets);
-      expect(find.text('Server URL'), findsOneWidget);
+      expect(find.text('SERVER URL'), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
     });
   });
