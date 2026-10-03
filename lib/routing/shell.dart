@@ -41,6 +41,11 @@ class AppShell extends StatelessWidget {
             selectedIcon: Icon(Icons.movie),
             label: 'Rolls',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.more_horiz),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: 'More',
+          ),
         ],
       ),
     ),

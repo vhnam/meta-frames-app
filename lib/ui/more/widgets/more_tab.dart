@@ -1,45 +1,51 @@
 import 'package:flutter/material.dart';
-
-import '../../../routing/routes.dart';
-
 import 'package:go_router/go_router.dart';
 
+import '../../../routing/routes.dart';
+import '../../core/widgets/common.dart';
+
+/// Everything that is not a main tab: search, film stocks, expiry, labs and
+/// settings.
 class MoreTab extends StatelessWidget {
   const MoreTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    void open(String route) => context.push(route);
+    Widget entry(IconData icon, String title, String route) => ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => context.push(route),
+    );
     return Scaffold(
-      appBar: AppBar(title: const Text('More')),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.search),
-            title: const Text('Search rolls'),
-            onTap: () => open(Routes.search),
-          ),
-          ListTile(
-            leading: const Icon(Icons.hourglass_bottom),
-            title: const Text('Expiry'),
-            onTap: () => open(Routes.expiry),
-          ),
-          ListTile(
-            leading: const Icon(Icons.local_shipping_outlined),
-            title: const Text('Negatives at lab'),
-            onTap: () => open(Routes.negativesAtLab),
-          ),
-          ListTile(
-            leading: const Icon(Icons.store_outlined),
-            title: const Text('Labs'),
-            onTap: () => open(Routes.labs),
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Settings'),
-            onTap: () => open(Routes.settings),
-          ),
-        ],
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const ScreenHeader(kicker: 'MetaFrames · Tools', title: 'More'),
+            Expanded(
+              child: ListView(
+                children: [
+                  entry(Icons.search, 'Search rolls', Routes.search),
+                  entry(
+                    Icons.local_movies_outlined,
+                    'Film stocks',
+                    Routes.film,
+                  ),
+                  entry(Icons.hourglass_bottom, 'Expiry', Routes.expiry),
+                  entry(
+                    Icons.local_shipping_outlined,
+                    'Negatives at lab',
+                    Routes.negativesAtLab,
+                  ),
+                  entry(Icons.store_outlined, 'Labs', Routes.labs),
+                  entry(Icons.settings_outlined, 'Settings', Routes.settings),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

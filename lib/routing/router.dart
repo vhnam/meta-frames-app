@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../domain/models/models.dart';
 import '../providers.dart';
+import '../ui/film/widgets/film_tab.dart';
 import '../ui/film/widgets/stock_detail.dart';
 import '../ui/film/widgets/stock_form.dart';
 import '../ui/gear/widgets/camera_detail.dart';
@@ -17,6 +18,7 @@ import '../ui/labs/widgets/labs_screen.dart';
 import '../ui/labs/widgets/negatives_at_lab.dart';
 import '../ui/labs/widgets/processing_detail.dart';
 import '../ui/labs/widgets/send_roll.dart';
+import '../ui/more/widgets/more_tab.dart';
 import '../ui/more/widgets/search_screen.dart';
 import '../ui/more/widgets/settings_screen.dart';
 import '../ui/rolls/widgets/add_rolls.dart';
@@ -62,10 +64,16 @@ GoRouter buildRouter({String initialLocation = Routes.home}) => GoRouter(
             GoRoute(path: Routes.rolls, builder: (_, _) => const RollsTab()),
           ],
         ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: Routes.more, builder: (_, _) => const MoreTab()),
+          ],
+        ),
       ],
     ),
 
     // Secondary screens.
+    _route(Routes.film, (_) => const FilmTab()),
     _route(Routes.expiry, (_) => const ExpiryScreen()),
     _route(Routes.labs, (_) => const LabsScreen()),
     _route(Routes.negativesAtLab, (_) => const NegativesAtLabScreen()),

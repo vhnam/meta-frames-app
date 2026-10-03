@@ -214,4 +214,46 @@ void main() {
       expect(_location(router), Routes.rolls);
     });
   });
+
+  group('More tab', () {
+    testWidgets('lists every secondary screen', (tester) async {
+      await pumpRouter(tester);
+      await tester.tap(find.text('More'));
+      await tester.pumpAndSettle();
+
+      for (final label in [
+        'Search rolls',
+        'Film stocks',
+        'Expiry',
+        'Negatives at lab',
+        'Labs',
+        'Settings',
+      ]) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+    });
+
+    testWidgets('each entry opens its screen over the tab bar', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.more);
+      final entries = {
+        'Search rolls': Routes.search,
+        'Film stocks': Routes.film,
+        'Expiry': Routes.expiry,
+        'Negatives at lab': Routes.negativesAtLab,
+        'Labs': Routes.labs,
+        'Settings': Routes.settings,
+      };
+
+      for (final e in entries.entries) {
+        await tester.tap(find.text(e.key));
+        await tester.pumpAndSettle();
+        expect(_location(router), e.value, reason: e.key);
+        expect(find.byType(NavigationBar), findsNothing);
+
+        router.pop();
+        await tester.pumpAndSettle();
+        expect(_location(router), Routes.more);
+      }
+    });
+  });
 }

@@ -7,8 +7,10 @@ abstract final class Routes {
   static const home = '/home';
   static const gear = '/gear';
   static const rolls = '/rolls';
+  static const more = '/more';
 
   // Secondary screens.
+  static const film = '/film';
   static const expiry = '/expiry';
   static const labs = '/labs';
   static const negativesAtLab = '/negatives-at-lab';
