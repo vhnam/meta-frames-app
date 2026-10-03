@@ -7,6 +7,17 @@ This plan compares the app against two Flutter guides and lists changes in prior
 
 The audit covers the 43 Dart files under `lib/`. Counts come from searching the source. The performance items have not yet been confirmed by profiling.
 
+## Status
+
+| Phase | State | Notes |
+|---|---|---|
+| 0. Guardrails | Done, except the baseline | The five lints are on. The DevTools baseline on a device is still to do. |
+| 1. Performance | Done, except the long lists and helper methods | Scan grid, scan decoding, scan download, fonts, `Opacity` and the home counter are fixed. The gear, home and detail lists keep `ListView(children:)` because they hold a few dozen items inside one grouped card. The 18 `Widget _buildX()` helpers are not converted. |
+| 2. Data layer | Done, except value equality | `ApiClient`, one repository per domain (abstract and remote), typed requests for every write, and files moved into `data/`, `domain/` and `ui/`. `RollFilter` has value equality. Other models still have no `==` or `copyWith`. |
+| 3. UI layer | Done, with two deviations | No widget reads a repository or calls `refreshAll`. Logic is in view models, actions classes and derived providers. Commands are not used: `guard()` already handles the running and error states in one place. Query providers still live in `lib/providers.dart` instead of per-feature files. |
+| 4. Navigation | Not started | Optional. |
+| 5. Tests | Mostly done | Fake repositories in `test/testing/`, view model and action tests, and widget smoke tests for the Rolls, Load roll, Gear and Home screens. There are no repository tests against a mock `http.Client` yet. |
+
 ## Current state
 
 ### Already aligned

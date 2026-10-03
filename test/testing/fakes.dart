@@ -1,10 +1,14 @@
 import 'dart:io';
 
 import 'package:meta_frames/data/repositories/camera_repository.dart';
+import 'package:meta_frames/data/repositories/film_stock_repository.dart';
 import 'package:meta_frames/data/repositories/lens_repository.dart';
+import 'package:meta_frames/data/repositories/processing_repository.dart';
 import 'package:meta_frames/data/repositories/roll_repository.dart';
 import 'package:meta_frames/data/repositories/scan_repository.dart';
+import 'package:meta_frames/domain/models/film_requests.dart';
 import 'package:meta_frames/domain/models/gear_requests.dart';
+import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
 
@@ -346,3 +350,56 @@ class FakeScanRepository implements ScanRepository {
   @override
   Future<void> download(Scan s, File dest) => throw UnimplementedError();
 }
+
+class FakeFilmStockRepository implements FilmStockRepository {
+  FakeFilmStockRepository([this.all = const []]);
+  List<FilmStock> all;
+
+  @override
+  Future<List<FilmStock>> stocks({String? q}) async => all;
+
+  @override
+  Future<FilmStockDetail> stock(String id) => throw UnimplementedError();
+  @override
+  Future<FilmStockDetail> create(FilmStockEdit stock) =>
+      throw UnimplementedError();
+  @override
+  Future<FilmStockDetail> update(String id, FilmStockEdit stock) =>
+      throw UnimplementedError();
+  @override
+  Future<List<InventoryItem>> inventory({
+    String? type,
+    String? process,
+    int? iso,
+  }) async => const [];
+}
+
+class FakeProcessingRepository implements ProcessingRepository {
+  @override
+  Future<List<NegativesAtLabItem>> negativesAtLab() async => const [];
+
+  @override
+  Future<List<Processing>> forRoll(String rollId) async => const [];
+  @override
+  Future<Processing> send(String rollId, NewProcessing job) =>
+      throw UnimplementedError();
+  @override
+  Future<Processing> processing(String id) => throw UnimplementedError();
+  @override
+  Future<Processing> scansReceived(String id, DateTime date) =>
+      throw UnimplementedError();
+  @override
+  Future<Processing> negativesReturned(String id, DateTime date) =>
+      throw UnimplementedError();
+}
+
+FilmStock stock(String id, {String brand = 'Kodak', String name = 'Gold'}) =>
+    FilmStock.fromJson({
+      'id': id,
+      'brand': brand,
+      'name': name,
+      'type': 'color',
+      'boxIso': 200,
+      'process': 'C-41',
+      'packaging': 'factory',
+    });
