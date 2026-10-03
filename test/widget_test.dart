@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/app.dart';
-import 'package:meta_frames/core/models.dart';
-import 'package:meta_frames/features/rolls/load_roll.dart';
-import 'package:meta_frames/features/scans/scan_grid.dart';
+import 'package:meta_frames/domain/models/models.dart';
+import 'package:meta_frames/ui/rolls/widgets/load_roll.dart';
+import 'package:meta_frames/ui/scans/widgets/scan_grid.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

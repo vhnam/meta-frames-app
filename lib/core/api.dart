@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-import 'models.dart';
+import '../domain/models/models.dart';
 
 const defaultBaseUrl = 'http://10.0.2.2:8080';
 const _baseUrlKey = 'base_url';

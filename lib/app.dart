@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'core/theme.dart';
-import 'features/gear/gear_tab.dart';
-import 'features/home/home_tab.dart';
-import 'features/rolls/rolls_tab.dart';
+import 'ui/core/theme.dart';
+import 'ui/gear/widgets/gear_tab.dart';
+import 'ui/home/widgets/home_tab.dart';
+import 'ui/rolls/widgets/rolls_tab.dart';
 
 /// Same scroll feel on every platform: no iOS bounce, no platform scrollbar swap.
 class _UniversalScroll extends MaterialScrollBehavior {
