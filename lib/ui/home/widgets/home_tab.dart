@@ -84,10 +84,9 @@ class HomeTab extends ConsumerWidget {
                                 gap: 8,
                                 children: [
                                   for (final c in items)
-                                    _loadedCamera(
-                                      context,
-                                      c,
-                                      stocks[c.loadedRoll!.stockId],
+                                    _LoadedCameraTile(
+                                      camera: c,
+                                      stock: stocks[c.loadedRoll!.stockId],
                                     ),
                                 ],
                               ),
@@ -102,10 +101,9 @@ class HomeTab extends ConsumerWidget {
                                 gap: 8,
                                 children: [
                                   for (final r in items)
-                                    _readyRoll(
-                                      context,
-                                      r,
-                                      stocks[r.filmStockId],
+                                    _ReadyRollTile(
+                                      roll: r,
+                                      stock: stocks[r.filmStockId],
                                     ),
                                 ],
                               ),
@@ -122,7 +120,7 @@ class HomeTab extends ConsumerWidget {
                               builder: (items) => CardList(
                                 children: [
                                   for (final it in items)
-                                    _negative(context, it),
+                                    _NegativeTile(item: it),
                                 ],
                               ),
                             ),
@@ -137,10 +135,9 @@ class HomeTab extends ConsumerWidget {
                                     .withValues(alpha: 0.5),
                                 children: [
                                   for (final e in items)
-                                    _expiring(
-                                      context,
-                                      e,
-                                      stocks[e.roll.filmStockId],
+                                    _ExpiringTile(
+                                      item: e,
+                                      stock: stocks[e.roll.filmStockId],
                                     ),
                                 ],
                               ),
@@ -155,102 +152,6 @@ class HomeTab extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _loadedCamera(BuildContext context, Camera c, FilmStock? stock) {
-    final r = c.loadedRoll!;
-    final iso = r.shotIso ?? stock?.boxIso;
-    final pushed =
-        r.shotIso != null && stock != null && r.shotIso != stock.boxIso;
-    final subtitle = [
-      '${r.stockBrand} ${r.stockName}',
-      if (iso != null) 'ISO $iso (${pushed ? 'pushed/pulled' : 'box'})',
-      '${r.daysLoaded}d',
-    ].join(' · ');
-    return CardTile(
-      icon: Icons.photo_camera,
-      iconSize: 44,
-      title: c.name,
-      subtitle: subtitle,
-      badge: stock == null ? null : ProcessBadge(stock.process),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => CameraDetailScreen(cameraId: c.id)),
-      ),
-    );
-  }
-
-  Widget _readyRoll(BuildContext context, RollSummary r, FilmStock? stock) =>
-      CardTile(
-        icon: Icons.movie_outlined,
-        title: r.stockLabel,
-        subtitle: [
-          '${r.format} · ${r.exposures} exp',
-          if (r.finishedAt != null)
-            'finished ${r.finishedAt!.toIso8601String().substring(0, 10)}',
-        ].join(' · '),
-        compact: true,
-        trailing: FilledButton(
-          style: FilledButton.styleFrom(
-            minimumSize: Size.zero,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          onPressed: stock == null
-              ? null
-              : () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SendRollScreen(roll: r, stock: stock),
-                  ),
-                ),
-          child: const Text('Send'),
-        ),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: r.id)),
-        ),
-      );
-
-  Widget _negative(BuildContext context, NegativesAtLabItem it) {
-    final cs = Theme.of(context).colorScheme;
-    final late = it.daysSinceSent >= _followUpDays;
-    return CardTile(
-      icon: Icons.science,
-      iconBg: late ? cs.errorContainer : cs.tertiaryContainer,
-      iconColor: late ? cs.error : cs.onTertiaryContainer,
-      title: it.stockName,
-      subtitle:
-          '${it.labName} · ${it.daysSinceSent}d ago${late ? ' · follow up?' : ''}',
-      subtitleColor: late ? cs.error : null,
-      compact: true,
-      trailing: late
-          ? Icon(Icons.warning_rounded, size: 18, color: cs.error)
-          : null,
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: it.rollId)),
-      ),
-    );
-  }
-
-  Widget _expiring(BuildContext context, ExpiryRoll e, FilmStock? stock) {
-    final cs = Theme.of(context).colorScheme;
-    return CardTile(
-      leading: Icon(Icons.warning_rounded, size: 18, color: cs.error),
-      title: e.roll.stockLabel,
-      subtitle: e.expired
-          ? 'Expired ${e.roll.expiry ?? ''}'.trim()
-          : 'Expires ${e.roll.expiry ?? fmtDate(e.expiresOn)}',
-      subtitleColor: cs.error,
-      compact: true,
-      badge: stock == null ? null : ProcessBadge(stock.process),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: e.roll.id)),
       ),
     );
   }
@@ -472,6 +373,134 @@ class _Counter extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _LoadedCameraTile extends StatelessWidget {
+  const _LoadedCameraTile({required this.camera, required this.stock});
+  final Camera camera;
+  final FilmStock? stock;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = camera;
+    final r = c.loadedRoll!;
+    final iso = r.shotIso ?? stock?.boxIso;
+    final pushed =
+        r.shotIso != null && stock != null && r.shotIso != stock!.boxIso;
+    final subtitle = [
+      '${r.stockBrand} ${r.stockName}',
+      if (iso != null) 'ISO $iso (${pushed ? 'pushed/pulled' : 'box'})',
+      '${r.daysLoaded}d',
+    ].join(' · ');
+    return CardTile(
+      icon: Icons.photo_camera,
+      iconSize: 44,
+      title: c.name,
+      subtitle: subtitle,
+      badge: stock == null ? null : ProcessBadge(stock!.process),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => CameraDetailScreen(cameraId: c.id)),
+      ),
+    );
+  }
+}
+
+class _ReadyRollTile extends StatelessWidget {
+  const _ReadyRollTile({required this.roll, required this.stock});
+  final RollSummary roll;
+  final FilmStock? stock;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = roll;
+    return CardTile(
+      icon: Icons.movie_outlined,
+      title: r.stockLabel,
+      subtitle: [
+        '${r.format} · ${r.exposures} exp',
+        if (r.finishedAt != null)
+          'finished ${r.finishedAt!.toIso8601String().substring(0, 10)}',
+      ].join(' · '),
+      compact: true,
+      trailing: FilledButton(
+        style: FilledButton.styleFrom(
+          minimumSize: Size.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onPressed: stock == null
+            ? null
+            : () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SendRollScreen(roll: r, stock: stock!),
+                ),
+              ),
+        child: const Text('Send'),
+      ),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: r.id)),
+      ),
+    );
+  }
+}
+
+class _NegativeTile extends StatelessWidget {
+  const _NegativeTile({required this.item});
+  final NegativesAtLabItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final it = item;
+    final cs = Theme.of(context).colorScheme;
+    final late = it.daysSinceSent >= _followUpDays;
+    return CardTile(
+      icon: Icons.science,
+      iconBg: late ? cs.errorContainer : cs.tertiaryContainer,
+      iconColor: late ? cs.error : cs.onTertiaryContainer,
+      title: it.stockName,
+      subtitle:
+          '${it.labName} · ${it.daysSinceSent}d ago${late ? ' · follow up?' : ''}',
+      subtitleColor: late ? cs.error : null,
+      compact: true,
+      trailing: late
+          ? Icon(Icons.warning_rounded, size: 18, color: cs.error)
+          : null,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: it.rollId)),
+      ),
+    );
+  }
+}
+
+class _ExpiringTile extends StatelessWidget {
+  const _ExpiringTile({required this.item, required this.stock});
+  final ExpiryRoll item;
+  final FilmStock? stock;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = item;
+    final cs = Theme.of(context).colorScheme;
+    return CardTile(
+      leading: Icon(Icons.warning_rounded, size: 18, color: cs.error),
+      title: e.roll.stockLabel,
+      subtitle: e.expired
+          ? 'Expired ${e.roll.expiry ?? ''}'.trim()
+          : 'Expires ${e.roll.expiry ?? fmtDate(e.expiresOn)}',
+      subtitleColor: cs.error,
+      compact: true,
+      badge: stock == null ? null : ProcessBadge(stock!.process),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => RollDetailScreen(rollId: e.roll.id)),
       ),
     );
   }

@@ -169,9 +169,11 @@ class FakeRollRepository implements RollRepository {
     return const [];
   }
 
+  /// Served by [expiry].
+  ExpiryView expiryView = ExpiryView.fromJson({'expiring': [], 'noExpiry': []});
+
   @override
-  Future<ExpiryView> expiry() async =>
-      ExpiryView.fromJson({'expiring': [], 'noExpiry': []});
+  Future<ExpiryView> expiry() async => expiryView;
 
   @override
   Future<RollDetail> roll(String id) async => _unusedDetail();

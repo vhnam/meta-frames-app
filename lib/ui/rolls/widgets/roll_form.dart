@@ -137,7 +137,7 @@ class _State extends ConsumerState<RollFormScreen> {
                 Expanded(
                   child: LabeledField(
                     label: 'Start date',
-                    child: _dateField(
+                    child: _DateField(
                       started,
                       (d) => setState(() => started = d),
                     ),
@@ -146,7 +146,7 @@ class _State extends ConsumerState<RollFormScreen> {
                 Expanded(
                   child: LabeledField(
                     label: 'Finish date',
-                    child: _dateField(
+                    child: _DateField(
                       finished,
                       (d) => setState(() => finished = d),
                     ),
@@ -177,22 +177,6 @@ class _State extends ConsumerState<RollFormScreen> {
     );
   }
 
-  Widget _dateField(
-    DateTime? value,
-    ValueChanged<DateTime?> onChanged, {
-    String? Function()? validator,
-  }) => SelectField(
-    hint: 'Select date',
-    value: value == null ? null : fmtDate(value),
-    icon: Icons.calendar_today,
-    onTap: () async {
-      final d = await pickDate(context, value);
-      if (d != null) onChanged(d);
-    },
-    onClear: () => onChanged(null),
-    validator: validator,
-  );
-
   Future<void> _save() async {
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
@@ -219,4 +203,22 @@ class _State extends ConsumerState<RollFormScreen> {
     if (!ok) return;
     Navigator.pop(context);
   }
+}
+
+class _DateField extends StatelessWidget {
+  const _DateField(this.value, this.onChanged);
+  final DateTime? value;
+  final ValueChanged<DateTime?> onChanged;
+
+  @override
+  Widget build(BuildContext context) => SelectField(
+    hint: 'Select date',
+    value: value == null ? null : fmtDate(value),
+    icon: Icons.calendar_today,
+    onTap: () async {
+      final d = await pickDate(context, value);
+      if (d != null) onChanged(d);
+    },
+    onClear: () => onChanged(null),
+  );
 }

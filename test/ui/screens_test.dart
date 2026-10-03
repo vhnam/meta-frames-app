@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/ui/gear/widgets/gear_tab.dart';
 import 'package:meta_frames/ui/home/widgets/home_tab.dart';
+import 'package:meta_frames/domain/models/models.dart';
+import 'package:meta_frames/ui/rolls/widgets/expiry_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/load_roll.dart';
 import 'package:meta_frames/ui/rolls/widgets/rolls_tab.dart';
 
@@ -148,5 +150,47 @@ void main() {
     expect(find.text('LOADED'), findsOneWidget);
     expect(counter('01'), findsNWidgets(2)); // Loaded and Ready
     expect(counter('00'), findsNWidgets(2)); // At lab and Expiring
+  });
+
+  testWidgets('expiry screen lists expiring rolls and rolls without expiry', (
+    tester,
+  ) async {
+    final rolls = FakeRollRepository()
+      ..expiryView = ExpiryView.fromJson({
+        'expiring': [
+          {
+            'roll': {
+              'id': 'old',
+              'filmStockId': 's1',
+              'stockBrand': 'Fuji',
+              'stockName': 'Superia',
+              'format': 135,
+              'exposures': 36,
+              'status': 'in_stock',
+            },
+            'expiresOn': '2020-01-31',
+            'expired': true,
+          },
+        ],
+        'noExpiry': [
+          {
+            'id': 'unknown',
+            'filmStockId': 's1',
+            'stockBrand': 'Ilford',
+            'stockName': 'HP5',
+            'format': 120,
+            'exposures': 12,
+            'status': 'in_stock',
+          },
+        ],
+      });
+    await tester.pumpWidget(app(const ExpiryScreen(), rolls: rolls));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EXPIRED OR EXPIRING WITHIN 6 MONTHS'), findsOneWidget);
+    expect(find.textContaining('Superia'), findsOneWidget);
+    expect(find.text('Expired'), findsOneWidget);
+    expect(find.text('NO EXPIRY INFORMATION'), findsOneWidget);
+    expect(find.textContaining('HP5'), findsOneWidget);
   });
 }

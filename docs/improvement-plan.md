@@ -12,11 +12,11 @@ The audit covers the 43 Dart files under `lib/`. Counts come from searching the 
 | Phase | State | Notes |
 |---|---|---|
 | 0. Guardrails | Done, except the baseline | The five lints are on. The DevTools baseline on a device is still to do. |
-| 1. Performance | Done, except the long lists and helper methods | Scan grid, scan decoding, scan download, fonts, `Opacity` and the home counter are fixed. The gear, home and detail lists keep `ListView(children:)` because they hold a few dozen items inside one grouped card. The 18 `Widget _buildX()` helpers are not converted. |
+| 1. Performance | Done, except two list screens | Scan grid, scan decoding, scan download, fonts, `Opacity`, the home counter and the Expiry list are fixed. Helper methods that do not use `State` are now `StatelessWidget` classes. The gear and home card lists keep `ListView(children:)`: each group is one bordered card with dividers, and a lazy version needs the card redesigned. `State`-dependent helpers (`_mountField`, `_linkedLenses`, film tab sections) stay methods. |
 | 2. Data layer | Done, except value equality | `ApiClient`, one repository per domain (abstract and remote), typed requests for every write, and files moved into `data/`, `domain/` and `ui/`. `RollFilter` has value equality. Other models still have no `==` or `copyWith`. |
 | 3. UI layer | Done, with two deviations | No widget reads a repository or calls `refreshAll`. Logic is in view models, actions classes and derived providers. Commands are not used: `guard()` already handles the running and error states in one place. Query providers still live in `lib/providers.dart` instead of per-feature files. |
 | 4. Navigation | Not started | Optional. |
-| 5. Tests | Mostly done | Fake repositories in `test/testing/`, view model and action tests, and widget smoke tests for the Rolls, Load roll, Gear and Home screens. There are no repository tests against a mock `http.Client` yet. |
+| 5. Tests | Done | Fake repositories in `test/testing/`, view model and action tests, repository and `ApiClient` tests against a mock `http.Client`, and widget smoke tests for the Rolls, Load roll, Expiry, Gear and Home screens. |
 
 ## Current state
 

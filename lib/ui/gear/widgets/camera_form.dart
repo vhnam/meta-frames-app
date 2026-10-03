@@ -174,7 +174,7 @@ class _State extends ConsumerState<CameraFormScreen> {
                 maxLines: 4,
               ),
             ),
-            if (!fixed) _linkedLenses(cs) else _fixedInfo(cs),
+            if (!fixed) _linkedLenses(cs) else const _FixedLensNote(),
             const SizedBox(height: 16),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -288,19 +288,6 @@ class _State extends ConsumerState<CameraFormScreen> {
     );
   }
 
-  Widget _fixedInfo(ColorScheme cs) => Row(
-    children: [
-      Icon(Icons.info, size: 16, color: cs.onSurfaceVariant),
-      const SizedBox(width: 4),
-      Expanded(
-        child: Text(
-          'A built-in lens is created and kept in sync with this camera.',
-          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-        ),
-      ),
-    ],
-  );
-
   Widget _linkedLenses(ColorScheme cs) {
     final m = mount.text.trim().toLowerCase();
     final label = Text(
@@ -335,9 +322,9 @@ class _State extends ConsumerState<CameraFormScreen> {
           ..sort((a, b) => a.focalLength - b.focalLength);
     Widget body;
     if (m.isEmpty) {
-      body = _hint('Enter a mount to see compatible lenses.', cs);
+      body = const _Hint('Enter a mount to see compatible lenses.');
     } else if (lenses.isEmpty) {
-      body = _hint('No lenses with this mount yet.', cs);
+      body = const _Hint('No lenses with this mount yet.');
     } else if (sel == null) {
       body = const LinearProgressIndicator();
     } else {
@@ -375,14 +362,6 @@ class _State extends ConsumerState<CameraFormScreen> {
       children: [label, const SizedBox(height: 8), body],
     );
   }
-
-  Widget _hint(String text, ColorScheme cs) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 2),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-    ),
-  );
 
   void _toggle(String id, bool on) =>
       setState(() => on ? selected!.add(id) : selected!.remove(id));
@@ -471,4 +450,42 @@ class _TypeButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _FixedLensNote extends StatelessWidget {
+  const _FixedLensNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(Icons.info, size: 16, color: cs.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            'A built-in lens is created and kept in sync with this camera.',
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Hint extends StatelessWidget {
+  const _Hint(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 2),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 }

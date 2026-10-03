@@ -21,26 +21,44 @@ class ExpiryScreen extends ConsumerWidget {
           if (d.expiring.isEmpty && d.noExpiry.isEmpty) {
             return const EmptyState('No in-stock rolls to check.');
           }
-          return ListView(
-            children: [
-              const SectionHeader('Expired or expiring within 6 months'),
+          return CustomScrollView(
+            slivers: [
+              const SliverToBoxAdapter(
+                child: SectionHeader('Expired or expiring within 6 months'),
+              ),
               if (d.expiring.isEmpty)
-                const Padding(padding: EdgeInsets.all(16), child: Text('None')),
-              for (final e in d.expiring)
-                RollTile(
-                  roll: e.roll,
-                  trailing: Text(
-                    e.expired ? 'Expired' : fmtDate(e.expiresOn),
-                    style: TextStyle(
-                      color: e.expired
-                          ? Theme.of(context).colorScheme.error
-                          : null,
-                    ),
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('None'),
                   ),
+                )
+              else
+                SliverList.builder(
+                  itemCount: d.expiring.length,
+                  itemBuilder: (context, i) {
+                    final e = d.expiring[i];
+                    return RollTile(
+                      roll: e.roll,
+                      trailing: Text(
+                        e.expired ? 'Expired' : fmtDate(e.expiresOn),
+                        style: TextStyle(
+                          color: e.expired
+                              ? Theme.of(context).colorScheme.error
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               if (d.noExpiry.isNotEmpty) ...[
-                const SectionHeader('No expiry information'),
-                for (final r in d.noExpiry) RollTile(roll: r),
+                const SliverToBoxAdapter(
+                  child: SectionHeader('No expiry information'),
+                ),
+                SliverList.builder(
+                  itemCount: d.noExpiry.length,
+                  itemBuilder: (_, i) => RollTile(roll: d.noExpiry[i]),
+                ),
               ],
             ],
           );

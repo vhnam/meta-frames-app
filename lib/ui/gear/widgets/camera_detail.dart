@@ -103,7 +103,11 @@ class _Body extends ConsumerWidget {
           ],
         ),
         const _Label('LOADED ROLL'),
-        _loadedRoll(context, loaded, stocks[loaded?.stockId], cs),
+        _LoadedRollCard(
+          camera: camera,
+          loaded: loaded,
+          stock: stocks[loaded?.stockId],
+        ),
         _Label(camera.hasFixedLens ? 'BUILT-IN LENS' : 'LINKED LENSES'),
         lenses.when(
           data: (ls) => ls.isEmpty
@@ -164,105 +168,6 @@ class _Body extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
-      ],
-    );
-  }
-
-  Widget _loadedRoll(
-    BuildContext context,
-    LoadedRoll? r,
-    FilmStock? stock,
-    ColorScheme cs,
-  ) {
-    if (r == null) {
-      return CardList(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Empty',
-                    style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
-                  ),
-                ),
-                if (camera.isActive)
-                  FilledButton.tonal(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => LoadRollScreen(camera: camera),
-                      ),
-                    ),
-                    child: const Text('Load roll'),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-    final iso = r.shotIso ?? stock?.boxIso;
-    final pushed =
-        r.shotIso != null && stock != null && r.shotIso != stock.boxIso;
-    final subtitle = [
-      if (iso != null) 'ISO $iso (${pushed ? 'pushed/pulled' : 'box'})',
-      if (r.startedAt != null)
-        'loaded ${r.startedAt!.toIso8601String().substring(0, 10)}',
-      '${r.daysLoaded}d',
-    ].join(' · ');
-    return CardList(
-      children: [
-        InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RollDetailScreen(rollId: r.rollId),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${r.stockBrand} ${r.stockName}',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: kCorners,
-                  ),
-                  child: Text(
-                    'In Camera',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                      color: cs.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -435,4 +340,112 @@ class _DashedBorder extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedBorder old) => old.color != color;
+}
+
+class _LoadedRollCard extends StatelessWidget {
+  const _LoadedRollCard({
+    required this.camera,
+    required this.loaded,
+    required this.stock,
+  });
+  final Camera camera;
+  final LoadedRoll? loaded;
+  final FilmStock? stock;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final r = loaded;
+    if (r == null) {
+      return CardList(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Empty',
+                    style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
+                  ),
+                ),
+                if (camera.isActive)
+                  FilledButton.tonal(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => LoadRollScreen(camera: camera),
+                      ),
+                    ),
+                    child: const Text('Load roll'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    final iso = r.shotIso ?? stock?.boxIso;
+    final pushed =
+        r.shotIso != null && stock != null && r.shotIso != stock!.boxIso;
+    final subtitle = [
+      if (iso != null) 'ISO $iso (${pushed ? 'pushed/pulled' : 'box'})',
+      if (r.startedAt != null)
+        'loaded ${r.startedAt!.toIso8601String().substring(0, 10)}',
+      '${r.daysLoaded}d',
+    ].join(' · ');
+    return CardList(
+      children: [
+        InkWell(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RollDetailScreen(rollId: r.rollId),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${r.stockBrand} ${r.stockName}',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: kCorners,
+                  ),
+                  child: Text(
+                    'In Camera',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
