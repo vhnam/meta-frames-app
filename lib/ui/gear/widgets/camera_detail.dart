@@ -1,5 +1,3 @@
-import 'dart:ui' show PathMetric;
-
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
@@ -88,22 +86,22 @@ class _Body extends ConsumerWidget {
       children: [
         CardList(
           children: [
-            _InfoRow(
+            DetailInfoRow(
               'Mount',
               camera.hasFixedLens ? '—' : (camera.mount ?? '—'),
             ),
-            _InfoRow('Fixed lens', camera.hasFixedLens ? 'Yes' : 'No'),
-            if (notes.isNotEmpty) _InfoRow('Notes', notes),
-            _InfoRow('Status', camera.isActive ? 'Active' : 'Inactive'),
+            DetailInfoRow('Fixed lens', camera.hasFixedLens ? 'Yes' : 'No'),
+            if (notes.isNotEmpty) DetailInfoRow('Notes', notes),
+            DetailInfoRow('Status', camera.isActive ? 'Active' : 'Inactive'),
           ],
         ),
-        const _Label('LOADED ROLL'),
+        const DetailLabel('LOADED ROLL'),
         _LoadedRollCard(
           camera: camera,
           loaded: loaded,
           stock: stocks[loaded?.stockId],
         ),
-        _Label(camera.hasFixedLens ? 'BUILT-IN LENS' : 'LINKED LENSES'),
+        DetailLabel(camera.hasFixedLens ? 'BUILT-IN LENS' : 'LINKED LENSES'),
         lenses.when(
           data: (ls) => ls.isEmpty
               ? Text(
@@ -132,20 +130,29 @@ class _Body extends ConsumerWidget {
         ),
         if (!camera.hasFixedLens) ...[
           const SizedBox(height: 8),
-          _DashedButton(
+          DashedButton(
             label: 'Manage lenses',
             onTap: () => context.push(Routes.cameraLenses(camera.id)),
+          ),
+        ],
+        if (loaded == null && camera.isActive) ...[
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(padding: const EdgeInsets.all(16)),
+            icon: const Icon(Icons.photo_camera_outlined),
+            label: const Text('Load roll'),
+            onPressed: () => context.push(Routes.cameraLoadRoll(camera.id)),
           ),
         ],
         const SizedBox(height: 20),
         CardList(
           children: [
-            _ActionRow(
+            DetailActionRow(
               label: camera.isActive ? 'Deactivate camera' : 'Activate camera',
               color: cs.onPrimaryContainer,
               onTap: () => _toggleActive(context, ref),
             ),
-            _ActionRow(
+            DetailActionRow(
               label: 'Delete camera',
               color: cs.error,
               onTap: () => _delete(context, ref),
@@ -196,137 +203,6 @@ class _Body extends ConsumerWidget {
   }
 }
 
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(0, 20, 0, 8),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.96,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-    ),
-  );
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow(this.label, this.value);
-  final String label, value;
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: color,
-        ),
-      ),
-    ),
-  );
-}
-
-class _DashedButton extends StatelessWidget {
-  const _DashedButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return CustomPaint(
-      painter: _DashedBorder(cs.outline),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: kCorners,
-        child: Container(
-          height: 41,
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: cs.onPrimaryContainer,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashedBorder extends CustomPainter {
-  _DashedBorder(this.color);
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
-      );
-    for (final PathMetric m in path.computeMetrics()) {
-      for (var d = 0.0; d < m.length; d += 7) {
-        canvas.drawPath(m.extractPath(d, d + 4), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorder old) => old.color != color;
-}
-
 class _LoadedRollCard extends StatelessWidget {
   const _LoadedRollCard({
     required this.camera,
@@ -354,12 +230,6 @@ class _LoadedRollCard extends StatelessWidget {
                     style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
                   ),
                 ),
-                if (camera.isActive)
-                  FilledButton.tonal(
-                    onPressed: () =>
-                        context.push(Routes.cameraLoadRoll(camera.id)),
-                    child: const Text('Load roll'),
-                  ),
               ],
             ),
           ),

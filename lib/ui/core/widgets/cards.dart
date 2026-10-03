@@ -1,3 +1,5 @@
+import 'dart:ui' show PathMetric;
+
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -369,4 +371,143 @@ class FilterPill extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Mono uppercase label above a card on a detail screen, with an optional
+/// trailing action.
+class DetailLabel extends StatelessWidget {
+  const DetailLabel(this.text, {super.key, this.top = 20, this.trailing});
+  final String text;
+  final double top;
+  final Widget? trailing;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(0, top, 0, trailing == null ? 8 : 0),
+    child: Row(
+      children: [
+        Expanded(child: SectionLabel(text)),
+        ?trailing,
+      ],
+    ),
+  );
+}
+
+/// Label on the left, value on the right; a row inside a [CardList].
+class DetailInfoRow extends StatelessWidget {
+  const DetailInfoRow(this.label, this.value, {super.key, this.bold = false});
+  final String label;
+  final String? value;
+  final bool bold;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final v = value == null || value!.isEmpty ? '—' : value!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              v,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-width text action row inside a [CardList] (Deactivate, Delete).
+class DetailActionRow extends StatelessWidget {
+  const DetailActionRow({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    ),
+  );
+}
+
+/// Full-width dashed outline button for a secondary add action.
+class DashedButton extends StatelessWidget {
+  const DashedButton({super.key, required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return CustomPaint(
+      painter: _DashedBorder(cs.outline),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: kCorners,
+        child: Container(
+          height: 41,
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.onPrimaryContainer,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedBorder extends CustomPainter {
+  _DashedBorder(this.color);
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
+      );
+    for (final PathMetric m in path.computeMetrics()) {
+      for (var d = 0.0; d < m.length; d += 7) {
+        canvas.drawPath(m.extractPath(d, d + 4), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorder old) => old.color != color;
 }
