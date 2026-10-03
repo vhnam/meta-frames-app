@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Failed API requests print a curl command and the response in debug builds.
+
+### Fixed
+
+- Film stock, lab, roll, and processing writes leave out unset optional fields instead of sending null.
+- Pack origin is hidden and not sent for factory packaging.
+- An empty status chip on the rolls tab keeps the chips on screen and shows "No rolls here."
+
 ### Changed
 
 - Camera, lens, roll, and film stock details share one card-based layout with a bordered app bar, an Edit button, and labelled sections.
