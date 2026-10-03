@@ -17,5 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Film stock catalog with ISO, process, and packaging.
 - Roll log with status filters, loading a roll into a camera, finishing a roll, recording the lenses used, and an expiry list.
 - Lab workflow for sending rolls, tracking negatives, and recording processing.
+- Scan import, frame viewing, and side-by-side compare.
 [Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/vhnam/meta-frames-app/releases/tag/v1.0.0
