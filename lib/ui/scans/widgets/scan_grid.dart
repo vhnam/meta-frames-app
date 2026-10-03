@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/scan_actions.dart';
 import 'scan_viewer.dart';
 
 /// M-35 grid of scans ordered by frame number, switchable per scanner.
@@ -79,7 +80,7 @@ class _State extends ConsumerState<ScanGrid> {
                 itemCount: sorted.length,
                 itemBuilder: (c, i) => _Thumb(
                   scan: sorted[i],
-                  url: ref.watch(scanRepositoryProvider).fileUrl(sorted[i]),
+                  url: ref.watch(scanUrlProvider)(sorted[i]),
                   onTap: () => Navigator.push(
                     c,
                     MaterialPageRoute(

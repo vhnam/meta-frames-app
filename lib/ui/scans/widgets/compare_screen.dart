@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
+import '../view_models/scan_actions.dart';
 import 'scan_viewer.dart';
 import 'zoomable_scan.dart';
 
@@ -105,7 +106,7 @@ class _State extends ConsumerState<CompareScreen> {
                       }
                       return ZoomableScan(
                         key: ValueKey(s.fileUrl),
-                        url: ref.watch(scanRepositoryProvider).fileUrl(s),
+                        url: ref.watch(scanUrlProvider)(s),
                       );
                     },
                   ),

@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:meta_frames/data/repositories/camera_repository.dart';
 import 'package:meta_frames/data/repositories/lens_repository.dart';
 import 'package:meta_frames/data/repositories/roll_repository.dart';
+import 'package:meta_frames/data/repositories/scan_repository.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
 
@@ -211,4 +214,77 @@ class FakeLensRepository implements LensRepository {
   Future<void> delete(String id) => throw UnimplementedError();
   @override
   Future<Lens> setActive(String id, bool active) => throw UnimplementedError();
+}
+
+class FakeScanRepository implements ScanRepository {
+  /// File names the fake server cannot number, with the reason.
+  final unnumberable = <String, String>{};
+
+  /// File names whose upload throws.
+  final uploadFails = <String>{};
+  final uploaded = <String>[];
+
+  @override
+  Future<List<ImportPreviewItem>> previewImport(
+    String processingId,
+    List<String> names, {
+    int? startFrame,
+    int? offset,
+  }) async => [
+    for (var i = 0; i < names.length; i++)
+      ImportPreviewItem.fromJson({
+        'fileName': names[i],
+        'frameNumber': unnumberable.containsKey(names[i])
+            ? null
+            : (startFrame ?? 1) + i + (offset ?? 0),
+        'error': unnumberable[names[i]],
+      }),
+  ];
+
+  @override
+  Future<ImportResult> importScan(
+    String processingId, {
+    required Scanner scanner,
+    required String path,
+    required String fileName,
+    required int frameNumber,
+    required bool replace,
+  }) async {
+    if (uploadFails.contains(fileName)) throw 'disk full';
+    uploaded.add('$fileName@$frameNumber');
+    return ImportResult.fromJson({
+      'imported': [
+        {
+          'id': 's$frameNumber',
+          'processingId': processingId,
+          'frameId': 'f',
+          'frameNumber': frameNumber,
+          'scanner': scanner.name,
+          'fileName': fileName,
+          'sizeBytes': 1,
+          'fileUrl': '/x',
+        },
+      ],
+      'skipped': [],
+      'failed': [],
+    });
+  }
+
+  @override
+  Future<Frame> frame(String rollId, int n) => throw UnimplementedError();
+  @override
+  Future<Frame> saveFrameNotes(String rollId, int n, String? notes) =>
+      throw UnimplementedError();
+  @override
+  Future<List<Scan>> scans(String processingId, {Scanner? scanner}) async =>
+      const [];
+  @override
+  Future<FrameComparison> compare(String processingId, int n) =>
+      throw UnimplementedError();
+  @override
+  String fileUrl(Scan s) => 'http://x${s.fileUrl}';
+  @override
+  String scanUrl(String scanId) => 'http://x/scans/$scanId/file';
+  @override
+  Future<void> download(Scan s, File dest) => throw UnimplementedError();
 }

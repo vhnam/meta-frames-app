@@ -6,8 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../domain/models/models.dart';
-import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/scan_actions.dart';
 import 'compare_screen.dart';
 import 'frame_screen.dart';
 import 'zoomable_scan.dart';
@@ -82,9 +82,8 @@ class _State extends ConsumerState<ScanViewerScreen> {
         controller: page,
         itemCount: widget.scans.length,
         onPageChanged: (i) => setState(() => current = i),
-        itemBuilder: (c, i) => ZoomableScan(
-          url: ref.watch(scanRepositoryProvider).fileUrl(widget.scans[i]),
-        ),
+        itemBuilder: (c, i) =>
+            ZoomableScan(url: ref.watch(scanUrlProvider)(widget.scans[i])),
       ),
     );
   }
@@ -96,7 +95,7 @@ Future<void> shareScan(BuildContext context, WidgetRef ref, Scan s) async {
   try {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/${s.fileName}');
-    await ref.read(scanRepositoryProvider).download(s, file);
+    await ref.read(scanActionsProvider).download(s, file);
     await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
   } catch (e) {
     if (context.mounted) toast(context, e.toString());

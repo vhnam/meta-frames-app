@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/services/api_client.dart';
-import '../../../domain/models/models.dart';
-import '../../../providers.dart';
 import '../../core/widgets/common.dart';
+import '../view_models/import_scans_view_model.dart';
+import '../view_models/scan_actions.dart';
 
 /// M-37 frame notes. The frame is created by the server on first save.
 class FrameScreen extends ConsumerStatefulWidget {
@@ -17,31 +16,34 @@ class FrameScreen extends ConsumerStatefulWidget {
 
 class _State extends ConsumerState<FrameScreen> {
   final notes = TextEditingController();
-  Frame? frame;
-  bool loading = true, busy = false;
+  bool busy = false, _filled = false;
+
+  late final _frame = frameNotesProvider((widget.rollId, widget.number));
 
   @override
   void initState() {
     super.initState();
-    _load();
+    // Fill the field once from the server; later refreshes must not overwrite typing.
+    ref.listenManual(_frame, (_, v) {
+      if (v.hasError) toast(context, v.error.toString());
+      if (!_filled && !v.isLoading) {
+        _filled = true;
+        notes.text = v.value?.notes ?? '';
+      }
+    }, fireImmediately: true);
   }
 
-  Future<void> _load() async {
-    try {
-      final f = await ref
-          .read(scanRepositoryProvider)
-          .frame(widget.rollId, widget.number);
-      frame = f;
-      notes.text = f.notes ?? '';
-    } on ApiException catch (e) {
-      // 404: frame has no scans or notes yet; saving creates it.
-      if (e.status != 404 && mounted) toast(context, e.message);
-    }
-    if (mounted) setState(() => loading = false);
+  @override
+  void dispose() {
+    notes.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final v = ref.watch(_frame);
+    final frame = v.value;
+    final scanUrl = ref.watch(scanRefUrlProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text('Frame #${widget.number}'),
@@ -49,7 +51,7 @@ class _State extends ConsumerState<FrameScreen> {
           TextButton(onPressed: busy ? null : _save, child: const Text('Save')),
         ],
       ),
-      body: loading
+      body: v.isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -62,19 +64,19 @@ class _State extends ConsumerState<FrameScreen> {
                   ),
                   maxLines: 6,
                 ),
-                if (frame != null && frame!.scans.isNotEmpty) ...[
+                if (frame != null && frame.scans.isNotEmpty) ...[
                   const SectionHeader('Scans'),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final s in frame!.scans)
+                      for (final s in frame.scans)
                         SizedBox(
                           width: 120,
                           child: Column(
                             children: [
                               Image.network(
-                                ref.watch(scanRepositoryProvider).scanUrl(s.id),
+                                scanUrl(s.id),
                                 height: 100,
                                 cacheHeight: 300,
                                 fit: BoxFit.cover,
@@ -100,13 +102,12 @@ class _State extends ConsumerState<FrameScreen> {
     final ok = await guard(
       context,
       () => ref
-          .read(scanRepositoryProvider)
+          .read(scanActionsProvider)
           .saveFrameNotes(widget.rollId, widget.number, t.isEmpty ? null : t),
     );
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    refreshAll(ref);
     Navigator.pop(context);
   }
 }
