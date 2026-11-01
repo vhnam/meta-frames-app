@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../providers.dart';
 import '../../../routing/routes.dart';
+import '../../auth/view_models/auth_actions.dart';
 import '../../core/widgets/common.dart';
 
-/// Everything that is not a main tab: search, film stocks, expiry, labs and
-/// settings.
-class MoreTab extends StatelessWidget {
+/// Everything that is not a main tab: the account, film stocks, expiry, labs
+/// and settings.
+class MoreTab extends ConsumerWidget {
   const MoreTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).value;
     Widget entry(IconData icon, String title, String route) => ListTile(
       leading: Icon(icon),
       title: Text(title),
@@ -27,6 +31,16 @@ class MoreTab extends StatelessWidget {
             Expanded(
               child: ListView(
                 children: [
+                  if (user != null)
+                    ListTile(
+                      leading: const Icon(Icons.person_outline),
+                      title: Text(
+                        user.name?.isNotEmpty == true ? user.name! : user.email,
+                      ),
+                      subtitle: user.name?.isNotEmpty == true
+                          ? Text(user.email)
+                          : null,
+                    ),
                   entry(
                     Icons.local_movies_outlined,
                     'Film stocks',
@@ -40,6 +54,11 @@ class MoreTab extends StatelessWidget {
                   ),
                   entry(Icons.store_outlined, 'Labs', Routes.labs),
                   entry(Icons.settings_outlined, 'Settings', Routes.settings),
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: const Text('Log out'),
+                    onTap: () => ref.read(authActionsProvider).logout(),
+                  ),
                 ],
               ),
             ),

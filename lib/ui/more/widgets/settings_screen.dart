@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../data/repositories/settings_repository.dart';
+import '../../../routing/routes.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
 import '../view_models/settings_actions.dart';
@@ -52,9 +55,15 @@ class _State extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _save() async {
-    final saved = await ref.read(settingsActionsProvider).saveBaseUrl(url.text);
+    final actions = ref.read(settingsActionsProvider);
+    final saved = await actions.saveBaseUrl(url.text);
     if (!mounted) return;
     toast(context, 'Saved. Server URL: $saved');
-    context.closeScreen();
+    // Without a session, the screens under this one need one too.
+    if (actions.signedIn) {
+      context.closeScreen();
+    } else {
+      context.go(Routes.login);
+    }
   }
 }
