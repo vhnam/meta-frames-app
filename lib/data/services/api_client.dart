@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'session_store.dart';
+
 class ApiException implements Exception {
   ApiException(this.status, this.code, this.message);
   final int status;
@@ -15,12 +17,27 @@ class ApiException implements Exception {
 
 /// Transport only: builds requests against the configured server, maps
 /// failures to [ApiException], and decodes JSON. Knows no endpoints.
+///
+/// The server's session is an HTTP-only cookie, and Dart's HTTP client has no
+/// cookie jar, so this class plays that part: it keeps the session cookie in
+/// [SessionStore] and sends it with every request. A 401 on a request that
+/// carried the cookie means the session has ended.
 class ApiClient {
-  ApiClient(this._baseUrl, [http.Client? client])
-    : _http = client ?? http.Client();
+  ApiClient(this._baseUrl, [http.Client? client, SessionStore? session])
+    : _http = client ?? http.Client(),
+      _session = session ?? SessionStore();
 
   final String Function() _baseUrl;
   final http.Client _http;
+  final SessionStore _session;
+
+  static const _sessionCookie = 'metaframes_session';
+
+  /// Matches the session cookie in a Set-Cookie header. The HTTP client joins
+  /// several Set-Cookie headers into one value with commas.
+  static final _setSessionCookie = RegExp(
+    '(?:^|,\\s*)$_sessionCookie=([^;,]*)',
+  );
 
   String get baseUrl => _baseUrl();
 
@@ -41,6 +58,13 @@ class ApiClient {
 
   /// Absolute URL for a server-relative path such as a scan's `fileUrl`.
   String absolute(String path) => '$baseUrl$path';
+
+  /// Headers that prove the session, for requests made outside this client
+  /// such as `Image.network`.
+  Map<String, String> get sessionHeaders {
+    final token = _session.token;
+    return token == null ? const {} : {'Cookie': '$_sessionCookie=$token'};
+  }
 
   Future<dynamic> send(
     String method,
@@ -80,9 +104,12 @@ class ApiClient {
 
   /// Streams a server-relative [path] to [dest] without buffering it in memory.
   Future<void> download(String path, File dest) async {
+    final sent = _session.token;
     final res = await _http.send(
-      http.Request('GET', Uri.parse(absolute(path))),
+      http.Request('GET', Uri.parse(absolute(path)))
+        ..headers.addAll(sessionHeaders),
     );
+    await _trackSession(res, sent);
     if (res.statusCode != 200) {
       throw ApiException(res.statusCode, 'error', 'Cannot download scan.');
     }
@@ -100,13 +127,31 @@ class ApiClient {
     Duration timeout, [
     String suffix = '',
   ]) async {
+    final sent = _session.token;
+    req.headers.addAll(sessionHeaders);
     try {
       final res = await _roundTrip(req, timeout, suffix);
+      await _trackSession(res, sent);
       if (res.statusCode < 200 || res.statusCode >= 300) _logFailed(req, res);
       return res;
     } on ApiException {
       _logFailed(req);
       rethrow;
+    }
+  }
+
+  /// Applies a session cookie from the response, which signing out sends empty.
+  /// A 401 ends the session only if the request carried the current token, so a
+  /// slow answer from before a new sign-in cannot end the new session.
+  Future<void> _trackSession(http.BaseResponse res, String? sent) async {
+    final match = _setSessionCookie.firstMatch(res.headers['set-cookie'] ?? '');
+    if (match != null) {
+      final token = match[1]!;
+      await _session.setToken(token.isEmpty ? null : token);
+    } else if (res.statusCode == 401 &&
+        sent != null &&
+        _session.token == sent) {
+      await _session.setToken(null);
     }
   }
 
@@ -118,14 +163,18 @@ class ApiClient {
   }
 
   /// One line, safe to paste into a shell. Single quotes in values are escaped.
+  /// The session cookie and auth request bodies, which hold passwords, are
+  /// replaced so they never reach the device log.
   String _curl(http.BaseRequest req) {
     final parts = <String>['curl -X ${req.method}'];
     for (final e in req.headers.entries) {
       if (e.key.toLowerCase() == 'content-length') continue;
-      parts.add("-H '${_shell(e.key)}: ${_shell(e.value)}'");
+      final value = e.key.toLowerCase() == 'cookie' ? _redacted : e.value;
+      parts.add("-H '${_shell(e.key)}: ${_shell(value)}'");
     }
     if (req is http.Request && req.body.isNotEmpty) {
-      parts.add("-d '${_shell(req.body)}'");
+      final body = req.url.path.contains('/auth/') ? _redacted : req.body;
+      parts.add("-d '${_shell(body)}'");
     } else if (req is http.MultipartRequest) {
       for (final e in req.fields.entries) {
         parts.add("-F '${_shell(e.key)}=${_shell(e.value)}'");
@@ -137,6 +186,8 @@ class ApiClient {
     parts.add("'${_shell(req.url.toString())}'");
     return parts.join(' ');
   }
+
+  static const _redacted = '<redacted>';
 
   String _shell(String value) => value.replaceAll("'", r"'\''");
 

@@ -76,6 +76,15 @@ class LoadedRoll {
   final int daysLoaded;
 }
 
+class User {
+  User.fromJson(Map<String, dynamic> j)
+    : id = j['id'],
+      email = j['email'],
+      name = j['name'];
+  final String id, email;
+  final String? name;
+}
+
 class Camera {
   Camera.fromJson(Map<String, dynamic> j)
     : id = j['id'],
