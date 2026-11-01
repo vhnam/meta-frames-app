@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../providers.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/import_scans_view_model.dart';
 import '../view_models/scan_actions.dart';
@@ -79,6 +80,7 @@ class _State extends ConsumerState<FrameScreen> {
                             children: [
                               Image.network(
                                 scanUrl(s.id),
+                                headers: ref.watch(scanImageHeadersProvider),
                                 height: 100,
                                 cacheHeight: 300,
                                 fit: BoxFit.cover,
