@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../providers.dart';
 
 /// Pinch-zoom scan. Decodes at roughly screen size until the user zooms in,
 /// then at full resolution: a full-size film scan is tens of MB of RGBA.
-class ZoomableScan extends StatefulWidget {
+class ZoomableScan extends ConsumerStatefulWidget {
   const ZoomableScan({super.key, required this.url, this.loading, this.error});
   final String url;
   final Widget? loading, error;
 
   @override
-  State<ZoomableScan> createState() => _ZoomableScanState();
+  ConsumerState<ZoomableScan> createState() => _ZoomableScanState();
 }
 
-class _ZoomableScanState extends State<ZoomableScan> {
+class _ZoomableScanState extends ConsumerState<ZoomableScan> {
   static const _zoomThreshold = 1.5;
   final _controller = TransformationController();
   bool _fullRes = false;
@@ -39,6 +42,7 @@ class _ZoomableScanState extends State<ZoomableScan> {
       child: Center(
         child: Image.network(
           widget.url,
+          headers: ref.watch(scanImageHeadersProvider),
           cacheWidth: _fullRes ? null : fitWidth,
           gaplessPlayback: true,
           loadingBuilder: (c, child, p) => p == null

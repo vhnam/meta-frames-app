@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/services/session_store.dart';
 import '../domain/models/models.dart';
 import '../providers.dart';
+import '../ui/auth/widgets/login_screen.dart';
+import '../ui/auth/widgets/recover_screen.dart';
+import '../ui/auth/widgets/register_screen.dart';
 import '../ui/film/widgets/film_tab.dart';
 import '../ui/film/widgets/stock_detail.dart';
 import '../ui/film/widgets/stock_form.dart';
@@ -37,14 +41,42 @@ import 'shell.dart';
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
+/// Sends visitors to the login screen and signed-in users away from the
+/// signed-out screens. Settings is open to both, because a visitor may need to
+/// set the server URL before signing in.
+String? authRedirect({required bool signedIn, required String location}) {
+  if (location == Routes.settings) return null;
+  final signedOutScreen =
+      location == Routes.login ||
+      location == Routes.register ||
+      location == Routes.recover;
+  if (!signedIn && !signedOutScreen) return Routes.login;
+  if (signedIn && signedOutScreen) return Routes.home;
+  return null;
+}
+
 /// Screens that open over the tab bar are top-level routes on the root
 /// navigator. Each takes ids in its path and loads what it needs, so any
-/// location can be opened directly.
-GoRouter buildRouter({String initialLocation = Routes.home}) => GoRouter(
+/// location can be opened directly. With a [session], every route follows
+/// [authRedirect].
+GoRouter buildRouter({
+  String initialLocation = Routes.home,
+  SessionStore? session,
+}) => GoRouter(
   navigatorKey: _rootKey,
   initialLocation: initialLocation,
+  refreshListenable: session,
+  redirect: session == null
+      ? null
+      : (_, state) => authRedirect(
+          signedIn: session.signedIn,
+          location: state.matchedLocation,
+        ),
   routes: [
     GoRoute(path: '/', redirect: (_, _) => Routes.home),
+    _route(Routes.login, (_) => const LoginScreen()),
+    _route(Routes.register, (_) => const RegisterScreen()),
+    _route(Routes.recover, (_) => const RecoverScreen()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [
@@ -234,7 +266,14 @@ GoRoute _route(String path, Widget Function(GoRouterState state) builder) =>
     );
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final router = buildRouter();
-  ref.onDispose(router.dispose);
+  final session = ref.watch(sessionStoreProvider);
+  final router = buildRouter(session: session);
+  // Records belong to an account: never show one user's cache to the next.
+  void dropCachedData() => invalidateAllData(ref);
+  session.addListener(dropCachedData);
+  ref.onDispose(() {
+    session.removeListener(dropCachedData);
+    router.dispose();
+  });
   return router;
 });

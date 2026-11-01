@@ -1,6 +1,6 @@
 # MetaFrames
 
-A film photography log for Android and iOS, built with Flutter. MetaFrames tracks your cameras and lenses, film stocks, rolls, lab processing and scans. It is a client for the MetaFrames API server and keeps no data on the device except settings.
+A film photography log for Android and iOS, built with Flutter. MetaFrames tracks your cameras and lenses, film stocks, rolls, lab processing and scans. It is a client for the MetaFrames API server and keeps no data on the device except settings and the session token.
 
 ## Features
 
@@ -45,6 +45,31 @@ open -a Simulator
 flutter run -d ios
 ```
 
+### Real devices
+
+List the connected devices to find the device ID:
+
+```bash
+flutter devices
+```
+
+For an Android phone, enable USB debugging and connect it with a cable. Forward the server's port over USB, then run the app:
+
+```bash
+adb -s <device-id> reverse tcp:8080 tcp:8080
+flutter run -d <device-id> --dart-define-from-file=google_sign_in.json
+```
+
+On the login screen, double-tap the copyright line at the bottom to open Settings, and set the server URL to `http://127.0.0.1:8080`. Keep the cable connected. If the connection drops, run the `adb reverse` command again.
+
+For an iPhone, select your development team under **Signing & Capabilities** in `ios/Runner.xcworkspace`, then run the app:
+
+```bash
+flutter run -d <device-id> --dart-define-from-file=google_sign_in.json
+```
+
+An iPhone cannot use `adb reverse`. Set the server URL to an address that the phone can reach, such as your computer's address on the same network.
+
 In VS Code, the **Development Debug** and **Development Release** launch configurations run the app in debug or release mode.
 
 ## Connecting to the API server
@@ -54,6 +79,27 @@ The app sends every request to a configurable base URL. The default is `http://1
 To use a different server, open **More > Settings** and change the base URL. The value is stored with `shared_preferences`. For the iOS simulator, use `http://127.0.0.1:8080` to reach a server on the host machine.
 
 Android allows cleartext HTTP (`android:usesCleartextTraffic="true"`), so a local server does not need TLS.
+
+To use the app, log in or register. The session token is stored with `flutter_secure_storage`. Saving a different base URL ends the session, so the token never goes to another server. Password reset emails link to the web dashboard.
+
+### Sign in with Google
+
+The app uses the device's Google account picker and sends the resulting ID token to the server's `POST /auth/google/token`. An iOS build without its client id hides the Google button. To enable it:
+
+1. In the Google Cloud console, in the same project as the server's web client, create an Android OAuth client with the app's package name and signing SHA-1, and an iOS OAuth client with its bundle ID.
+2. Create your local config files. Git ignores both of them:
+
+   ```bash
+   cp google_sign_in.example.json google_sign_in.json
+   cp ios/Flutter/GoogleSignIn.example.xcconfig ios/Flutter/GoogleSignIn.xcconfig
+   ```
+
+   Fill in `google_sign_in.json`. The app reads `GOOGLE_IOS_CLIENT_ID`. `GOOGLE_ANDROID_CLIENT_ID` is for reference only: Android finds its client by package name and SHA-1. The web client id is not stored here: the app reads it from the server's `GET /auth/google/config` when the user taps the button.
+3. Set `GOOGLE_REVERSED_CLIENT_ID` in `ios/Flutter/GoogleSignIn.xcconfig` to the iOS client id with its parts reversed, such as `com.googleusercontent.apps.1234-abcd`.
+4. Set the server's `GOOGLE_MOBILE_CLIENT_IDS` to the iOS client id.
+5. Build with `--dart-define-from-file=google_sign_in.json`. The VS Code launch configurations already pass it.
+
+On an Android emulator, Google sign-in needs a **Google Play** system image with updated Play services. A `google_apis` image can fail with `No credentials available`.
 
 In debug builds, a failed request prints an equivalent `curl` command and the server response to the console.
 

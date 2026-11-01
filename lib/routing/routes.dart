@@ -3,6 +3,11 @@ import '../domain/models/models.dart';
 /// Every location in the app. Screens navigate with `context.push(Routes.x(…))`
 /// so a path is built in one place and always matches the router table.
 abstract final class Routes {
+  // Signed-out screens.
+  static const login = '/login';
+  static const register = '/register';
+  static const recover = '/recover';
+
   // Tabs.
   static const home = '/home';
   static const gear = '/gear';

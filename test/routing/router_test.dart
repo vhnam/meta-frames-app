@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:meta_frames/data/services/session_store.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
@@ -23,6 +24,7 @@ Future<GoRouter> pumpRouter(
     ProviderScope(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
+        sessionStoreProvider.overrideWithValue(SessionStore('token')),
         rollRepositoryProvider.overrideWithValue(
           FakeRollRepository([roll('r1')]),
         ),

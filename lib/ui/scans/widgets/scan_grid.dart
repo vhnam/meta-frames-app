@@ -94,20 +94,21 @@ class _State extends ConsumerState<ScanGrid> {
   }
 }
 
-class _Thumb extends StatelessWidget {
+class _Thumb extends ConsumerWidget {
   const _Thumb({required this.scan, required this.url, required this.onTap});
   final Scan scan;
   final String url;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context, WidgetRef ref) => GestureDetector(
     onTap: onTap,
     child: Stack(
       fit: StackFit.expand,
       children: [
         Image.network(
           url,
+          headers: ref.watch(scanImageHeadersProvider),
           fit: BoxFit.cover,
           cacheWidth: 300,
           errorBuilder: (_, _, _) => const ColoredBox(

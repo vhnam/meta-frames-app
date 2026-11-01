@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/app.dart';
+import 'package:meta_frames/data/services/session_store.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/expiry.dart';
 import 'package:meta_frames/ui/scans/widgets/scan_grid.dart';
@@ -39,7 +40,10 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [prefsProvider.overrideWithValue(prefs)],
+        overrides: [
+          prefsProvider.overrideWithValue(prefs),
+          sessionStoreProvider.overrideWithValue(SessionStore('token')),
+        ],
         child: const MetaFramesApp(),
       ),
     );

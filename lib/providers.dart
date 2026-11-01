@@ -8,6 +8,10 @@ export 'data/providers.dart';
 
 typedef InventoryFilter = ({String? type, String? process, int? iso});
 
+final currentUserProvider = FutureProvider.autoDispose<User>(
+  (ref) => ref.watch(authRepositoryProvider).me(),
+);
+
 final camerasProvider = FutureProvider.autoDispose<List<Camera>>(
   (ref) => ref.watch(cameraRepositoryProvider).cameras(),
 );
@@ -104,6 +108,7 @@ final frameProvider = FutureProvider.autoDispose.family<Frame, (String, int)>(
 /// change, in their own actions classes.
 void invalidateAllData(Ref ref) {
   ref
+    ..invalidate(currentUserProvider)
     ..invalidate(camerasProvider)
     ..invalidate(cameraProvider)
     ..invalidate(cameraLensesProvider)
