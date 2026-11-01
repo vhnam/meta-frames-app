@@ -57,3 +57,7 @@ app.*.map.json
 .agents/
 .claude/
 skills-lock.json
+
+# Google OAuth client ids. Copy the *.example files to create them.
+/google_sign_in.json
+/ios/Flutter/GoogleSignIn.xcconfig
