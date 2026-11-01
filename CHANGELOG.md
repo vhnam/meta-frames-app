@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Accounts: log in, register and request a password reset email with an email and password, or continue with Google through the device's account picker. iOS builds without their client id hide the Google button. The session stays in the device's secure storage, and More shows the signed-in user and a log out action.
+
+### Changed
+
+- The app needs a signed-in account. It opens on the login screen without a session and returns there when the session ends.
+- Settings opens from the login screen: double-tap the copyright line to set the server URL before signing in.
+- Changing the server URL ends the session.
+- Scan images and downloads send the session.
+- Failed-request logs hide session cookies and auth request bodies.
+
 ## [1.0.0] - 2026-10-06
 
 ### Added
