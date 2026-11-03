@@ -21,8 +21,11 @@ class NewRolls {
     'exposures': exposures,
     'quantity': quantity,
     if (price != null) 'price': price,
-    if (expiryYear != null) 'expiryYear': expiryYear,
-    if (expiryYear != null && expiryMonth != null) 'expiryMonth': expiryMonth,
+    if (expiryYear != null)
+      'expiry': {
+        'year': expiryYear,
+        if (expiryMonth != null) 'month': expiryMonth,
+      },
   };
 }
 
@@ -51,8 +54,11 @@ class RollEdit {
     'format': format,
     'exposures': exposures,
     if (price != null) 'price': price,
-    if (expiryYear != null) 'expiryYear': expiryYear,
-    if (expiryYear != null && expiryMonth != null) 'expiryMonth': expiryMonth,
+    if (expiryYear != null)
+      'expiry': {
+        'year': expiryYear,
+        if (expiryMonth != null) 'month': expiryMonth,
+      },
     if (shotIso != null) 'shotIso': shotIso,
     if (startedAt != null) 'startedAt': ymd(startedAt!),
     if (finishedAt != null) 'finishedAt': ymd(finishedAt!),

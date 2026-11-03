@@ -23,7 +23,15 @@ void main() {
       expiryYear: 2027,
       expiryMonth: 5,
     );
-    expect(withYear.toJson()['expiryMonth'], 5);
+    expect(withYear.toJson()['expiry'], {'year': 2027, 'month': 5});
+    const yearOnly = NewRolls(
+      filmStockId: 's1',
+      format: 135,
+      exposures: 36,
+      quantity: 1,
+      expiryYear: 2027,
+    );
+    expect(yearOnly.toJson()['expiry'], {'year': 2027});
     const noYear = NewRolls(
       filmStockId: 's1',
       format: 135,
@@ -31,7 +39,7 @@ void main() {
       quantity: 1,
       expiryMonth: 5,
     );
-    expect(noYear.toJson().containsKey('expiryMonth'), isFalse);
+    expect(noYear.toJson().containsKey('expiry'), isFalse);
   });
 
   test('RollEdit omits unset optional fields', () {
@@ -41,8 +49,7 @@ void main() {
       exposures: 12,
     ).toJson();
     expect(json.containsKey('price'), isFalse);
-    expect(json.containsKey('expiryYear'), isFalse);
-    expect(json.containsKey('expiryMonth'), isFalse);
+    expect(json.containsKey('expiry'), isFalse);
     expect(json.containsKey('shotIso'), isFalse);
     expect(json.containsKey('startedAt'), isFalse);
     expect(json.containsKey('finishedAt'), isFalse);

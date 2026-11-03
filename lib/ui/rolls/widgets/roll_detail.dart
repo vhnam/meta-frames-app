@@ -5,13 +5,10 @@ import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
-import '../view_models/roll_actions.dart';
 import 'finish_roll.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
-
-import '../../../routing/navigation.dart';
 
 /// M-24 roll details; hosts the status-dependent actions (M-19..M-21, M-27, M-31).
 class RollDetailScreen extends ConsumerWidget {
@@ -90,18 +87,20 @@ class _Body extends ConsumerWidget {
           label: const Text('Finish roll'),
           onPressed: () => finishRoll(context, ref, r.id),
         ),
-      if (r.status == RollStatus.doneShooting)
+      if (r.status == RollStatus.doneShooting && detail.processing.isEmpty)
         FilledButton.icon(
           style: FilledButton.styleFrom(padding: pad),
           icon: const Icon(Icons.local_shipping_outlined),
           label: const Text('Send to lab'),
           onPressed: () => context.push(Routes.rollSend(r.id)),
         ),
-      if (r.status == RollStatus.developed || r.status == RollStatus.scanned)
+      // Once processed, scanning again is the only action left.
+      if (detail.processing.isNotEmpty &&
+          sendableTypes(r.status, detail.processing.length).isNotEmpty)
         FilledButton.icon(
           style: FilledButton.styleFrom(padding: pad),
           icon: const Icon(Icons.replay),
-          label: const Text('Send again'),
+          label: const Text('Re-scan'),
           onPressed: () => context.push(Routes.rollSend(r.id, resend: true)),
         ),
     ];
@@ -114,19 +113,7 @@ class _Body extends ConsumerWidget {
         const DetailLabel('ROLL', top: 0),
         CardList(
           children: [
-            CardTile(
-              title: detail.stock.label,
-              subtitle: detail.baseStock == null
-                  ? 'ISO ${detail.stock.boxIso} · ${detail.stock.process.wire}'
-                  : 'Base: ${detail.baseStock!.label}',
-              badge: StatusChip(r.status),
-              trailing: Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: cs.onSurfaceVariant,
-              ),
-              onTap: () => context.push(Routes.stock(detail.stock.id)),
-            ),
+            _StockRow(detail: detail),
             if (r.negativesAtLab) const DetailInfoRow('Negatives', 'At lab'),
             DetailInfoRow('Format', '${r.format}'),
             DetailInfoRow('Exposures', '${r.exposures}'),
@@ -269,38 +256,9 @@ class _Body extends ConsumerWidget {
           const SizedBox(height: 20),
           for (final a in actions) SizedBox(width: double.infinity, child: a),
         ],
-        if (r.status == RollStatus.inStock) ...[
-          const SizedBox(height: 12),
-          CardList(
-            children: [
-              DetailActionRow(
-                label: 'Delete roll',
-                color: cs.error,
-                onTap: () => _delete(context, ref),
-              ),
-            ],
-          ),
-        ],
         const SizedBox(height: 16),
       ],
     );
-  }
-
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    if (!await confirm(
-      context,
-      'Delete roll?',
-      'This roll is still in stock and will be removed.',
-      ok: 'Delete',
-    )) {
-      return;
-    }
-    if (!context.mounted) return;
-    final ok = await guard(
-      context,
-      () => ref.read(rollActionsProvider).delete(detail.roll.id),
-    );
-    if (ok && context.mounted) context.closeScreen();
   }
 
   Future<void> _openFrame(BuildContext context) async {
@@ -329,5 +287,55 @@ class _Body extends ConsumerWidget {
     if (n != null && context.mounted) {
       context.push(Routes.frame(detail.roll.id, n));
     }
+  }
+}
+
+/// The roll's stock and status. The status sits under the names, so a long name
+/// has the card's full width.
+class _StockRow extends StatelessWidget {
+  const _StockRow({required this.detail});
+  final RollDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final stock = detail.stock;
+    final base = detail.baseStock;
+    return InkWell(
+      onTap: () => context.push(Routes.stock(stock.id)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          spacing: 12,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    stock.label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    base == null
+                        ? 'ISO ${stock.boxIso} · ${stock.process.wire}'
+                        : 'Base: ${base.label}',
+                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 10),
+                  StatusChip(detail.roll.status),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
   }
 }
