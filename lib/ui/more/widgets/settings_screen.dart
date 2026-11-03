@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/settings_repository.dart';
+import '../../../domain/models/saved_server.dart';
 import '../../../routing/routes.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
@@ -31,27 +32,74 @@ class _State extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final servers = ref.read(settingsActionsProvider).servers;
     return Scaffold(
       appBar: formAppBar(context, 'Settings'),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          LabeledField(
-            label: 'Server URL',
-            gapAfter: 8,
-            child: TextField(
-              controller: url,
-              decoration: formInputDecoration(defaultBaseUrl, cs),
-              keyboardType: TextInputType.url,
-            ),
-          ),
-          const FormNote(
-            'Android emulator reaches the host machine at 10.0.2.2.',
-          ),
-          FormSaveBar(label: 'Save', busy: false, onPressed: _save),
-        ],
+      body: ListenableBuilder(
+        listenable: url,
+        builder: (context, _) {
+          final entered = normalizeBaseUrl(url.text);
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (servers.isNotEmpty)
+                LabeledField(
+                  label: 'Saved servers',
+                  child: Column(
+                    children: [
+                      for (final s in servers)
+                        _ServerRow(
+                          server: s,
+                          selected: s.url == entered,
+                          onTap: () => url.text = s.url,
+                          onDelete: () => _delete(s),
+                        ),
+                    ],
+                  ),
+                ),
+              LabeledField(
+                label: 'Server URL',
+                gapAfter: 8,
+                trailing: TextButton(
+                  onPressed: entered.isEmpty ? null : () => _addServer(entered),
+                  child: const Text('Add to saved'),
+                ),
+                child: TextField(
+                  controller: url,
+                  decoration: formInputDecoration(defaultBaseUrl, cs),
+                  keyboardType: TextInputType.url,
+                ),
+              ),
+              const FormNote(
+                'Android emulator reaches the host machine at 10.0.2.2. '
+                'Changing the server logs you out.',
+              ),
+              FormSaveBar(label: 'Save', busy: false, onPressed: _save),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _addServer(String entered) async {
+    final actions = ref.read(settingsActionsProvider);
+    final existing = actions.servers.where((s) => s.url == entered);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _ServerNameDialog(
+        url: entered,
+        name: existing.isEmpty ? null : existing.first.name,
+      ),
+    );
+    if (name == null) return;
+    await actions.saveServer(name, entered);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _delete(SavedServer server) async {
+    await ref.read(settingsActionsProvider).deleteServer(server.url);
+    if (mounted) setState(() {});
   }
 
   Future<void> _save() async {
@@ -66,4 +114,89 @@ class _State extends ConsumerState<SettingsScreen> {
       context.go(Routes.login);
     }
   }
+}
+
+class _ServerRow extends StatelessWidget {
+  const _ServerRow({
+    required this.server,
+    required this.selected,
+    required this.onTap,
+    required this.onDelete,
+  });
+  final SavedServer server;
+  final bool selected;
+  final VoidCallback onTap, onDelete;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    selected: selected,
+    leading: Icon(
+      selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+    ),
+    title: Text(server.name),
+    subtitle: Text(server.url),
+    trailing: IconButton(
+      tooltip: 'Delete ${server.name}',
+      icon: const Icon(Icons.delete_outline),
+      onPressed: onDelete,
+    ),
+    onTap: onTap,
+  );
+}
+
+/// Asks for a saved server's name. Returns the name, or null when cancelled.
+class _ServerNameDialog extends StatefulWidget {
+  const _ServerNameDialog({required this.url, this.name});
+  final String url;
+  final String? name;
+
+  @override
+  State<_ServerNameDialog> createState() => _ServerNameDialogState();
+}
+
+class _ServerNameDialogState extends State<_ServerNameDialog> {
+  late final _name = TextEditingController(text: widget.name);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Save server'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.url),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _name,
+          autofocus: true,
+          decoration: formInputDecoration(
+            'Name, like Production',
+            Theme.of(context).colorScheme,
+          ),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      ListenableBuilder(
+        listenable: _name,
+        builder: (context, _) => TextButton(
+          onPressed: _name.text.trim().isEmpty
+              ? null
+              : () => Navigator.of(context).pop(_name.text.trim()),
+          child: const Text('Add'),
+        ),
+      ),
+    ],
+  );
 }

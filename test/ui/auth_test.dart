@@ -462,6 +462,18 @@ void main() {
       expect(app.location, Routes.more);
     });
 
+    testWidgets('switching to a saved server ends the session', (tester) async {
+      final app = await openMore(tester);
+      final actions = app.container.read(settingsActionsProvider);
+      await actions.saveServer('Production', 'https://other.example');
+      await _tapAndSettle(tester, find.text('Settings'));
+      await _tapAndSettle(tester, find.text('Production'));
+      await _tapAndSettle(tester, find.text('Save'));
+      expect(actions.baseUrl, 'https://other.example');
+      expect(app.session.signedIn, isFalse);
+      expect(app.location, Routes.login);
+    });
+
     testWidgets('saveBaseUrl ignores a trailing slash', (tester) async {
       final app = await _pumpApp(tester, token: 'saved');
       final actions = app.container.read(settingsActionsProvider);
