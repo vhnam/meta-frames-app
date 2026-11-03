@@ -8,12 +8,28 @@ export 'data/providers.dart';
 
 typedef InventoryFilter = ({String? type, String? process, int? iso});
 
+extension _ApiCache on Ref {
+  /// Keeps the answer of [fetch] after the last screen stops watching it, so a
+  /// tab or segment that opens again does not call the API. The answer stays
+  /// until something invalidates the provider: a write, a pull to refresh or a
+  /// session change. A failed call is not kept, so the next screen tries again.
+  Future<T> cached<T>(Future<T> fetch) async {
+    final link = keepAlive();
+    try {
+      return await fetch;
+    } catch (_) {
+      link.close();
+      rethrow;
+    }
+  }
+}
+
 final currentUserProvider = FutureProvider.autoDispose<User>(
-  (ref) => ref.watch(authRepositoryProvider).me(),
+  (ref) => ref.cached(ref.watch(authRepositoryProvider).me()),
 );
 
 final camerasProvider = FutureProvider.autoDispose<List<Camera>>(
-  (ref) => ref.watch(cameraRepositoryProvider).cameras(),
+  (ref) => ref.cached(ref.watch(cameraRepositoryProvider).cameras()),
 );
 final cameraProvider = FutureProvider.autoDispose.family<Camera, String>(
   (ref, id) => ref.watch(cameraRepositoryProvider).camera(id),
@@ -24,7 +40,7 @@ final cameraLensesProvider = FutureProvider.autoDispose
     );
 
 final lensesProvider = FutureProvider.autoDispose<List<Lens>>(
-  (ref) => ref.watch(lensRepositoryProvider).lenses(),
+  (ref) => ref.cached(ref.watch(lensRepositoryProvider).lenses()),
 );
 final lensProvider = FutureProvider.autoDispose.family<Lens, String>(
   (ref, id) => ref.watch(lensRepositoryProvider).lens(id),
@@ -33,7 +49,7 @@ final lensProvider = FutureProvider.autoDispose.family<Lens, String>(
 /// Cameras a lens can be used on (no dedicated endpoint: derived from links).
 final lensCamerasProvider = FutureProvider.autoDispose
     .family<List<Camera>, String>((ref, lensId) async {
-      final cams = await ref.watch(cameraRepositoryProvider).cameras();
+      final cams = await ref.watch(camerasProvider.future);
       final out = <Camera>[];
       for (final c in cams) {
         final ls = await ref.watch(cameraRepositoryProvider).lenses(c.id);
@@ -43,7 +59,7 @@ final lensCamerasProvider = FutureProvider.autoDispose
     });
 
 final stocksProvider = FutureProvider.autoDispose<List<FilmStock>>(
-  (ref) => ref.watch(filmStockRepositoryProvider).stocks(),
+  (ref) => ref.cached(ref.watch(filmStockRepositoryProvider).stocks()),
 );
 final stockDetailProvider = FutureProvider.autoDispose
     .family<FilmStockDetail, String>(
@@ -51,19 +67,21 @@ final stockDetailProvider = FutureProvider.autoDispose
     );
 final inventoryProvider = FutureProvider.autoDispose
     .family<List<InventoryItem>, InventoryFilter>(
-      (ref, f) => ref
-          .watch(filmStockRepositoryProvider)
-          .inventory(type: f.type, process: f.process, iso: f.iso),
+      (ref, f) => ref.cached(
+        ref
+            .watch(filmStockRepositoryProvider)
+            .inventory(type: f.type, process: f.process, iso: f.iso),
+      ),
     );
 
 final labsProvider = FutureProvider.autoDispose<List<Lab>>(
-  (ref) => ref.watch(labRepositoryProvider).labs(),
+  (ref) => ref.cached(ref.watch(labRepositoryProvider).labs()),
 );
 final labProvider = FutureProvider.autoDispose.family<Lab, String>(
   (ref, id) => ref.watch(labRepositoryProvider).lab(id),
 );
 final scannersProvider = FutureProvider.autoDispose<List<ScannerDevice>>(
-  (ref) => ref.watch(scannerRepositoryProvider).scanners(),
+  (ref) => ref.cached(ref.watch(scannerRepositoryProvider).scanners()),
 );
 final scannerProvider = FutureProvider.autoDispose
     .family<ScannerDevice, String>(
@@ -71,32 +89,35 @@ final scannerProvider = FutureProvider.autoDispose
     );
 final scannerKindsProvider =
     FutureProvider.autoDispose<List<ScannerKindOptions>>(
-      (ref) => ref.watch(scannerRepositoryProvider).kinds(),
+      (ref) => ref.cached(ref.watch(scannerRepositoryProvider).kinds()),
     );
 
 final rollsProvider = FutureProvider.autoDispose
     .family<List<RollSummary>, RollFilter>(
-      (ref, f) => ref
-          .watch(rollRepositoryProvider)
-          .rolls(
-            filmStockId: f.stockId,
-            cameraId: f.cameraId,
-            lensId: f.lensId,
-            format: f.format,
-            startedFrom: f.from,
-            startedTo: f.to,
-          ),
+      (ref, f) => ref.cached(
+        ref
+            .watch(rollRepositoryProvider)
+            .rolls(
+              filmStockId: f.stockId,
+              cameraId: f.cameraId,
+              lensId: f.lensId,
+              format: f.format,
+              startedFrom: f.from,
+              startedTo: f.to,
+            ),
+      ),
     );
 final rollDetailProvider = FutureProvider.autoDispose
     .family<RollDetail, String>(
       (ref, id) => ref.watch(rollRepositoryProvider).roll(id),
     );
 final expiryProvider = FutureProvider.autoDispose<ExpiryView>(
-  (ref) => ref.watch(rollRepositoryProvider).expiry(),
+  (ref) => ref.cached(ref.watch(rollRepositoryProvider).expiry()),
 );
 final negativesAtLabProvider =
     FutureProvider.autoDispose<List<NegativesAtLabItem>>(
-      (ref) => ref.watch(processingRepositoryProvider).negativesAtLab(),
+      (ref) =>
+          ref.cached(ref.watch(processingRepositoryProvider).negativesAtLab()),
     );
 
 final processingProvider = FutureProvider.autoDispose
@@ -106,12 +127,15 @@ final processingProvider = FutureProvider.autoDispose
 final scansProvider = FutureProvider.autoDispose
     .family<List<Scan>, (String, Scanner?)>(
       (ref, k) async => [
-        ...await ref.watch(scanRepositoryProvider).scans(k.$1, scanner: k.$2),
+        ...await ref.cached(
+          ref.watch(scanRepositoryProvider).scans(k.$1, scanner: k.$2),
+        ),
       ]..sort((a, b) => a.frameNumber - b.frameNumber),
     );
 final compareProvider = FutureProvider.autoDispose
     .family<FrameComparison, (String, int)>(
-      (ref, k) => ref.watch(scanRepositoryProvider).compare(k.$1, k.$2),
+      (ref, k) =>
+          ref.cached(ref.watch(scanRepositoryProvider).compare(k.$1, k.$2)),
     );
 final frameProvider = FutureProvider.autoDispose.family<Frame, (String, int)>(
   (ref, k) => ref.watch(scanRepositoryProvider).frame(k.$1, k.$2),

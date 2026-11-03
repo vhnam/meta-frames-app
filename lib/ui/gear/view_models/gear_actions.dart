@@ -32,6 +32,7 @@ class CameraActions {
       ..invalidate(lensesProvider)
       // Roll cards and details show the camera name.
       ..invalidate(rollsProvider)
+      ..invalidate(expiryProvider)
       ..invalidate(rollDetailProvider);
     return saved;
   }
@@ -52,7 +53,10 @@ class CameraActions {
       ..invalidate(camerasProvider)
       ..invalidate(cameraProvider(cameraId))
       ..invalidate(lensesProvider)
-      ..invalidate(lensCamerasProvider);
+      ..invalidate(lensCamerasProvider)
+      // Roll cards show the camera name.
+      ..invalidate(rollsProvider)
+      ..invalidate(expiryProvider);
   }
 
   Future<void> setLenses(String cameraId, List<String> lensIds) async {
@@ -135,7 +139,9 @@ class LensActions {
       ..invalidate(lensesProvider)
       ..invalidate(lensProvider(lensId))
       ..invalidate(lensCamerasProvider)
-      ..invalidate(cameraLensesProvider);
+      ..invalidate(cameraLensesProvider)
+      // The Rolls filter finds rolls by lens.
+      ..invalidate(rollsProvider);
   }
 }
 

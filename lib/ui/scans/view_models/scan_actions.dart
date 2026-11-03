@@ -48,7 +48,9 @@ class ScanActions {
     ..invalidate(frameProvider)
     ..invalidate(processingProvider(processingId))
     ..invalidate(rollDetailProvider)
-    ..invalidate(rollsProvider);
+    ..invalidate(rollsProvider)
+    ..invalidate(expiryProvider)
+    ..invalidate(negativesAtLabProvider);
 }
 
 final scanActionsProvider = Provider<ScanActions>(ScanActions.new);

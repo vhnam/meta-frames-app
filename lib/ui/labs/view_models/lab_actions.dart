@@ -29,7 +29,9 @@ class LabActions {
 
   Future<void> delete(String labId) async {
     await _ref.read(labRepositoryProvider).delete(labId);
-    _ref.invalidate(labsProvider);
+    _ref
+      ..invalidate(labsProvider)
+      ..invalidate(negativesAtLabProvider);
   }
 }
 

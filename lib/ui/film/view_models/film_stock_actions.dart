@@ -24,12 +24,13 @@ class FilmStockActions {
       ..invalidate(stockDetailProvider)
       ..invalidate(inventoryProvider);
     if (existing != null) {
-      // Roll cards, roll details and loaded cameras show the stock name.
+      // Roll cards, roll details, loaded cameras and lab jobs show the stock name.
       _ref
         ..invalidate(rollsProvider)
         ..invalidate(rollDetailProvider)
         ..invalidate(expiryProvider)
-        ..invalidate(camerasProvider);
+        ..invalidate(camerasProvider)
+        ..invalidate(negativesAtLabProvider);
     }
     return saved;
   }
