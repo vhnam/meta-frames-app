@@ -26,7 +26,7 @@ class _State extends ConsumerState<StockFormScreen> {
   final _key = GlobalKey<FormState>();
   late final brand = TextEditingController(text: widget.stock?.brand);
   late final name = TextEditingController(text: widget.stock?.name);
-  late final iso = TextEditingController(text: widget.stock?.boxIso.toString());
+  late final iso = TextEditingController(text: widget.stock?.boxIso);
   late final stockOrigin = TextEditingController(
     text: widget.stock?.stockOrigin,
   );
@@ -225,7 +225,7 @@ class _State extends ConsumerState<StockFormScreen> {
       brand: brand.text.trim(),
       name: name.text.trim(),
       type: type,
-      boxIso: int.parse(iso.text),
+      boxIso: iso.text.trim(),
       process: process,
       packaging: packaging,
       stockOrigin: _t(stockOrigin),

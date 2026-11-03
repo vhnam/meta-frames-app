@@ -17,7 +17,7 @@ class FilmStockEdit {
   });
   final String brand, name;
   final StockType type;
-  final int boxIso;
+  final String boxIso;
   final Process process;
   final Packaging packaging;
   final String? stockOrigin, packOrigin, description, baseStockId;

@@ -39,7 +39,7 @@ const _stock = {
   'brand': 'Kodak',
   'name': 'Gold',
   'type': 'color',
-  'boxIso': 200,
+  'boxIso': '200',
   'process': 'C-41',
   'packaging': 'factory',
 };
@@ -197,7 +197,7 @@ void main() {
         brand: 'Kodak',
         name: 'Gold',
         type: StockType.color,
-        boxIso: 200,
+        boxIso: '200',
         process: Process.c41,
         packaging: Packaging.factory,
       );
@@ -221,7 +221,7 @@ void main() {
         brand: 'Kodak',
         name: 'Gold',
         type: StockType.color,
-        boxIso: 200,
+        boxIso: '200',
         process: Process.c41,
         packaging: Packaging.repack,
         packOrigin: 'Japan',

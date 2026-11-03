@@ -134,7 +134,8 @@ class FilmStock {
       brand = j['brand'],
       name = j['name'],
       type = _enum(StockType.values, j['type']),
-      boxIso = j['boxIso'],
+      // A server older than the string boxIso still sends a number.
+      boxIso = '${j['boxIso']}',
       process = Process.parse(j['process']),
       packaging = _enum(Packaging.values, j['packaging']),
       stockOrigin = j['stockOrigin'],
@@ -143,11 +144,34 @@ class FilmStock {
       baseStockId = j['baseStockId'];
   final String id, brand, name;
   final StockType type;
-  final int boxIso;
+
+  /// A single ISO ("400") or a rising range ("100-400").
+  final String boxIso;
   final Process process;
   final Packaging packaging;
   final String? stockOrigin, packOrigin, description, baseStockId;
   String get label => '$brand $name';
+
+  /// Whether [iso] is the box speed, or within a box speed range.
+  bool isBoxSpeed(int iso) {
+    final (low, high) = boxIsoBounds(boxIso);
+    return low <= iso && iso <= high;
+  }
+}
+
+final _boxIso = RegExp(r'^[1-9]\d{0,5}(-[1-9]\d{0,5})?$');
+
+/// Whether [boxIso] is a single ISO or a rising range, as the API accepts.
+bool isValidBoxIso(String boxIso) {
+  if (!_boxIso.hasMatch(boxIso)) return false;
+  final (low, high) = boxIsoBounds(boxIso);
+  return !boxIso.contains('-') || low < high;
+}
+
+/// The lowest and highest speed of a valid box ISO; equal for a single ISO.
+(int, int) boxIsoBounds(String boxIso) {
+  final parts = boxIso.split('-');
+  return (int.parse(parts.first), int.parse(parts.last));
 }
 
 class FilmStockDetail {

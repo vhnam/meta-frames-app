@@ -77,7 +77,7 @@ RollDetail rollDetail(String id) => RollDetail.fromJson({
     'brand': 'Kodak',
     'name': 'Gold',
     'type': 'color',
-    'boxIso': 200,
+    'boxIso': '200',
     'process': 'C-41',
     'packaging': 'factory',
   },
@@ -384,7 +384,7 @@ FilmStock stock(String id, {String brand = 'Kodak', String name = 'Gold'}) =>
       'brand': brand,
       'name': name,
       'type': 'color',
-      'boxIso': 200,
+      'boxIso': '200',
       'process': 'C-41',
       'packaging': 'factory',
     });
