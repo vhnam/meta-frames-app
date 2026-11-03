@@ -59,6 +59,20 @@ final inventoryProvider = FutureProvider.autoDispose
 final labsProvider = FutureProvider.autoDispose<List<Lab>>(
   (ref) => ref.watch(labRepositoryProvider).labs(),
 );
+final labProvider = FutureProvider.autoDispose.family<Lab, String>(
+  (ref, id) => ref.watch(labRepositoryProvider).lab(id),
+);
+final scannersProvider = FutureProvider.autoDispose<List<ScannerDevice>>(
+  (ref) => ref.watch(scannerRepositoryProvider).scanners(),
+);
+final scannerProvider = FutureProvider.autoDispose
+    .family<ScannerDevice, String>(
+      (ref, id) => ref.watch(scannerRepositoryProvider).scanner(id),
+    );
+final scannerKindsProvider =
+    FutureProvider.autoDispose<List<ScannerKindOptions>>(
+      (ref) => ref.watch(scannerRepositoryProvider).kinds(),
+    );
 
 final rollsProvider = FutureProvider.autoDispose
     .family<List<RollSummary>, RollFilter>(
@@ -119,6 +133,10 @@ void invalidateAllData(Ref ref) {
     ..invalidate(stockDetailProvider)
     ..invalidate(inventoryProvider)
     ..invalidate(labsProvider)
+    ..invalidate(labProvider)
+    ..invalidate(scannersProvider)
+    ..invalidate(scannerProvider)
+    ..invalidate(scannerKindsProvider)
     ..invalidate(rollsProvider)
     ..invalidate(rollDetailProvider)
     ..invalidate(expiryProvider)

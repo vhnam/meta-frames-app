@@ -19,6 +19,7 @@ class LabActions {
     if (existing != null) {
       // A renamed lab shows up wherever a job names it.
       _ref
+        ..invalidate(labProvider(existing.id))
         ..invalidate(negativesAtLabProvider)
         ..invalidate(processingProvider)
         ..invalidate(rollDetailProvider);

@@ -2,13 +2,27 @@ import '../utils.dart';
 import 'models.dart';
 
 class LabEdit {
-  const LabEdit({required this.name, this.address});
+  const LabEdit({
+    required this.name,
+    this.address,
+    this.scannerIds,
+    this.defaultScannerId,
+  });
   final String name;
   final String? address;
+
+  /// Replaces the lab's scanners, in order. Null keeps them as they are.
+  final List<String>? scannerIds;
+
+  /// One of [scannerIds]. The server saves it with them, so null clears the
+  /// default whenever [scannerIds] is sent.
+  final String? defaultScannerId;
 
   Map<String, dynamic> toJson() => {
     'name': name,
     if (address != null) 'address': address,
+    if (scannerIds != null) 'scannerIds': scannerIds,
+    if (defaultScannerId != null) 'defaultScannerId': defaultScannerId,
   };
 }
 

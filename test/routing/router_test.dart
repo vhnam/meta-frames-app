@@ -7,6 +7,7 @@ import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/ui/core/widgets/common.dart';
+import 'package:meta_frames/ui/labs/widgets/lab_detail.dart';
 import 'package:meta_frames/routing/routes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,6 +47,10 @@ Future<GoRouter> pumpRouter(
         processingRepositoryProvider.overrideWithValue(
           FakeProcessingRepository(),
         ),
+        labRepositoryProvider.overrideWithValue(
+          FakeLabRepository([lab('b1', 'Foto Lab')]),
+        ),
+        scannerRepositoryProvider.overrideWithValue(FakeScannerRepository()),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -61,7 +66,9 @@ void main() {
   group('Routes', () {
     test('builds paths with their ids', () {
       expect(Routes.camera('c1'), '/cameras/c1');
+      expect(Routes.lab('b1'), '/labs/b1');
       expect(Routes.cameraEdit('c1'), '/cameras/c1/edit');
+      expect(Routes.scanner('s1'), '/scanners/s1');
       expect(Routes.frame('r1', 3), '/rolls/r1/frames/3');
       expect(Routes.compare('p1', 4), '/processing/p1/frames/4/compare');
       expect(
@@ -75,6 +82,16 @@ void main() {
       expect(Routes.rollNew(stockId: 's1'), '/rolls/new?stockId=s1');
       expect(Routes.rollSend('r1'), '/rolls/r1/send');
       expect(Routes.rollSend('r1', resend: true), '/rolls/r1/send?resend=true');
+    });
+  });
+
+  group('labs', () {
+    testWidgets('a lab row opens the lab page', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.labs);
+      await tester.tap(find.text('Foto Lab'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.lab('b1'));
+      expect(find.byType(LabDetailScreen), findsOneWidget);
     });
   });
 
@@ -241,6 +258,7 @@ void main() {
         'Expiry',
         'Negatives at lab',
         'Labs',
+        'Scanners',
         'Settings',
       ]) {
         expect(find.text(label), findsOneWidget, reason: label);
@@ -255,6 +273,7 @@ void main() {
         'Expiry': Routes.expiry,
         'Negatives at lab': Routes.negativesAtLab,
         'Labs': Routes.labs,
+        'Scanners': Routes.scanners,
         'Settings': Routes.settings,
       };
 

@@ -18,6 +18,7 @@ import '../ui/gear/widgets/lens_detail.dart';
 import '../ui/gear/widgets/lens_form.dart';
 import '../ui/gear/widgets/manage_lenses.dart';
 import '../ui/home/widgets/home_tab.dart';
+import '../ui/labs/widgets/lab_detail.dart';
 import '../ui/labs/widgets/labs_screen.dart';
 import '../ui/labs/widgets/negatives_at_lab.dart';
 import '../ui/labs/widgets/processing_detail.dart';
@@ -31,6 +32,8 @@ import '../ui/rolls/widgets/roll_detail.dart';
 import '../ui/rolls/widgets/roll_form.dart';
 import '../ui/rolls/widgets/roll_lenses.dart';
 import '../ui/rolls/widgets/rolls_tab.dart';
+import '../ui/scanners/widgets/scanner_form.dart';
+import '../ui/scanners/widgets/scanners_screen.dart';
 import '../ui/scans/widgets/compare_screen.dart';
 import '../ui/scans/widgets/frame_screen.dart';
 import '../ui/scans/widgets/import_scans.dart';
@@ -103,8 +106,20 @@ GoRouter buildRouter({
     _route(Routes.film, (_) => const FilmTab()),
     _route(Routes.expiry, (_) => const ExpiryScreen()),
     _route(Routes.labs, (_) => const LabsScreen()),
+    _route('/labs/:id', (s) => LabDetailScreen(labId: s.pathParameters['id']!)),
     _route(Routes.negativesAtLab, (_) => const NegativesAtLabScreen()),
     _route(Routes.settings, (_) => const SettingsScreen()),
+
+    // Scanners. `new` is declared before `:id` so it is not read as an id.
+    _route(Routes.scanners, (_) => const ScannersScreen()),
+    _route(Routes.scannerNew, (_) => const ScannerFormScreen()),
+    _route(
+      '/scanners/:id',
+      (s) => routeData(
+        scannerProvider(s.pathParameters['id']!),
+        (d) => ScannerFormScreen(scanner: d),
+      ),
+    ),
 
     // Cameras. `new` is declared before `:id` so it is not read as an id.
     _route(Routes.cameraNew, (_) => const CameraFormScreen()),

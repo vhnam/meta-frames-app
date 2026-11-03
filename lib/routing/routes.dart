@@ -21,6 +21,14 @@ abstract final class Routes {
   static const negativesAtLab = '/negatives-at-lab';
   static const settings = '/settings';
 
+  // Labs.
+  static String lab(String id) => '/labs/$id';
+
+  // Scanners.
+  static const scanners = '/scanners';
+  static const scannerNew = '/scanners/new';
+  static String scanner(String id) => '/scanners/$id';
+
   // Cameras.
   static const cameraNew = '/cameras/new';
   static String camera(String id) => '/cameras/$id';

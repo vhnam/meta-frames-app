@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:meta_frames/data/repositories/camera_repository.dart';
 import 'package:meta_frames/data/repositories/film_stock_repository.dart';
 import 'package:meta_frames/data/repositories/lab_repository.dart';
+import 'package:meta_frames/data/repositories/scanner_repository.dart';
 import 'package:meta_frames/data/repositories/lens_repository.dart';
 import 'package:meta_frames/data/repositories/processing_repository.dart';
 import 'package:meta_frames/data/repositories/roll_repository.dart';
@@ -11,6 +12,7 @@ import 'package:meta_frames/domain/models/film_requests.dart';
 import 'package:meta_frames/domain/models/gear_requests.dart';
 import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
+import 'package:meta_frames/domain/models/scanner_requests.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
 
 Camera camera(
@@ -393,18 +395,103 @@ class FakeLabRepository implements LabRepository {
   FakeLabRepository([List<Lab> labs = const []]) : all = [...labs];
   List<Lab> all;
 
+  /// The last lab written.
+  LabEdit? saved;
+
   @override
   Future<List<Lab>> labs() async => all;
 
   @override
-  Future<Lab> create(LabEdit lab) async =>
-      Lab.fromJson({'id': 'new', 'name': lab.name, 'address': lab.address});
+  Future<Lab> lab(String id) async => all.firstWhere((l) => l.id == id);
+
   @override
-  Future<Lab> update(String id, LabEdit lab) async =>
-      all.firstWhere((l) => l.id == id);
+  Future<Lab> create(LabEdit lab) async {
+    saved = lab;
+    return Lab.fromJson({
+      'id': 'new',
+      'name': lab.name,
+      'address': lab.address,
+    });
+  }
+
+  @override
+  Future<Lab> update(String id, LabEdit lab) async {
+    saved = lab;
+    return all.firstWhere((l) => l.id == id);
+  }
+
   @override
   Future<void> delete(String id) async => all.removeWhere((l) => l.id == id);
 }
 
-Lab lab(String id, String name, {String? address}) =>
-    Lab.fromJson({'id': id, 'name': name, 'address': address});
+Lab lab(
+  String id,
+  String name, {
+  String? address,
+  List<String> scannerIds = const [],
+  String? defaultScannerId,
+}) => Lab.fromJson({
+  'id': id,
+  'name': name,
+  'address': address,
+  'scannerIds': scannerIds,
+  'defaultScannerId': defaultScannerId,
+});
+
+class FakeScannerRepository implements ScannerRepository {
+  FakeScannerRepository([this.all = const [], this.kindOptions = const []]);
+  final List<ScannerDevice> all;
+  final List<ScannerKindOptions> kindOptions;
+
+  /// Writes made, and the last scanner written.
+  final calls = <String>[];
+  ScannerEdit? saved;
+
+  @override
+  Future<List<ScannerDevice>> scanners() async => all;
+
+  @override
+  Future<ScannerDevice> scanner(String id) async =>
+      all.firstWhere((s) => s.id == id);
+
+  @override
+  Future<List<ScannerKindOptions>> kinds() async => kindOptions;
+
+  @override
+  Future<ScannerDevice> create(ScannerEdit scanner) async {
+    calls.add('create');
+    saved = scanner;
+    return ScannerDevice.fromJson({
+      'id': 'new',
+      'brand': scanner.brand,
+      'name': scanner.brand,
+    });
+  }
+
+  @override
+  Future<ScannerDevice> update(String id, ScannerEdit scanner) async {
+    calls.add('update:$id');
+    saved = scanner;
+    return all.firstWhere((s) => s.id == id);
+  }
+
+  @override
+  Future<void> delete(String id) async => calls.add('delete:$id');
+}
+
+ScannerDevice scanner(
+  String id,
+  String name, {
+  String? kind,
+  bool builtIn = false,
+  String? notes,
+  Map<String, Object?> defaultSettings = const {},
+}) => ScannerDevice.fromJson({
+  'id': id,
+  'brand': name,
+  'name': name,
+  'kind': kind,
+  'notes': notes,
+  'defaultSettings': defaultSettings,
+  'builtIn': builtIn,
+});

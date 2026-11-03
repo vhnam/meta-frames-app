@@ -22,6 +22,7 @@ Future<void> pump(
   FakeLabRepository? labs,
   FakeProcessingRepository? processing,
   FakeFilmStockRepository? stocks,
+  FakeScannerRepository? scanners,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -31,6 +32,9 @@ Future<void> pump(
         prefsProvider.overrideWithValue(prefs),
         rollRepositoryProvider.overrideWithValue(rolls ?? FakeRollRepository()),
         labRepositoryProvider.overrideWithValue(labs ?? FakeLabRepository()),
+        scannerRepositoryProvider.overrideWithValue(
+          scanners ?? FakeScannerRepository(),
+        ),
         processingRepositoryProvider.overrideWithValue(
           processing ?? FakeProcessingRepository(),
         ),
@@ -98,6 +102,29 @@ void main() {
       expect(find.text('Foto Lab'), findsOneWidget);
       expect(find.text('Hanoi'), findsOneWidget);
       expect(find.byType(ListTile), findsNothing);
+    });
+    testWidgets('a lab row names its scanners in the lab\'s order', (t) async {
+      await pump(
+        t,
+        const LabsScreen(),
+        labs: FakeLabRepository([
+          lab('a', 'Foto Lab', scannerIds: ['s2', 's1']),
+        ]),
+        scanners: FakeScannerRepository([
+          scanner('s1', 'Noritsu HS-1800'),
+          scanner('s2', 'Frontier SP-3000'),
+          scanner('s3', 'Epson V600'),
+        ]),
+      );
+      expect(find.text('Frontier SP-3000, Noritsu HS-1800'), findsOneWidget);
+    });
+    testWidgets('a lab without scanners says so', (t) async {
+      await pump(
+        t,
+        const LabsScreen(),
+        labs: FakeLabRepository([lab('a', 'Foto Lab')]),
+      );
+      expect(find.text('No scanners'), findsOneWidget);
     });
     testWidgets('a lab without an address says so', (t) async {
       await pump(
