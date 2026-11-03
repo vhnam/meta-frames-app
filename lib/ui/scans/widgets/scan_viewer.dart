@@ -45,7 +45,7 @@ class _State extends ConsumerState<ScanViewerScreen> {
         foregroundColor: Colors.white,
         title: Text('#${scan.frameNumber} · ${scan.scanner.label}'),
         actions: [
-          if (widget.processing.scanners.length > 1)
+          if (widget.processing.scannedWith.length > 1)
             IconButton(
               tooltip: 'Compare scanners',
               icon: const Icon(Icons.compare),

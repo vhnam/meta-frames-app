@@ -13,6 +13,7 @@ import 'package:meta_frames/domain/models/gear_requests.dart';
 import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/scanner_requests.dart';
+import 'package:meta_frames/domain/utils.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
 
 Camera camera(
@@ -362,22 +363,51 @@ class FakeFilmStockRepository implements FilmStockRepository {
 class FakeProcessingRepository implements ProcessingRepository {
   List<NegativesAtLabItem> atLab = [];
 
+  /// Jobs sent, and receipts recorded such as `scans:j1:2026-01-02`.
+  final sent = <NewProcessing>[];
+  final receipts = <String>[];
+  final deleted = <String>[];
+
+  /// Jobs that [processing] can load.
+  final jobs = <String, Processing>{};
+
+  Processing _job(String id, ProcessingType type, Process process) =>
+      Processing.fromJson({
+        'id': id,
+        'rollId': 'r',
+        'type': type.wire,
+        'process': process.wire,
+        'sentAt': '2026-01-01',
+        'isOpen': true,
+      });
+
   @override
   Future<List<NegativesAtLabItem>> negativesAtLab() async => atLab;
 
   @override
   Future<List<Processing>> forRoll(String rollId) async => const [];
   @override
-  Future<Processing> send(String rollId, NewProcessing job) =>
-      throw UnimplementedError();
+  Future<Processing> send(String rollId, NewProcessing job) async {
+    sent.add(job);
+    return _job(job.id ?? 'new', job.type, job.process);
+  }
+
   @override
-  Future<Processing> processing(String id) => throw UnimplementedError();
+  Future<Processing> processing(String id) async =>
+      jobs[id] ?? (throw UnimplementedError());
   @override
-  Future<Processing> scansReceived(String id, DateTime date) =>
-      throw UnimplementedError();
+  Future<void> delete(String id) async => deleted.add(id);
   @override
-  Future<Processing> negativesReturned(String id, DateTime date) =>
-      throw UnimplementedError();
+  Future<Processing> scansReceived(String id, DateTime date) async {
+    receipts.add('scans:$id:${ymd(date)}');
+    return _job(id, ProcessingType.scan, Process.c41);
+  }
+
+  @override
+  Future<Processing> negativesReturned(String id, DateTime date) async {
+    receipts.add('negatives:$id:${ymd(date)}');
+    return _job(id, ProcessingType.scan, Process.c41);
+  }
 }
 
 FilmStock stock(String id, {String brand = 'Kodak', String name = 'Gold'}) =>

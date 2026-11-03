@@ -60,7 +60,14 @@ class _FakeProcessingScans {
     'type': 'develop_scan',
     'process': 'C-41',
     'sentAt': '2026-01-01',
-    'scanners': ['noritsu'],
+    'scanOrders': [
+      {
+        'scanner': 'noritsu',
+        'scannerId': 'n',
+        'scannerName': 'Noritsu HS-1800',
+        'scanCount': 60,
+      },
+    ],
     'isOpen': true,
   };
 

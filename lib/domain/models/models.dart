@@ -40,7 +40,25 @@ enum ProcessingType {
   static ProcessingType parse(String s) =>
       values.firstWhere((e) => e.wire == s);
   bool get hasScans => this == developScan || this == scan;
+  bool get developsFilm => this == develop || this == developScan;
+
+  /// Whether the job takes a negatives-returned date. A print job closes only
+  /// on it, and a lab keeps "Negatives at lab" set until it is recorded.
+  bool recordsNegativesReturned({required bool atLab}) =>
+      developsFilm || this == print || (this == scan && atLab);
 }
+
+/// Services a roll can be sent for now. Developing happens once: after the
+/// first job only scan and print remain, and none while the roll is at the lab
+/// or not yet finished.
+List<ProcessingType> sendableTypes(RollStatus status, int jobCount) =>
+    switch (status) {
+      RollStatus.doneShooting when jobCount == 0 => ProcessingType.values,
+      RollStatus.doneShooting ||
+      RollStatus.developed ||
+      RollStatus.scanned => const [ProcessingType.scan, ProcessingType.print],
+      _ => const [],
+    };
 
 enum Scanner {
   noritsu('Noritsu'),
@@ -466,6 +484,20 @@ class Frame {
   final List<ScanRef> scans;
 }
 
+/// A scanner ordered on a job. [scanCount] counts the scans imported for it.
+class JobScanOrder {
+  JobScanOrder.fromJson(Map<String, dynamic> j)
+    : scanner = j['scanner'] == null ? null : Scanner.parse(j['scanner']),
+      scannerId = j['scannerId'],
+      scannerName = j['scannerName'],
+      settings = Map<String, Object?>.from(j['settings'] ?? const {}),
+      scanCount = j['scanCount'] ?? 0;
+  final Scanner? scanner;
+  final String scannerId, scannerName;
+  final Map<String, Object?> settings;
+  final int scanCount;
+}
+
 class Processing {
   Processing.fromJson(Map<String, dynamic> j)
     : id = j['id'],
@@ -475,24 +507,38 @@ class Processing {
       type = ProcessingType.parse(j['type']),
       process = Process.parse(j['process']),
       sentAt = DateTime.parse(j['sentAt']),
+      scansExpectedAt = _date(j['scansExpectedAt']),
+      negativesExpectedAt = _date(j['negativesExpectedAt']),
       scansReceivedAt = _date(j['scansReceivedAt']),
       negativesReturnedAt = _date(j['negativesReturnedAt']),
       price = j['price'],
       notes = j['notes'],
-      scanners = ((j['scanners'] as List?) ?? const [])
-          .map((e) => Scanner.parse(e as String))
-          .toList(),
+      scanOrders = _list(j['scanOrders'], JobScanOrder.fromJson),
       isOpen = j['isOpen'];
   final String id, rollId;
   final String? labId, labName, notes;
   final ProcessingType type;
   final Process process;
   final DateTime sentAt;
+  final DateTime? scansExpectedAt, negativesExpectedAt;
   final DateTime? scansReceivedAt, negativesReturnedAt;
   final int? price;
-  final List<Scanner> scanners;
+  final List<JobScanOrder> scanOrders;
   final bool isOpen;
   bool get isHome => labId == null;
+
+  /// The scanners ordered, each once. Your own scanners share one code.
+  List<Scanner> get scanners =>
+      {for (final o in scanOrders) ?o.scanner}.toList();
+
+  /// The scanners that have imported scans, each once.
+  List<Scanner> get scannedWith => {
+    for (final o in scanOrders)
+      if (o.scanCount > 0) ?o.scanner,
+  }.toList();
+
+  /// The server refuses to delete a job with imported scans.
+  bool get hasScans => scanOrders.any((o) => o.scanCount > 0);
   String get where => labName ?? 'Home';
 }
 

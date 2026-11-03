@@ -60,6 +60,7 @@ abstract final class Routes {
 
   // Processing jobs and their scans.
   static String processing(String id) => '/processing/$id';
+  static String processingEdit(String id) => '/processing/$id/edit';
   static String importScans(String id) => '/processing/$id/import';
   static String scanViewer(String id, Scanner scanner, int index) =>
       '/processing/$id/scans/${scanner.name}/$index';

@@ -493,6 +493,30 @@ void main() {
         price: 150000,
       );
 
+      await repo.send(
+        'r1',
+        const NewProcessing(
+          id: 'kept',
+          labId: null,
+          type: ProcessingType.scan,
+          process: Process.c41,
+          scanOrders: [
+            ScanOrder(scannerId: 's1', settings: {'dpi': 3200}),
+          ],
+        ),
+      );
+      expect(rec.last.url.path, endsWith('/rolls/r1/processing/kept'));
+      expect(rec.body, {
+        'type': 'scan',
+        'process': 'C-41',
+        'scanOrders': [
+          {
+            'scannerId': 's1',
+            'settings': {'dpi': 3200},
+          },
+        ],
+      });
+
       await repo.send('r1', job);
       final first = rec.last.url.path;
       await repo.send('r1', job);
@@ -505,6 +529,7 @@ void main() {
         'process': 'C-41',
         'sentAt': '2026-02-03',
         'price': 150000,
+        'scanOrders': <Object?>[],
       });
     });
 
@@ -521,6 +546,9 @@ void main() {
 
       await repo.processing('p1');
       expect(rec.call, 'GET /processing/p1');
+
+      await repo.delete('p1');
+      expect(rec.call, 'DELETE /processing/p1');
     });
 
     test('lists', () async {

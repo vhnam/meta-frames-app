@@ -17,8 +17,33 @@ class ProcessingActions {
       ..invalidate(negativesAtLabProvider);
   }
 
-  Future<void> send(String rollId, NewProcessing job) async {
-    await _ref.read(processingRepositoryProvider).send(rollId, job);
+  /// Sends the roll. Work done at home is finished when it is recorded, so its
+  /// receipt dates go with it; the API has its own endpoints for them.
+  Future<void> send(
+    String rollId,
+    NewProcessing job, {
+    DateTime? scansReceivedAt,
+    DateTime? negativesReturnedAt,
+  }) async {
+    final repo = _ref.read(processingRepositoryProvider);
+    String? jobId;
+    try {
+      jobId = (await repo.send(rollId, job)).id;
+      if (scansReceivedAt != null) {
+        await repo.scansReceived(jobId, scansReceivedAt);
+      }
+      if (negativesReturnedAt != null) {
+        await repo.negativesReturned(jobId, negativesReturnedAt);
+      }
+    } finally {
+      _invalidateJob(jobId, rollId);
+    }
+  }
+
+  /// The server recomputes the roll's status.
+  Future<void> delete(String processingId, String rollId) async {
+    await _ref.read(processingRepositoryProvider).delete(processingId);
+    // The job is gone: reloading it could only fail.
     _invalidateJob(null, rollId);
   }
 

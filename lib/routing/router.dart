@@ -217,14 +217,19 @@ GoRouter buildRouter({
     ),
     _route(
       '/rolls/:id/send',
-      (s) => routeData(
-        rollDetailProvider(s.pathParameters['id']!),
-        (d) => SendRollScreen(
+      (s) => routeData(rollDetailProvider(s.pathParameters['id']!), (d) {
+        final rescan = s.uri.queryParameters['resend'] == 'true';
+        final types = sendableTypes(d.roll.status, d.processing.length);
+        return SendRollScreen(
           roll: d.roll,
           stock: d.stock,
-          resend: s.uri.queryParameters['resend'] == 'true',
-        ),
-      ),
+          rescan: rescan,
+          types: rescan
+              ? const [ProcessingType.scan]
+              // A link can open a roll with nothing to send; the server refuses.
+              : (types.isEmpty ? ProcessingType.values : types),
+        );
+      }),
     ),
     _route(
       '/rolls/:id/frames/:n',
@@ -238,6 +243,21 @@ GoRouter buildRouter({
     _route(
       '/processing/:id',
       (s) => ProcessingDetailScreen(processingId: s.pathParameters['id']!),
+    ),
+    _route(
+      '/processing/:id/edit',
+      (s) => routeData(
+        processingProvider(s.pathParameters['id']!),
+        (job) => routeData(
+          rollDetailProvider(job.rollId),
+          (d) => SendRollScreen(
+            roll: d.roll,
+            stock: d.stock,
+            job: job,
+            types: [job.type],
+          ),
+        ),
+      ),
     ),
     _route(
       '/processing/:id/import',

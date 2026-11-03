@@ -27,28 +27,58 @@ class LabEdit {
 }
 
 /// Sends a roll for processing. A null [labId] means home processing.
+class ScanOrder {
+  const ScanOrder({required this.scannerId, required this.settings});
+  final String scannerId;
+  final Map<String, Object?> settings;
+
+  Map<String, dynamic> toJson() => {
+    'scannerId': scannerId,
+    'settings': settings,
+  };
+}
+
 class NewProcessing {
   const NewProcessing({
+    this.id,
     required this.labId,
     required this.type,
     required this.process,
-    required this.sentAt,
+    this.sentAt,
+    this.scansExpectedAt,
+    this.negativesExpectedAt,
     this.price,
     this.notes,
+    this.scanOrders = const [],
   });
+
+  /// Client-chosen job id. Giving one makes saving again safe: the PUT replaces
+  /// the job instead of adding a second. Null picks a new id.
+  final String? id;
   final String? labId;
   final ProcessingType type;
   final Process process;
-  final DateTime sentAt;
+
+  /// Null lets the server use today.
+  final DateTime? sentAt;
+  final DateTime? scansExpectedAt, negativesExpectedAt;
   final int? price;
   final String? notes;
+
+  /// One per scanner. The API needs at least one for a scanning job, and none
+  /// otherwise.
+  final List<ScanOrder> scanOrders;
 
   Map<String, dynamic> toJson() => {
     if (labId != null) 'labId': labId,
     'type': type.wire,
     'process': process.wire,
-    'sentAt': ymd(sentAt),
+    if (sentAt != null) 'sentAt': ymd(sentAt!),
+    if (scansExpectedAt != null) 'scansExpectedAt': ymd(scansExpectedAt!),
+    if (negativesExpectedAt != null)
+      'negativesExpectedAt': ymd(negativesExpectedAt!),
     if (price != null) 'price': price,
     if (notes != null) 'notes': notes,
+    'scanOrders': [for (final o in scanOrders) o.toJson()],
   };
 }
