@@ -254,11 +254,16 @@ GoRouter buildRouter({
   ],
 );
 
+/// A screen over the tab bar. It has no bottom bar to hold it above the system
+/// navigation bar, so the route keeps it clear.
 GoRoute _route(String path, Widget Function(GoRouterState state) builder) =>
     GoRoute(
       path: path,
       parentNavigatorKey: _rootKey,
-      builder: (_, state) => builder(state),
+      builder: (context, state) => ColoredBox(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SafeArea(top: false, child: builder(state)),
+      ),
     );
 
 final routerProvider = Provider<GoRouter>((ref) {

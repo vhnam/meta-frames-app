@@ -263,7 +263,15 @@ ThemeData buildTheme(Brightness brightness) {
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(shape: shape, textStyle: buttonText),
+      style: TextButton.styleFrom(
+        shape: shape,
+        textStyle: buttonText,
+        // In dark mode the primary orange is too dark to read as text.
+        foregroundColor: dark ? cs.onPrimaryContainer : cs.primary,
+        iconColor: dark ? cs.onPrimaryContainer : cs.primary,
+        disabledForegroundColor: cs.onSurface.withValues(alpha: 0.38),
+        disabledIconColor: cs.onSurface.withValues(alpha: 0.38),
+      ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       elevation: 0,

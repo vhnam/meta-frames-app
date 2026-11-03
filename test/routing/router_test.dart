@@ -6,6 +6,7 @@ import 'package:meta_frames/data/services/session_store.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
+import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/routing/routes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -340,4 +341,46 @@ void main() {
     });
   });
 
+  group('system navigation bar', () {
+    const inset = 48.0;
+
+    void useBar(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1200, 1500);
+      tester.view.devicePixelRatio = 3;
+      tester.view.padding = const FakeViewPadding(bottom: inset * 3);
+      tester.view.viewPadding = const FakeViewPadding(bottom: inset * 3);
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('a screen over the tab bar stays clear of it', (tester) async {
+      useBar(tester);
+      await pumpRouter(tester, location: Routes.rollNew());
+
+      await tester.drag(find.byType(ListView), const Offset(0, -3000));
+      await tester.pumpAndSettle();
+
+      final save = tester.getBottomRight(find.byType(FilledButton)).dy;
+      expect(save, lessThanOrEqualTo(500 - inset));
+    });
+
+    testWidgets('a pick sheet stays clear of it', (tester) async {
+      useBar(tester);
+      await pumpRouter(tester);
+      final context = tester.element(find.byType(NavigationBar));
+
+      pickOne<String>(
+        context,
+        title: 'Stock',
+        items: const ['a'],
+        label: (s) => s,
+        footer: const Text('footer'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getBottomRight(find.text('footer')).dy,
+        lessThanOrEqualTo(500 - inset),
+      );
+    });
+  });
 }
