@@ -89,15 +89,26 @@ void main() {
       expect(_location(router), Routes.home);
     });
 
+    testWidgets('the tabs are Rolls, Home and More, in that order', (
+      tester,
+    ) async {
+      await pumpRouter(tester);
+      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(
+        [for (final d in bar.destinations) (d as NavigationDestination).label],
+        ['Rolls', 'Home', 'More'],
+      );
+    });
+
     testWidgets('switching tabs changes the location and keeps each tab', (
       tester,
     ) async {
       final router = await pumpRouter(tester);
 
-      await tester.tap(find.text('Gear'));
+      await tester.tap(find.text('More'));
       await tester.pumpAndSettle();
-      expect(_location(router), Routes.gear);
-      expect(find.text('Nikon c1'), findsOneWidget);
+      expect(_location(router), Routes.more);
+      expect(find.text('Film stocks'), findsOneWidget);
 
       await tester.tap(find.text('Rolls').last);
       await tester.pumpAndSettle();
@@ -224,6 +235,7 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final label in [
+        'Gear',
         'Film stocks',
         'Expiry',
         'Negatives at lab',
@@ -237,6 +249,7 @@ void main() {
     testWidgets('each entry opens its screen over the tab bar', (tester) async {
       final router = await pumpRouter(tester, location: Routes.more);
       final entries = {
+        'Gear': Routes.gear,
         'Film stocks': Routes.film,
         'Expiry': Routes.expiry,
         'Negatives at lab': Routes.negativesAtLab,
@@ -256,4 +269,26 @@ void main() {
       }
     });
   });
+
+  group('Gear', () {
+    testWidgets('Back returns to More', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.more);
+      await tester.tap(find.text('Gear'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nikon c1'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.more);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    });
+
+    testWidgets('opened from a link, Back goes Home', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.gear);
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.home);
+    });
+  });
+
 }

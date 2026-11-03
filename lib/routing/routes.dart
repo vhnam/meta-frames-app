@@ -9,12 +9,12 @@ abstract final class Routes {
   static const recover = '/recover';
 
   // Tabs.
-  static const home = '/home';
-  static const gear = '/gear';
   static const rolls = '/rolls';
+  static const home = '/home';
   static const more = '/more';
 
   // Secondary screens.
+  static const gear = '/gear';
   static const film = '/film';
   static const expiry = '/expiry';
   static const labs = '/labs';

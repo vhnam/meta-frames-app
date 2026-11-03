@@ -160,6 +160,12 @@ Future<_Harness> _pumpApp(
 Future<void> _enter(WidgetTester tester, String hint, String text) =>
     tester.enterText(find.widgetWithText(TextFormField, hint), text);
 
+/// Taps Log out, at the end of a list that can be longer than the screen.
+Future<void> _logOut(WidgetTester tester) async {
+  await tester.scrollUntilVisible(find.text('Log out'), 100);
+  await _tapAndSettle(tester, find.text('Log out'));
+}
+
 Future<void> _tapAndSettle(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
@@ -397,7 +403,7 @@ void main() {
       final google = _FakeGoogle();
       await _pumpApp(tester, token: 'saved', google: google);
       await _tapAndSettle(tester, find.text('More'));
-      await _tapAndSettle(tester, find.text('Log out'));
+      await _logOut(tester);
       expect(google.signedOut, isTrue);
     });
   });
@@ -417,7 +423,7 @@ void main() {
 
     testWidgets('logging out returns to login', (tester) async {
       final app = await openMore(tester);
-      await _tapAndSettle(tester, find.text('Log out'));
+      await _logOut(tester);
       expect(app.auth.loggedOut, isTrue);
       expect(app.location, Routes.login);
     });
@@ -427,7 +433,7 @@ void main() {
     ) async {
       final app = await openMore(tester);
       app.auth.logoutFails = true;
-      await _tapAndSettle(tester, find.text('Log out'));
+      await _logOut(tester);
       expect(app.session.signedIn, isFalse);
       expect(app.location, Routes.login);
     });

@@ -47,8 +47,9 @@ void main() {
         child: const MetaFramesApp(),
       ),
     );
-    expect(find.text('Gear'), findsOneWidget);
+    expect(find.text('Gear'), findsNothing);
     expect(find.text('Rolls'), findsWidgets);
+    expect(find.text('More'), findsOneWidget);
   });
 }
 

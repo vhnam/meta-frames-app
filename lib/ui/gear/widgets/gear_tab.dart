@@ -13,6 +13,7 @@ import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
+/// Cameras and lenses; opened from More, over the tab bar.
 class GearTab extends ConsumerStatefulWidget {
   const GearTab({super.key});
   @override
@@ -44,6 +45,7 @@ class _State extends ConsumerState<GearTab> {
             ScreenHeader(
               kicker: 'MetaFrames · Gear locker',
               title: 'Gear',
+              back: true,
               trailing: TextButton(onPressed: _add, child: Text(addLabel)),
             ),
             SegmentSwitcher(

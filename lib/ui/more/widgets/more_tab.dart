@@ -41,6 +41,7 @@ class MoreTab extends ConsumerWidget {
                           ? Text(user.email)
                           : null,
                     ),
+                  entry(Icons.photo_camera_outlined, 'Gear', Routes.gear),
                   entry(
                     Icons.local_movies_outlined,
                     'Film stocks',

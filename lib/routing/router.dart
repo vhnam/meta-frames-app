@@ -82,17 +82,12 @@ GoRouter buildRouter({
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: Routes.home, builder: (_, _) => const HomeTab()),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(path: Routes.gear, builder: (_, _) => const GearTab()),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
             GoRoute(path: Routes.rolls, builder: (_, _) => const RollsTab()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: Routes.home, builder: (_, _) => const HomeTab()),
           ],
         ),
         StatefulShellBranch(
@@ -104,6 +99,7 @@ GoRouter buildRouter({
     ),
 
     // Secondary screens.
+    _route(Routes.gear, (_) => const GearTab()),
     _route(Routes.film, (_) => const FilmTab()),
     _route(Routes.expiry, (_) => const ExpiryScreen()),
     _route(Routes.labs, (_) => const LabsScreen()),

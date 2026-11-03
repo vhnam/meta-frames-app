@@ -31,7 +31,7 @@ class _State extends ConsumerState<FilmTab> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // Contextual label while the current segment is empty, as on the Gear tab.
+    // Contextual label while the current segment is empty, as on the Gear screen.
     final empty = inventory
         ? ref.watch(inventoryProvider(filter)).value?.isEmpty
         : ref.watch(stocksProvider).value?.isEmpty;
