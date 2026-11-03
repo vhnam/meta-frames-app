@@ -223,6 +223,7 @@ class FakeLensRepository implements LensRepository {
   FakeLensRepository([this.all = const []]);
   List<Lens> all;
   int listCalls = 0;
+  final calls = <String>[];
 
   @override
   Future<List<Lens>> lenses({String? preferMount}) async {
@@ -251,10 +252,13 @@ class FakeLensRepository implements LensRepository {
   );
 
   @override
-  Future<void> delete(String id) async {}
+  Future<void> delete(String id) async => calls.add('delete:$id');
 
   @override
-  Future<Lens> setActive(String id, bool active) async => _find(id);
+  Future<Lens> setActive(String id, bool active) async {
+    calls.add('setActive:$id:$active');
+    return _find(id);
+  }
 }
 
 class FakeScanRepository implements ScanRepository {

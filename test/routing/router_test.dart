@@ -291,4 +291,53 @@ void main() {
     });
   });
 
+  group('deleting a camera', () {
+    Future<void> delete(WidgetTester tester) async {
+      await tester.tap(find.text('Delete camera'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+    }
+
+    void tallView(WidgetTester tester) {
+      tester.view
+        ..physicalSize = const Size(800, 3000)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('returns to Gear when opened from Gear, then Back to More', (
+      tester,
+    ) async {
+      tallView(tester);
+      final router = await pumpRouter(tester, location: Routes.more);
+      await tester.tap(find.text('Gear'));
+      await tester.pumpAndSettle();
+      router.push(Routes.camera('c1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+
+      await delete(tester);
+      expect(_location(router), Routes.gear);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.more);
+    });
+
+    testWidgets('goes Home when Edit Camera was opened from a link', (
+      tester,
+    ) async {
+      tallView(tester);
+      final router = await pumpRouter(
+        tester,
+        location: Routes.cameraEdit('c1'),
+      );
+      await delete(tester);
+      expect(_location(router), Routes.home);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    });
+  });
+
 }

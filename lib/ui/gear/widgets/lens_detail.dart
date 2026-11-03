@@ -6,15 +6,13 @@ import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
-import '../view_models/gear_actions.dart';
 import '../../rolls/widgets/roll_tile.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
-import '../../../routing/navigation.dart';
-
-/// M-11 lens details, M-08 activate/deactivate.
+/// M-11 lens details. Read-only summary; activating and deleting are on the
+/// edit screen.
 class LensDetailScreen extends ConsumerWidget {
   const LensDetailScreen({super.key, required this.lensId});
   final String lensId;
@@ -130,47 +128,8 @@ class _Body extends ConsumerWidget {
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text('$e'),
         ),
-        if (!l.isBuiltIn) ...[
-          const SizedBox(height: 20),
-          CardList(
-            children: [
-              DetailActionRow(
-                label: l.isActive ? 'Deactivate lens' : 'Activate lens',
-                color: cs.onPrimaryContainer,
-                onTap: () => guard(
-                  context,
-                  () => ref
-                      .read(lensActionsProvider)
-                      .setActive(l.id, !l.isActive),
-                ),
-              ),
-              DetailActionRow(
-                label: 'Delete lens',
-                color: cs.error,
-                onTap: () => _delete(context, ref),
-              ),
-            ],
-          ),
-        ],
         const SizedBox(height: 16),
       ],
     );
-  }
-
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    if (!await confirm(
-      context,
-      'Delete lens?',
-      '${lens.name} will be removed. Refused if used on a roll; deactivate instead.',
-      ok: 'Delete',
-    )) {
-      return;
-    }
-    if (!context.mounted) return;
-    final ok = await guard(
-      context,
-      () => ref.read(lensActionsProvider).delete(lens.id),
-    );
-    if (ok && context.mounted) context.closeScreen();
   }
 }

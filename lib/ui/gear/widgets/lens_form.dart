@@ -26,7 +26,7 @@ String? validAperture(String? v) {
       : null;
 }
 
-/// M-06 add lens, M-07 edit lens.
+/// M-06 add lens, M-07 edit lens, M-08 activate/deactivate.
 /// Cameras sharing the mount are linked inline instead of in a follow-up dialog.
 class LensFormScreen extends ConsumerStatefulWidget {
   const LensFormScreen({super.key, this.lens});
@@ -178,6 +178,26 @@ class _State extends ConsumerState<LensFormScreen> {
               busy: busy,
               onPressed: _save,
             ),
+            // A built-in lens follows its camera.
+            if (editing && !builtIn) ...[
+              const SizedBox(height: 20),
+              CardList(
+                children: [
+                  DetailActionRow(
+                    label: widget.lens!.isActive
+                        ? 'Deactivate lens'
+                        : 'Activate lens',
+                    color: cs.onPrimaryContainer,
+                    onTap: _toggleActive,
+                  ),
+                  DetailActionRow(
+                    label: 'Delete lens',
+                    color: cs.error,
+                    onTap: _delete,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -441,6 +461,34 @@ class _State extends ConsumerState<LensFormScreen> {
     setState(() => busy = false);
     if (!ok) return;
     context.closeScreen(saved);
+  }
+
+  Future<void> _toggleActive() async {
+    if (busy) return;
+    final lens = widget.lens!;
+    await guard(
+      context,
+      () => ref.read(lensActionsProvider).setActive(lens.id, !lens.isActive),
+    );
+  }
+
+  Future<void> _delete() async {
+    if (busy) return;
+    final lens = widget.lens!;
+    if (!await confirm(
+      context,
+      'Delete lens?',
+      '${lens.name} will be removed. Refused if used on a roll; deactivate instead.',
+      ok: 'Delete',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final ok = await guard(
+      context,
+      () => ref.read(lensActionsProvider).delete(lens.id),
+    );
+    if (ok && mounted) context.closeDeleted();
   }
 }
 

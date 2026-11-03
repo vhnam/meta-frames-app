@@ -8,16 +8,13 @@ import '../../../domain/models/models.dart';
 import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
-import '../view_models/gear_actions.dart';
 import '../../core/widgets/common.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
-import '../../../routing/navigation.dart';
-
-/// M-11 camera details, M-05 activate/deactivate, M-09 entry point.
-/// Read-only summary the user checks before deactivating or deleting.
+/// M-11 camera details, M-09 entry point.
+/// Read-only summary; activating and deleting are on the edit screen.
 class CameraDetailScreen extends ConsumerWidget {
   const CameraDetailScreen({super.key, required this.cameraId});
   final String cameraId;
@@ -144,52 +141,9 @@ class _Body extends ConsumerWidget {
             onPressed: () => context.push(Routes.cameraLoadRoll(camera.id)),
           ),
         ],
-        const SizedBox(height: 20),
-        CardList(
-          children: [
-            DetailActionRow(
-              label: camera.isActive ? 'Deactivate camera' : 'Activate camera',
-              color: cs.onPrimaryContainer,
-              onTap: () => _toggleActive(context, ref),
-            ),
-            DetailActionRow(
-              label: 'Delete camera',
-              color: cs.error,
-              onTap: () => _delete(context, ref),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
       ],
     );
-  }
-
-  Future<void> _toggleActive(BuildContext context, WidgetRef ref) async {
-    if (camera.isActive && camera.loadedRoll != null) {
-      toast(context, 'Camera is loaded. Finish the roll first.');
-      return;
-    }
-    await guard(
-      context,
-      () => ref.read(cameraActionsProvider).setActive(camera, !camera.isActive),
-    );
-  }
-
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    if (!await confirm(
-      context,
-      'Delete camera?',
-      '${camera.name} will be removed. Refused if it has rolls; deactivate instead.',
-      ok: 'Delete',
-    )) {
-      return;
-    }
-    if (!context.mounted) return;
-    final ok = await guard(
-      context,
-      () => ref.read(cameraActionsProvider).delete(camera.id),
-    );
-    if (ok && context.mounted) context.closeScreen();
   }
 
   static String _aperture(double a) => a.toStringAsFixed(a % 1 == 0 ? 0 : 1);
@@ -238,7 +192,7 @@ class _LoadedRollCard extends StatelessWidget {
     }
     final iso = r.shotIso ?? stock?.boxIso;
     final pushed =
-        r.shotIso != null && stock != null && r.shotIso != stock!.boxIso;
+        r.shotIso != null && stock != null && !stock!.isBoxSpeed(r.shotIso!);
     final subtitle = [
       if (iso != null) 'ISO $iso (${pushed ? 'pushed/pulled' : 'box'})',
       if (r.startedAt != null)
