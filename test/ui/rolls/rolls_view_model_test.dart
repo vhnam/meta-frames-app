@@ -64,7 +64,7 @@ void main() {
             'brand': 'Fuji',
             'name': 'C200',
             'type': 'color',
-            'boxIso': 200,
+            'boxIso': '200',
             'process': 'C-41',
             'packaging': 'factory',
           }),

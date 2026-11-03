@@ -9,10 +9,14 @@ class LabeledField extends StatelessWidget {
     required this.label,
     required this.child,
     this.gapAfter = 16,
+    this.trailing,
   });
   final String label;
   final Widget child;
   final double gapAfter;
+
+  /// Shown at the end of the label's row, such as quick picks.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -22,14 +26,21 @@ class LabeledField extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 6),
-          child: Text(
-            label.toUpperCase(),
-            style: monoStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  style: monoStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ?trailing,
+            ],
           ),
         ),
         child,
@@ -62,6 +73,69 @@ InputDecoration formInputDecoration(
     errorBorder: border(cs.error),
     focusedErrorBorder: border(cs.error, 1.5),
   );
+}
+
+/// Numbered heading over a group of form fields, with a short note at the end.
+class FormSectionHeader extends StatelessWidget {
+  const FormSectionHeader({
+    super.key,
+    required this.number,
+    required this.title,
+    this.note,
+  });
+  final String number, title;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 16),
+      padding: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: cs.outlineVariant, width: kHairline),
+        ),
+      ),
+      child: Row(
+        spacing: 10,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(kStampRadius),
+            ),
+            child: Text(
+              number,
+              style: monoStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: cs.onPrimaryContainer,
+              ),
+            ),
+          ),
+          Text(
+            title.toUpperCase(),
+            style: monoStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.6,
+              color: cs.onPrimaryContainer,
+            ),
+          ),
+          if (note != null)
+            Expanded(
+              child: Text(
+                note!,
+                textAlign: TextAlign.end,
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Top bar for the add/edit forms. The single save action is [FormSaveBar].

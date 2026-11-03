@@ -9,17 +9,25 @@ abstract final class Routes {
   static const recover = '/recover';
 
   // Tabs.
-  static const home = '/home';
-  static const gear = '/gear';
   static const rolls = '/rolls';
+  static const home = '/home';
   static const more = '/more';
 
   // Secondary screens.
+  static const gear = '/gear';
   static const film = '/film';
   static const expiry = '/expiry';
   static const labs = '/labs';
   static const negativesAtLab = '/negatives-at-lab';
   static const settings = '/settings';
+
+  // Labs.
+  static String lab(String id) => '/labs/$id';
+
+  // Scanners.
+  static const scanners = '/scanners';
+  static const scannerNew = '/scanners/new';
+  static String scanner(String id) => '/scanners/$id';
 
   // Cameras.
   static const cameraNew = '/cameras/new';
@@ -52,6 +60,7 @@ abstract final class Routes {
 
   // Processing jobs and their scans.
   static String processing(String id) => '/processing/$id';
+  static String processingEdit(String id) => '/processing/$id/edit';
   static String importScans(String id) => '/processing/$id/import';
   static String scanViewer(String id, Scanner scanner, int index) =>
       '/processing/$id/scans/${scanner.name}/$index';

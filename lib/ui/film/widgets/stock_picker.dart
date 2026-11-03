@@ -8,37 +8,30 @@ import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
-/// Pick a stock, with inline creation. [withRollsFirst] lists stocks that
-/// already have rolls first (M-17). [exclude] hides a stock id (M-14).
+/// Pick a stock, with inline creation. [exclude] hides a stock id (M-14).
 /// [allowCreate] shows "Create new stock"; the stock form turns it off for its
 /// base-stock picker so forms cannot nest forever.
 Future<FilmStock?> pickStock(
   BuildContext context,
   WidgetRef ref, {
   String title = 'Film stock',
-  bool withRollsFirst = false,
   String? exclude,
   bool allowCreate = true,
 }) async {
-  final StockChoices choices;
+  final List<FilmStock> stocks;
   try {
-    choices = await ref.read(
-      stockChoicesProvider((withRollsFirst: withRollsFirst, exclude: exclude))
-          .future,
-    );
+    stocks = await ref.read(stockChoicesProvider(exclude).future);
   } catch (e) {
     if (context.mounted) toast(context, e.toString());
     return null;
   }
-  final counts = choices.rollCounts;
   if (!context.mounted) return null;
   return pickOne<FilmStock>(
     context,
     title: title,
-    items: choices.stocks,
+    items: stocks,
     label: (s) => s.label,
-    subtitle: (s) =>
-        'ISO ${s.boxIso} · ${s.process.wire}${(counts[s.id] ?? 0) > 0 ? ' · ${counts[s.id]} rolls' : ''}',
+    subtitle: (s) => 'ISO ${s.boxIso} · ${s.process.wire}',
     footer: !allowCreate
         ? null
         : Builder(

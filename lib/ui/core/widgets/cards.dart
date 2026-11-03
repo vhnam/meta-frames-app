@@ -65,6 +65,7 @@ class CardTile extends StatelessWidget {
     super.key,
     required this.title,
     required this.subtitle,
+    this.detail,
     this.icon,
     this.leading,
     this.iconSize = 36,
@@ -79,6 +80,9 @@ class CardTile extends StatelessWidget {
     this.onTap,
   });
   final String title, subtitle;
+
+  /// A further line under [subtitle], in the same style.
+  final String? detail;
   final IconData? icon;
   final Widget? leading, badge, trailing;
   final double iconSize;
@@ -151,14 +155,15 @@ class CardTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: monoStyle(
-                      letterSpacing: 0.2,
-                      fontSize: compact ? 11.5 : 12.5,
-                      color: fade(subtitleColor ?? cs.onSurfaceVariant, 0.7),
+                  for (final line in [subtitle, ?detail])
+                    Text(
+                      line,
+                      style: monoStyle(
+                        letterSpacing: 0.2,
+                        fontSize: compact ? 11.5 : 12.5,
+                        color: fade(subtitleColor ?? cs.onSurfaceVariant, 0.7),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

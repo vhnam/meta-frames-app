@@ -7,8 +7,8 @@ import '../../../routing/routes.dart';
 import '../../auth/view_models/auth_actions.dart';
 import '../../core/widgets/common.dart';
 
-/// Everything that is not a main tab: the account, film stocks, expiry, labs
-/// and settings.
+/// Everything that is not a main tab: the account, gear, film stocks, expiry,
+/// labs, scanners and settings.
 class MoreTab extends ConsumerWidget {
   const MoreTab({super.key});
 
@@ -41,6 +41,7 @@ class MoreTab extends ConsumerWidget {
                           ? Text(user.email)
                           : null,
                     ),
+                  entry(Icons.photo_camera_outlined, 'Gear', Routes.gear),
                   entry(
                     Icons.local_movies_outlined,
                     'Film stocks',
@@ -53,6 +54,7 @@ class MoreTab extends ConsumerWidget {
                     Routes.negativesAtLab,
                   ),
                   entry(Icons.store_outlined, 'Labs', Routes.labs),
+                  entry(Icons.scanner_outlined, 'Scanners', Routes.scanners),
                   entry(Icons.settings_outlined, 'Settings', Routes.settings),
                   ListTile(
                     leading: const Icon(Icons.logout),

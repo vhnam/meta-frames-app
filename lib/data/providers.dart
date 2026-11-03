@@ -17,6 +17,8 @@ import 'repositories/roll_repository.dart';
 import 'repositories/roll_repository_remote.dart';
 import 'repositories/scan_repository.dart';
 import 'repositories/scan_repository_remote.dart';
+import 'repositories/scanner_repository.dart';
+import 'repositories/scanner_repository_remote.dart';
 import 'repositories/settings_repository.dart';
 import 'repositories/settings_repository_prefs.dart';
 import 'services/api_client.dart';
@@ -70,6 +72,9 @@ final filmStockRepositoryProvider = Provider<FilmStockRepository>(
 );
 final labRepositoryProvider = Provider<LabRepository>(
   (ref) => LabRepositoryRemote(ref.watch(apiClientProvider)),
+);
+final scannerRepositoryProvider = Provider<ScannerRepository>(
+  (ref) => ScannerRepositoryRemote(ref.watch(apiClientProvider)),
 );
 final rollRepositoryProvider = Provider<RollRepository>(
   (ref) => RollRepositoryRemote(ref.watch(apiClientProvider)),

@@ -9,23 +9,23 @@ import '../../core/widgets/form_kit.dart';
 
 /// Common box speeds offered before any stock uses them.
 const _presets = [
-  25,
-  50,
-  64,
-  100,
-  160,
-  200,
-  320,
-  400,
-  500,
-  640,
-  800,
-  1600,
-  3200,
+  '25',
+  '50',
+  '64',
+  '100',
+  '160',
+  '200',
+  '320',
+  '400',
+  '500',
+  '640',
+  '800',
+  '1600',
+  '3200',
 ];
 const _customKey = 'customFilmIsos';
 
-/// Select, type or add a box ISO, like the lens mount field. Speeds already used
+/// Select, type or add a box ISO or range, like the lens mount field. Speeds used
 /// by a stock show their count; custom ones that nothing uses can be removed.
 class IsoField extends ConsumerStatefulWidget {
   const IsoField({super.key, required this.controller});
@@ -49,21 +49,19 @@ class _State extends ConsumerState<IsoField> {
     super.dispose();
   }
 
-  List<int> get _custom => [
+  List<String> get _custom => [
     for (final s
         in ref.read(prefsProvider).getStringList(_customKey) ??
             const <String>[])
-      if (int.tryParse(s) != null) int.parse(s),
+      if (isValidBoxIso(s)) s,
   ];
 
-  Future<void> _setCustom(List<int> v) => ref.read(prefsProvider).setStringList(
-    _customKey,
-    [for (final i in v) '$i'],
-  );
+  Future<void> _setCustom(List<String> v) =>
+      ref.read(prefsProvider).setStringList(_customKey, v);
 
   /// ISO -> number of stocks using it; presets and custom speeds start at 0.
-  Map<int, int> _usage() {
-    final usage = <int, int>{for (final p in _presets) p: 0};
+  Map<String, int> _usage() {
+    final usage = <String, int>{for (final p in _presets) p: 0};
     for (final c in _custom) {
       usage.putIfAbsent(c, () => 0);
     }
@@ -73,11 +71,24 @@ class _State extends ConsumerState<IsoField> {
     return usage;
   }
 
+  /// By lowest speed, a single ISO before a range that starts at it.
+  static int _bySpeed(String left, String right) {
+    final (leftLow, leftHigh) = _boundsOf(left);
+    final (rightLow, rightHigh) = _boundsOf(right);
+    return leftLow != rightLow
+        ? leftLow.compareTo(rightLow)
+        : leftHigh.compareTo(rightHigh);
+  }
+
+  /// A speed saved by a stock is the API's to check, so an odd one sorts first.
+  static (int, int) _boundsOf(String iso) =>
+      isValidBoxIso(iso) ? boxIsoBounds(iso) : (0, 0);
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final usage = _usage();
-    final names = usage.keys.toList()..sort();
+    final names = usage.keys.toList()..sort(_bySpeed);
     final open = _focus.hasFocus;
     return LayoutBuilder(
       builder: (context, box) => RawAutocomplete<String>(
@@ -87,24 +98,25 @@ class _State extends ConsumerState<IsoField> {
           final q = v.text.trim();
           final shown = [
             for (final n in names)
-              if (q.isEmpty || '$n'.contains(q)) '$n',
+              if (q.isEmpty || n.contains(q)) n,
           ];
-          final n = int.tryParse(q);
-          return [...shown, if (n != null && n > 0 && !usage.containsKey(n)) q];
+          return [...shown, if (isValidBoxIso(q) && !usage.containsKey(q)) q];
         },
         onSelected: (v) async {
-          final n = int.parse(v);
-          if (!usage.containsKey(n)) await _setCustom([..._custom, n]);
+          if (!usage.containsKey(v)) await _setCustom([..._custom, v]);
           widget.controller.text = v;
         },
         fieldViewBuilder: (context, controller, focus, onSubmit) =>
             TextFormField(
               controller: controller,
               focusNode: focus,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              // The number pad has no hyphen on iOS, and a range needs one.
+              keyboardType: TextInputType.text,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
+              ],
               decoration: formInputDecoration(
-                'Select, type or add an ISO',
+                'Select or type an ISO, or a range like 100-400',
                 cs,
                 suffixIcon: IconButton(
                   tooltip: open ? 'Close list' : 'Show ISO list',
@@ -115,10 +127,9 @@ class _State extends ConsumerState<IsoField> {
                       open ? focus.unfocus() : focus.requestFocus(),
                 ),
               ),
-              validator: (v) {
-                final n = int.tryParse(v ?? '');
-                return n == null || n <= 0 ? 'Positive whole number' : null;
-              },
+              validator: (v) => isValidBoxIso(v?.trim() ?? '')
+                  ? null
+                  : 'An ISO or a rising range, like 400 or 100-400',
             ),
         optionsViewBuilder: (context, onSelected, options) => Align(
           alignment: Alignment.topLeft,
@@ -144,15 +155,14 @@ class _State extends ConsumerState<IsoField> {
                     for (final o in options)
                       _IsoRow(
                         iso: o,
-                        isNew: !usage.containsKey(int.parse(o)),
-                        uses: usage[int.parse(o)] ?? 0,
+                        isNew: !usage.containsKey(o),
+                        uses: usage[o] ?? 0,
                         removable:
-                            !_presets.contains(int.parse(o)) &&
-                            (usage[int.parse(o)] ?? 0) == 0,
+                            !_presets.contains(o) && (usage[o] ?? 0) == 0,
                         onTap: () => onSelected(o),
                         onRemove: () async {
                           await _setCustom(
-                            _custom.where((e) => '$e' != o).toList(),
+                            _custom.where((e) => e != o).toList(),
                           );
                           if (mounted) {
                             // Re-run the options builder so the row disappears.

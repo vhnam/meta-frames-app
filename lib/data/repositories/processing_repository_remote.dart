@@ -18,13 +18,15 @@ class ProcessingRepositoryRemote implements ProcessingRepository {
       Processing.fromJson(
         await _api.send(
           'PUT',
-          '/rolls/$rollId/processing/${newId()}',
+          '/rolls/$rollId/processing/${job.id ?? newId()}',
           body: job.toJson(),
         ),
       );
   @override
   Future<Processing> processing(String id) async =>
       Processing.fromJson(await _api.send('GET', '/processing/$id'));
+  @override
+  Future<void> delete(String id) => _api.send('DELETE', '/processing/$id');
   @override
   Future<Processing> scansReceived(String id, DateTime date) async =>
       Processing.fromJson(

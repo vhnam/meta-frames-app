@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
-import '../../core/widgets/common.dart';
+import '../../core/widgets/cards.dart';
 import '../view_models/scan_actions.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
 /// M-35 grid of scans ordered by frame number, switchable per scanner.
-/// Returns slivers: place it directly inside a [CustomScrollView].
+/// Returns slivers: place it directly inside a [CustomScrollView], which sets
+/// the side padding.
 class ScanGrid extends ConsumerStatefulWidget {
   const ScanGrid({super.key, required this.processing});
   final Processing processing;
@@ -24,35 +25,46 @@ class _State extends ConsumerState<ScanGrid> {
   @override
   Widget build(BuildContext context) {
     final p = widget.processing;
-    if (p.scanners.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('No scans imported yet.'),
+    final scanned = p.scannedWith;
+    if (scanned.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DetailLabel('SCANS'),
+            Text(
+              'No scans imported yet',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       );
     }
-    final sel = scanner != null && p.scanners.contains(scanner)
+    final sel = scanner != null && scanned.contains(scanner)
         ? scanner!
-        : p.scanners.first;
+        : scanned.first;
     final scans = ref.watch(scansProvider((p.id, sel)));
     return SliverMainAxisGroup(
       slivers: [
-        const SliverToBoxAdapter(child: SectionHeader('Scans')),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SegmentedButton<Scanner>(
-              showSelectedIcon: false,
-              segments: [
-                for (final s in p.scanners)
-                  ButtonSegment(value: s, label: Text(s.label)),
-              ],
-              selected: {sel},
-              onSelectionChanged: (s) => setState(() => scanner = s.first),
+        const SliverToBoxAdapter(child: DetailLabel('SCANS')),
+        if (scanned.length > 1)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SegmentedButton<Scanner>(
+                showSelectedIcon: false,
+                segments: [
+                  for (final s in scanned)
+                    ButtonSegment(value: s, label: Text(s.label)),
+                ],
+                selected: {sel},
+                onSelectionChanged: (s) => setState(() => scanner = s.first),
+              ),
             ),
           ),
-        ),
         ...scans.when(
           loading: () => const [
             SliverToBoxAdapter(
@@ -71,20 +83,17 @@ class _State extends ConsumerState<ScanGrid> {
             ),
           ],
           data: (sorted) => [
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverGrid.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 6,
-                  crossAxisSpacing: 6,
-                ),
-                itemCount: sorted.length,
-                itemBuilder: (c, i) => _Thumb(
-                  scan: sorted[i],
-                  url: ref.watch(scanUrlProvider)(sorted[i]),
-                  onTap: () => c.push(Routes.scanViewer(p.id, sel, i)),
-                ),
+            SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
+              ),
+              itemCount: sorted.length,
+              itemBuilder: (c, i) => _Thumb(
+                scan: sorted[i],
+                url: ref.watch(scanUrlProvider)(sorted[i]),
+                onTap: () => c.push(Routes.scanViewer(p.id, sel, i)),
               ),
             ),
           ],

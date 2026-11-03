@@ -533,34 +533,37 @@ class _PickSheetState<T> extends State<_PickSheet<T>> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search ${widget.title.toLowerCase()}',
-                  prefixIcon: const Icon(Icons.search),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search ${widget.title.toLowerCase()}',
+                    prefixIcon: const Icon(Icons.search),
+                  ),
+                  onChanged: (v) => setState(() => q = v),
                 ),
-                onChanged: (v) => setState(() => q = v),
               ),
-            ),
-            Expanded(
-              child: shown.isEmpty
-                  ? const Center(child: Text('Nothing found'))
-                  : ListView.builder(
-                      itemCount: shown.length,
-                      itemBuilder: (c, i) => ListTile(
-                        title: Text(widget.label(shown[i])),
-                        subtitle: widget.subtitle == null
-                            ? null
-                            : Text(widget.subtitle!(shown[i])),
-                        onTap: () => Navigator.pop(c, shown[i]),
+              Expanded(
+                child: shown.isEmpty
+                    ? const Center(child: Text('Nothing found'))
+                    : ListView.builder(
+                        itemCount: shown.length,
+                        itemBuilder: (c, i) => ListTile(
+                          title: Text(widget.label(shown[i])),
+                          subtitle: widget.subtitle == null
+                              ? null
+                              : Text(widget.subtitle!(shown[i])),
+                          onTap: () => Navigator.pop(c, shown[i]),
+                        ),
                       ),
-                    ),
-            ),
-            ?widget.footer,
-          ],
+              ),
+              ?widget.footer,
+            ],
+          ),
         ),
       ),
     );

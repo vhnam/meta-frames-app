@@ -18,6 +18,7 @@ import '../ui/gear/widgets/lens_detail.dart';
 import '../ui/gear/widgets/lens_form.dart';
 import '../ui/gear/widgets/manage_lenses.dart';
 import '../ui/home/widgets/home_tab.dart';
+import '../ui/labs/widgets/lab_detail.dart';
 import '../ui/labs/widgets/labs_screen.dart';
 import '../ui/labs/widgets/negatives_at_lab.dart';
 import '../ui/labs/widgets/processing_detail.dart';
@@ -31,6 +32,8 @@ import '../ui/rolls/widgets/roll_detail.dart';
 import '../ui/rolls/widgets/roll_form.dart';
 import '../ui/rolls/widgets/roll_lenses.dart';
 import '../ui/rolls/widgets/rolls_tab.dart';
+import '../ui/scanners/widgets/scanner_form.dart';
+import '../ui/scanners/widgets/scanners_screen.dart';
 import '../ui/scans/widgets/compare_screen.dart';
 import '../ui/scans/widgets/frame_screen.dart';
 import '../ui/scans/widgets/import_scans.dart';
@@ -82,17 +85,12 @@ GoRouter buildRouter({
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: Routes.home, builder: (_, _) => const HomeTab()),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(path: Routes.gear, builder: (_, _) => const GearTab()),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
             GoRoute(path: Routes.rolls, builder: (_, _) => const RollsTab()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: Routes.home, builder: (_, _) => const HomeTab()),
           ],
         ),
         StatefulShellBranch(
@@ -104,11 +102,24 @@ GoRouter buildRouter({
     ),
 
     // Secondary screens.
+    _route(Routes.gear, (_) => const GearTab()),
     _route(Routes.film, (_) => const FilmTab()),
     _route(Routes.expiry, (_) => const ExpiryScreen()),
     _route(Routes.labs, (_) => const LabsScreen()),
+    _route('/labs/:id', (s) => LabDetailScreen(labId: s.pathParameters['id']!)),
     _route(Routes.negativesAtLab, (_) => const NegativesAtLabScreen()),
     _route(Routes.settings, (_) => const SettingsScreen()),
+
+    // Scanners. `new` is declared before `:id` so it is not read as an id.
+    _route(Routes.scanners, (_) => const ScannersScreen()),
+    _route(Routes.scannerNew, (_) => const ScannerFormScreen()),
+    _route(
+      '/scanners/:id',
+      (s) => routeData(
+        scannerProvider(s.pathParameters['id']!),
+        (d) => ScannerFormScreen(scanner: d),
+      ),
+    ),
 
     // Cameras. `new` is declared before `:id` so it is not read as an id.
     _route(Routes.cameraNew, (_) => const CameraFormScreen()),
@@ -206,14 +217,19 @@ GoRouter buildRouter({
     ),
     _route(
       '/rolls/:id/send',
-      (s) => routeData(
-        rollDetailProvider(s.pathParameters['id']!),
-        (d) => SendRollScreen(
+      (s) => routeData(rollDetailProvider(s.pathParameters['id']!), (d) {
+        final rescan = s.uri.queryParameters['resend'] == 'true';
+        final types = sendableTypes(d.roll.status, d.processing.length);
+        return SendRollScreen(
           roll: d.roll,
           stock: d.stock,
-          resend: s.uri.queryParameters['resend'] == 'true',
-        ),
-      ),
+          rescan: rescan,
+          types: rescan
+              ? const [ProcessingType.scan]
+              // A link can open a roll with nothing to send; the server refuses.
+              : (types.isEmpty ? ProcessingType.values : types),
+        );
+      }),
     ),
     _route(
       '/rolls/:id/frames/:n',
@@ -227,6 +243,21 @@ GoRouter buildRouter({
     _route(
       '/processing/:id',
       (s) => ProcessingDetailScreen(processingId: s.pathParameters['id']!),
+    ),
+    _route(
+      '/processing/:id/edit',
+      (s) => routeData(
+        processingProvider(s.pathParameters['id']!),
+        (job) => routeData(
+          rollDetailProvider(job.rollId),
+          (d) => SendRollScreen(
+            roll: d.roll,
+            stock: d.stock,
+            job: job,
+            types: [job.type],
+          ),
+        ),
+      ),
     ),
     _route(
       '/processing/:id/import',
@@ -258,11 +289,16 @@ GoRouter buildRouter({
   ],
 );
 
+/// A screen over the tab bar. It has no bottom bar to hold it above the system
+/// navigation bar, so the route keeps it clear.
 GoRoute _route(String path, Widget Function(GoRouterState state) builder) =>
     GoRoute(
       path: path,
       parentNavigatorKey: _rootKey,
-      builder: (_, state) => builder(state),
+      builder: (context, state) => ColoredBox(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SafeArea(top: false, child: builder(state)),
+      ),
     );
 
 final routerProvider = Provider<GoRouter>((ref) {

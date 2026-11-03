@@ -19,7 +19,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../routing/navigation.dart';
 
-/// M-02 add camera, M-03 fixed-lens camera, M-04 edit camera.
+/// M-02 add camera, M-03 fixed-lens camera, M-04 edit camera,
+/// M-05 activate/deactivate.
 /// Linked lenses are picked inline instead of on a follow-up screen.
 class CameraFormScreen extends ConsumerStatefulWidget {
   const CameraFormScreen({super.key, this.camera});
@@ -198,6 +199,25 @@ class _State extends ConsumerState<CameraFormScreen> {
                     )
                   : Text(saveLabel),
             ),
+            if (editing) ...[
+              const SizedBox(height: 20),
+              CardList(
+                children: [
+                  DetailActionRow(
+                    label: widget.camera!.isActive
+                        ? 'Deactivate camera'
+                        : 'Activate camera',
+                    color: cs.onPrimaryContainer,
+                    onTap: _toggleActive,
+                  ),
+                  DetailActionRow(
+                    label: 'Delete camera',
+                    color: cs.error,
+                    onTap: _delete,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -408,6 +428,38 @@ class _State extends ConsumerState<CameraFormScreen> {
     setState(() => busy = false);
     if (!ok) return;
     context.closeScreen(saved);
+  }
+
+  Future<void> _toggleActive() async {
+    if (busy) return;
+    final camera = widget.camera!;
+    if (camera.isActive && camera.loadedRoll != null) {
+      toast(context, 'Camera is loaded. Finish the roll first.');
+      return;
+    }
+    await guard(
+      context,
+      () => ref.read(cameraActionsProvider).setActive(camera, !camera.isActive),
+    );
+  }
+
+  Future<void> _delete() async {
+    if (busy) return;
+    final camera = widget.camera!;
+    if (!await confirm(
+      context,
+      'Delete camera?',
+      '${camera.name} will be removed. Refused if it has rolls; deactivate instead.',
+      ok: 'Delete',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final ok = await guard(
+      context,
+      () => ref.read(cameraActionsProvider).delete(camera.id),
+    );
+    if (ok && mounted) context.closeDeleted();
   }
 }
 

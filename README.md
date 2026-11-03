@@ -76,7 +76,7 @@ In VS Code, the **Development Debug** and **Development Release** launch configu
 
 The app sends every request to a configurable base URL. The default is `http://10.0.2.2:8080`, which is the host machine's port 8080 as seen from the Android emulator.
 
-To use a different server, open **More > Settings** and change the base URL. The value is stored with `shared_preferences`. For the iOS simulator, use `http://127.0.0.1:8080` to reach a server on the host machine.
+To use a different server, open **More > Settings**, change the server URL, and tap **Save**. To keep a URL for later, tap **Add to saved** and name it. To switch, tap a saved server and then tap **Save**. Changing the server ends the session. These values are stored with `shared_preferences`. For the iOS simulator, use `http://127.0.0.1:8080` to reach a server on the host machine.
 
 Android allows cleartext HTTP (`android:usesCleartextTraffic="true"`), so a local server does not need TLS.
 
@@ -120,13 +120,13 @@ lib/
 ├── routing/             # Router, Routes path builders, tab shell
 └── ui/
     ├── core/            # Theme and shared widgets
-    └── <feature>/       # home, gear, film, rolls, labs, scans, more
+    └── <feature>/       # home, gear, film, rolls, labs, scanners, scans, more
         ├── view_models/
         └── widgets/
 ```
 
 - Widgets do not read repositories. Logic lives in view models, actions classes and derived providers.
-- The four tabs (Home, Gear, Rolls, More) sit in a stateful shell. Every other screen is a root-level route that takes ids in its path and loads its own data.
+- The three tabs (Rolls, Home, More) sit in a stateful shell. Every other screen is a root-level route that takes ids in its path and loads its own data.
 - Build paths with `Routes`, for example `context.push(Routes.roll(id))`.
 
 [docs/improvement-plan.md](docs/improvement-plan.md) records the architecture and performance work and what is still open.

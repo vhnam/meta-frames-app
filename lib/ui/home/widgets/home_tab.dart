@@ -385,7 +385,7 @@ class _LoadedCameraTile extends StatelessWidget {
     final r = c.loadedRoll!;
     final iso = r.shotIso ?? stock?.boxIso;
     final pushed =
-        r.shotIso != null && stock != null && r.shotIso != stock!.boxIso;
+        r.shotIso != null && stock != null && !stock!.isBoxSpeed(r.shotIso!);
     final subtitle = [
       '${r.stockBrand} ${r.stockName}',
       if (iso != null) 'ISO $iso (${pushed ? 'pushed/pulled' : 'box'})',

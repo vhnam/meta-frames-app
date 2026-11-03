@@ -1,71 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../domain/models/lab_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
+import '../../../routing/routes.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
 import '../view_models/lab_actions.dart';
-
-/// Add or edit a lab in a dialog. Returns the saved [Lab].
-Future<Lab?> editLab(BuildContext context, WidgetRef ref, [Lab? lab]) {
-  final name = TextEditingController(text: lab?.name);
-  final address = TextEditingController(text: lab?.address);
-  final cs = Theme.of(context).colorScheme;
-  return showDialog<Lab>(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: Text(lab == null ? 'Add lab' : 'Edit lab'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          LabeledField(
-            label: 'Name',
-            child: TextField(
-              controller: name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: formInputDecoration('e.g. Foto Lab', cs),
-            ),
-          ),
-          LabeledField(
-            label: 'Address (optional)',
-            gapAfter: 0,
-            child: TextField(
-              controller: address,
-              decoration: formInputDecoration('Street, city', cs),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(c),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            if (name.text.trim().isEmpty) return;
-            final edit = LabEdit(
-              name: name.text.trim(),
-              address: address.text.trim().isEmpty ? null : address.text.trim(),
-            );
-            Lab? saved;
-            final ok = await guard(c, () async {
-              saved = await ref
-                  .read(labActionsProvider)
-                  .save(edit, existing: lab);
-            });
-            if (ok && c.mounted) Navigator.pop(c, saved);
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    ),
-  );
-}
+import 'lab_dialog.dart';
 
 /// M-25 browse labs, M-26 add/edit/delete own labs.
 class LabsScreen extends ConsumerWidget {
@@ -74,6 +18,7 @@ class LabsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final v = ref.watch(labsProvider);
+    final scanners = ref.watch(scannersProvider).value;
     final cs = Theme.of(context).colorScheme;
     // Contextual label while there are none, as on the Gear tab.
     final addLabel = (v.value?.isEmpty ?? false) ? '+ Lab' : '+ Add';
@@ -88,14 +33,17 @@ class LabsScreen extends ConsumerWidget {
               title: 'Labs',
               back: true,
               trailing: TextButton(
-                onPressed: () => editLab(context, ref),
+                onPressed: () => editLab(context),
                 child: Text(addLabel),
               ),
             ),
             Expanded(
               child: AsyncBody(
                 value: v,
-                onRefresh: () async => ref.refresh(labsProvider.future),
+                onRefresh: () async {
+                  ref.invalidate(scannersProvider);
+                  return ref.refresh(labsProvider.future);
+                },
                 builder: (labs) => ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   children: [
@@ -144,6 +92,7 @@ class LabsScreen extends ConsumerWidget {
                                 iconColor: cs.onSurfaceVariant,
                                 title: l.name,
                                 subtitle: l.address ?? 'No address',
+                                detail: _scannerNames(l, scanners),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 14,
@@ -152,7 +101,7 @@ class LabsScreen extends ConsumerWidget {
                                   Icons.chevron_right,
                                   color: cs.onSurfaceVariant,
                                 ),
-                                onTap: () => editLab(context, ref, l),
+                                onTap: () => context.push(Routes.lab(l.id)),
                               ),
                             ),
                         ],
@@ -169,4 +118,12 @@ class LabsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The lab's scanner names, in order. Null until the catalog has loaded.
+String? _scannerNames(Lab lab, List<ScannerDevice>? catalog) {
+  if (lab.scannerIds.isEmpty) return 'No scanners';
+  if (catalog == null) return null;
+  final names = lab.scannersFrom(catalog).map((s) => s.name);
+  return names.isEmpty ? 'No scanners' : names.join(', ');
 }

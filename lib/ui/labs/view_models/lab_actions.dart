@@ -19,6 +19,7 @@ class LabActions {
     if (existing != null) {
       // A renamed lab shows up wherever a job names it.
       _ref
+        ..invalidate(labProvider(existing.id))
         ..invalidate(negativesAtLabProvider)
         ..invalidate(processingProvider)
         ..invalidate(rollDetailProvider);
@@ -28,7 +29,9 @@ class LabActions {
 
   Future<void> delete(String labId) async {
     await _ref.read(labRepositoryProvider).delete(labId);
-    _ref.invalidate(labsProvider);
+    _ref
+      ..invalidate(labsProvider)
+      ..invalidate(negativesAtLabProvider);
   }
 }
 

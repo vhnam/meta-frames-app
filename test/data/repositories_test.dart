@@ -6,6 +6,8 @@ import 'package:http/testing.dart';
 import 'package:meta_frames/data/repositories/camera_repository_remote.dart';
 import 'package:meta_frames/data/repositories/film_stock_repository_remote.dart';
 import 'package:meta_frames/data/repositories/lab_repository_remote.dart';
+import 'package:meta_frames/data/repositories/scanner_repository_remote.dart';
+import 'package:meta_frames/domain/models/scanner_requests.dart';
 import 'package:meta_frames/data/repositories/lens_repository_remote.dart';
 import 'package:meta_frames/data/repositories/processing_repository_remote.dart';
 import 'package:meta_frames/data/repositories/roll_repository_remote.dart';
@@ -39,7 +41,7 @@ const _stock = {
   'brand': 'Kodak',
   'name': 'Gold',
   'type': 'color',
-  'boxIso': 200,
+  'boxIso': '200',
   'process': 'C-41',
   'packaging': 'factory',
 };
@@ -197,7 +199,7 @@ void main() {
         brand: 'Kodak',
         name: 'Gold',
         type: StockType.color,
-        boxIso: 200,
+        boxIso: '200',
         process: Process.c41,
         packaging: Packaging.factory,
       );
@@ -221,7 +223,7 @@ void main() {
         brand: 'Kodak',
         name: 'Gold',
         type: StockType.color,
-        boxIso: 200,
+        boxIso: '200',
         process: Process.c41,
         packaging: Packaging.repack,
         packOrigin: 'Japan',
@@ -231,7 +233,127 @@ void main() {
     });
   });
 
+  group('ScannerRepositoryRemote', () {
+    test('reads the catalog', () async {
+      final rec = Recorder([
+        {
+          'id': 's1',
+          'brand': 'Noritsu',
+          'model': 'HS-1800',
+          'name': 'Noritsu HS-1800',
+          'kind': 'minilab',
+          'defaultSettings': {'format': 'tiff'},
+          'builtIn': true,
+        },
+        {'id': 's2', 'brand': 'Noritsu', 'name': 'Noritsu', 'builtIn': false},
+      ]);
+      final all = await ScannerRepositoryRemote(rec.client).scanners();
+      expect(rec.call, 'GET /scanners');
+      expect(all.first.name, 'Noritsu HS-1800');
+      expect(all.first.kindLabel, 'Lab minilab');
+      expect(all.first.builtIn, isTrue);
+      expect(all.first.defaultSettings, {'format': 'tiff'});
+      expect(all.last.kindLabel, 'Unknown kind');
+      expect(all.last.defaultSettings, isEmpty);
+    });
+
+    test('reads the scan options of each kind', () async {
+      final rec = Recorder([
+        {
+          'kind': 'minilab',
+          'label': 'Lab minilab',
+          'options': [
+            {
+              'key': 'format',
+              'label': 'Format',
+              'type': 'enum',
+              'values': [
+                {'value': 'tiff', 'label': 'TIFF'},
+              ],
+              'default': 'tiff',
+            },
+            {
+              'key': 'dpi',
+              'label': 'DPI',
+              'type': 'integer',
+              'min': 100,
+              'max': 200,
+              'default': 100,
+            },
+          ],
+        },
+        {'label': 'Unknown kind', 'options': []},
+      ]);
+      final kinds = await ScannerRepositoryRemote(rec.client).kinds();
+      expect(rec.call, 'GET /scanner-kinds');
+      expect(kinds.first.kind, ScannerKind.minilab);
+      expect(kinds.first.options.first.type, ScanOptionType.choice);
+      expect(kinds.first.options.last.max, 200);
+      expect(kinds.last.kind, isNull);
+    });
+
+    test(
+      'an update sends every field, so a cleared one stays cleared',
+      () async {
+        final rec = Recorder({'id': 's1', 'brand': 'Epson', 'name': 'Epson'});
+        await ScannerRepositoryRemote(rec.client).update(
+          's1',
+          const ScannerEdit(brand: 'Epson', defaultSettings: {'dpi': 3200}),
+        );
+        expect(rec.call, 'PUT /scanners/s1');
+        expect(rec.body, {
+          'brand': 'Epson',
+          'defaultSettings': {'dpi': 3200},
+        });
+      },
+    );
+
+    test('create and delete use the scanner paths', () async {
+      final rec = Recorder({'id': 'n', 'brand': 'Epson', 'name': 'Epson'});
+      final repo = ScannerRepositoryRemote(rec.client);
+      await repo.create(
+        const ScannerEdit(
+          brand: 'Epson',
+          model: 'V850',
+          kind: ScannerKind.flatbed,
+          notes: 'Holder',
+          defaultSettings: {},
+        ),
+      );
+      expect(rec.call, 'POST /scanners');
+      expect(rec.body, {
+        'brand': 'Epson',
+        'model': 'V850',
+        'kind': 'flatbed',
+        'notes': 'Holder',
+        'defaultSettings': <String, Object?>{},
+      });
+      await repo.delete('n');
+      expect(rec.call, 'DELETE /scanners/n');
+    });
+  });
+
   group('LabRepositoryRemote', () {
+    test('reads a lab with its scanners', () async {
+      final rec = Recorder({
+        'id': 'b1',
+        'name': 'Lab',
+        'scannerIds': ['s1', 's2'],
+        'defaultScannerId': 's2',
+      });
+      final got = await LabRepositoryRemote(rec.client).lab('b1');
+      expect(rec.call, 'GET /labs/b1');
+      expect(got.scannerIds, ['s1', 's2']);
+      expect(got.defaultScannerId, 's2');
+    });
+
+    test('a lab from an older server has no scanners', () async {
+      final rec = Recorder({'id': 'b1', 'name': 'Lab'});
+      final got = await LabRepositoryRemote(rec.client).lab('b1');
+      expect(got.scannerIds, isEmpty);
+      expect(got.defaultScannerId, isNull);
+    });
+
     test('writes', () async {
       final rec = Recorder({'id': 'b1', 'name': 'Lab'});
       final repo = LabRepositoryRemote(rec.client);
@@ -243,6 +365,24 @@ void main() {
       await repo.update('b1', const LabEdit(name: 'Lab', address: 'Hanoi'));
       expect(rec.call, 'PUT /labs/b1');
       expect(rec.body['address'], 'Hanoi');
+      // Left out, the server keeps the lab's scanners.
+      expect(rec.body.containsKey('scannerIds'), isFalse);
+
+      await repo.update(
+        'b1',
+        const LabEdit(
+          name: 'Lab',
+          scannerIds: ['s1', 's2'],
+          defaultScannerId: 's2',
+        ),
+      );
+      expect(rec.body['scannerIds'], ['s1', 's2']);
+      expect(rec.body['defaultScannerId'], 's2');
+
+      // An empty list clears them, so it is sent.
+      await repo.update('b1', const LabEdit(name: 'Lab', scannerIds: []));
+      expect(rec.body['scannerIds'], isEmpty);
+      expect(rec.body.containsKey('defaultScannerId'), isFalse);
 
       rec.reply = null;
       await repo.delete('b1');
@@ -353,6 +493,30 @@ void main() {
         price: 150000,
       );
 
+      await repo.send(
+        'r1',
+        const NewProcessing(
+          id: 'kept',
+          labId: null,
+          type: ProcessingType.scan,
+          process: Process.c41,
+          scanOrders: [
+            ScanOrder(scannerId: 's1', settings: {'dpi': 3200}),
+          ],
+        ),
+      );
+      expect(rec.last.url.path, endsWith('/rolls/r1/processing/kept'));
+      expect(rec.body, {
+        'type': 'scan',
+        'process': 'C-41',
+        'scanOrders': [
+          {
+            'scannerId': 's1',
+            'settings': {'dpi': 3200},
+          },
+        ],
+      });
+
       await repo.send('r1', job);
       final first = rec.last.url.path;
       await repo.send('r1', job);
@@ -365,6 +529,7 @@ void main() {
         'process': 'C-41',
         'sentAt': '2026-02-03',
         'price': 150000,
+        'scanOrders': <Object?>[],
       });
     });
 
@@ -381,6 +546,9 @@ void main() {
 
       await repo.processing('p1');
       expect(rec.call, 'GET /processing/p1');
+
+      await repo.delete('p1');
+      expect(rec.call, 'DELETE /processing/p1');
     });
 
     test('lists', () async {

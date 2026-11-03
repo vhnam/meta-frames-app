@@ -8,6 +8,7 @@ enum Process {
 
   const Process(this.wire);
   final String wire;
+  String get label => this == bw ? 'B&W' : wire;
   static Process parse(String s) => values.firstWhere((e) => e.wire == s);
 }
 
@@ -39,7 +40,25 @@ enum ProcessingType {
   static ProcessingType parse(String s) =>
       values.firstWhere((e) => e.wire == s);
   bool get hasScans => this == developScan || this == scan;
+  bool get developsFilm => this == develop || this == developScan;
+
+  /// Whether the job takes a negatives-returned date. A print job closes only
+  /// on it, and a lab keeps "Negatives at lab" set until it is recorded.
+  bool recordsNegativesReturned({required bool atLab}) =>
+      developsFilm || this == print || (this == scan && atLab);
 }
+
+/// Services a roll can be sent for now. Developing happens once: after the
+/// first job only scan and print remain, and none while the roll is at the lab
+/// or not yet finished.
+List<ProcessingType> sendableTypes(RollStatus status, int jobCount) =>
+    switch (status) {
+      RollStatus.doneShooting when jobCount == 0 => ProcessingType.values,
+      RollStatus.doneShooting ||
+      RollStatus.developed ||
+      RollStatus.scanned => const [ProcessingType.scan, ProcessingType.print],
+      _ => const [],
+    };
 
 enum Scanner {
   noritsu('Noritsu'),
@@ -134,7 +153,8 @@ class FilmStock {
       brand = j['brand'],
       name = j['name'],
       type = _enum(StockType.values, j['type']),
-      boxIso = j['boxIso'],
+      // A server older than the string boxIso still sends a number.
+      boxIso = '${j['boxIso']}',
       process = Process.parse(j['process']),
       packaging = _enum(Packaging.values, j['packaging']),
       stockOrigin = j['stockOrigin'],
@@ -143,11 +163,34 @@ class FilmStock {
       baseStockId = j['baseStockId'];
   final String id, brand, name;
   final StockType type;
-  final int boxIso;
+
+  /// A single ISO ("400") or a rising range ("100-400").
+  final String boxIso;
   final Process process;
   final Packaging packaging;
   final String? stockOrigin, packOrigin, description, baseStockId;
   String get label => '$brand $name';
+
+  /// Whether [iso] is the box speed, or within a box speed range.
+  bool isBoxSpeed(int iso) {
+    final (low, high) = boxIsoBounds(boxIso);
+    return low <= iso && iso <= high;
+  }
+}
+
+final _boxIso = RegExp(r'^[1-9]\d{0,5}(-[1-9]\d{0,5})?$');
+
+/// Whether [boxIso] is a single ISO or a rising range, as the API accepts.
+bool isValidBoxIso(String boxIso) {
+  if (!_boxIso.hasMatch(boxIso)) return false;
+  final (low, high) = boxIsoBounds(boxIso);
+  return !boxIso.contains('-') || low < high;
+}
+
+/// The lowest and highest speed of a valid box ISO; equal for a single ISO.
+(int, int) boxIsoBounds(String boxIso) {
+  final parts = boxIso.split('-');
+  return (int.parse(parts.first), int.parse(parts.last));
 }
 
 class FilmStockDetail {
@@ -195,10 +238,188 @@ class Lab {
   Lab.fromJson(Map<String, dynamic> j)
     : id = j['id'],
       name = j['name'],
-      address = j['address'];
+      address = j['address'],
+      scannerIds = List<String>.from(j['scannerIds'] ?? const []),
+      defaultScannerId = j['defaultScannerId'];
   final String id, name;
   final String? address;
+
+  /// The scanners the lab runs, in order.
+  final List<String> scannerIds;
+
+  /// The scanner a job sent to the lab starts with, when the lab has one.
+  final String? defaultScannerId;
+
+  /// The lab's scanners from the catalog [all], in the lab's order.
+  List<ScannerDevice> scannersFrom(List<ScannerDevice> all) {
+    final byId = {for (final s in all) s.id: s};
+    return [for (final id in scannerIds) ?byId[id]];
+  }
 }
+
+/// The built-in Noritsu HS-1800; its id is fixed by the API's migration. A lab
+/// that names no scanners scans on it by default.
+const kNoritsuHs1800 = 'd177cb3c-a850-4232-a4ca-75189b7b279b';
+
+enum ScannerKind {
+  minilab('minilab', 'Lab minilab'),
+  virtualDrum('virtual_drum', 'Virtual drum'),
+  drum('drum', 'Drum'),
+  dedicatedFilm('dedicated_film', 'Film scanner'),
+  flatbed('flatbed', 'Flatbed'),
+  camera('camera', 'Camera scan');
+
+  const ScannerKind(this.wire, this.label);
+  final String wire, label;
+
+  /// Null for a scanner without a kind, or one this app does not know.
+  static ScannerKind? parse(String? s) {
+    for (final k in values) {
+      if (k.wire == s) return k;
+    }
+    return null;
+  }
+}
+
+/// A scanner from the catalog: a built-in one or the account's own. A scan's
+/// slot is the separate [Scanner] enum.
+class ScannerDevice {
+  ScannerDevice.fromJson(Map<String, dynamic> j)
+    : id = j['id'],
+      brand = j['brand'],
+      model = j['model'],
+      name = j['name'],
+      kind = ScannerKind.parse(j['kind']),
+      notes = j['notes'],
+      defaultSettings = Map<String, Object?>.from(
+        j['defaultSettings'] ?? const {},
+      ),
+      builtIn = j['builtIn'] ?? false;
+  final String id, brand, name;
+  final String? model, notes;
+  final ScannerKind? kind;
+
+  /// Settings a new scan order on this scanner starts from.
+  final Map<String, Object?> defaultSettings;
+  final bool builtIn;
+  String get kindLabel => kind?.label ?? 'Unknown kind';
+}
+
+enum ScanOptionType {
+  choice('enum'),
+  boolean('boolean'),
+  integer('integer');
+
+  const ScanOptionType(this.wire);
+  final String wire;
+  static ScanOptionType parse(String s) =>
+      values.firstWhere((e) => e.wire == s);
+}
+
+class ScanOptionValue {
+  ScanOptionValue.fromJson(Map<String, dynamic> j)
+    : value = j['value'],
+      label = j['label'];
+  final String value, label;
+}
+
+/// A setting a scanner kind offers for its scans.
+class ScanOption {
+  ScanOption.fromJson(Map<String, dynamic> j)
+    : key = j['key'],
+      label = j['label'],
+      type = ScanOptionType.parse(j['type']),
+      values = _list(j['values'], ScanOptionValue.fromJson),
+      min = j['min'],
+      max = j['max'],
+      defaultValue = j['default'];
+  final String key, label;
+  final ScanOptionType type;
+
+  /// Choices of a [ScanOptionType.choice] option.
+  final List<ScanOptionValue> values;
+
+  /// Bounds of a [ScanOptionType.integer] option.
+  final int? min, max;
+  final Object? defaultValue;
+
+  bool allows(Object? value) => switch (type) {
+    ScanOptionType.boolean => value is bool,
+    ScanOptionType.choice => values.any((c) => c.value == value),
+    ScanOptionType.integer =>
+      value is int &&
+          (min == null || value >= min!) &&
+          (max == null || value <= max!),
+  };
+}
+
+/// The scan options of a kind; a null [kind] is a scanner of unknown kind.
+class ScannerKindOptions {
+  ScannerKindOptions.fromJson(Map<String, dynamic> j)
+    : kind = ScannerKind.parse(j['kind']),
+      label = j['label'],
+      options = _list(j['options'], ScanOption.fromJson);
+  final ScannerKind? kind;
+  final String label;
+  final List<ScanOption> options;
+}
+
+List<ScanOption> optionsForKind(
+  List<ScannerKindOptions> kinds,
+  ScannerKind? kind,
+) {
+  for (final k in kinds) {
+    if (k.kind == kind) return k.options;
+  }
+  return const [];
+}
+
+/// Settings a new scan order on [scanner] starts from.
+Map<String, Object?> startingSettings(
+  List<ScannerKindOptions> kinds,
+  ScannerDevice scanner,
+) => completeSettings(
+  optionsForKind(kinds, scanner.kind),
+  scanner.defaultSettings,
+);
+
+/// Settings in one line, such as "Hi-res · TIFF · Dust removal", in the order of
+/// the options. A boolean turned off says nothing; keys the options do not know
+/// show as key: value.
+String describeSettings(
+  Map<String, Object?> settings,
+  List<ScanOption> options,
+) {
+  final parts = <String>[
+    for (final o in options)
+      if (settings.containsKey(o.key))
+        ...switch (o.type) {
+          ScanOptionType.boolean => [if (settings[o.key] == true) o.label],
+          ScanOptionType.choice => [
+            o.values
+                    .where((c) => c.value == settings[o.key])
+                    .firstOrNull
+                    ?.label ??
+                '${settings[o.key]}',
+          ],
+          ScanOptionType.integer => ['${o.label}: ${settings[o.key]}'],
+        },
+    for (final e in settings.entries)
+      if (!options.any((o) => o.key == e.key)) '${e.key}: ${e.value}',
+  ];
+  return parts.isEmpty ? 'Default settings' : parts.join(' · ');
+}
+
+/// A value for every option: the one in [settings] if the option allows it,
+/// else the option's default. Keys of other kinds drop, because the server
+/// refuses them.
+Map<String, Object?> completeSettings(
+  List<ScanOption> options,
+  Map<String, Object?> settings,
+) => {
+  for (final o in options)
+    o.key: o.allows(settings[o.key]) ? settings[o.key] : o.defaultValue,
+};
 
 class RollSummary {
   RollSummary.fromJson(Map<String, dynamic> j)
@@ -263,6 +484,20 @@ class Frame {
   final List<ScanRef> scans;
 }
 
+/// A scanner ordered on a job. [scanCount] counts the scans imported for it.
+class JobScanOrder {
+  JobScanOrder.fromJson(Map<String, dynamic> j)
+    : scanner = j['scanner'] == null ? null : Scanner.parse(j['scanner']),
+      scannerId = j['scannerId'],
+      scannerName = j['scannerName'],
+      settings = Map<String, Object?>.from(j['settings'] ?? const {}),
+      scanCount = j['scanCount'] ?? 0;
+  final Scanner? scanner;
+  final String scannerId, scannerName;
+  final Map<String, Object?> settings;
+  final int scanCount;
+}
+
 class Processing {
   Processing.fromJson(Map<String, dynamic> j)
     : id = j['id'],
@@ -272,24 +507,38 @@ class Processing {
       type = ProcessingType.parse(j['type']),
       process = Process.parse(j['process']),
       sentAt = DateTime.parse(j['sentAt']),
+      scansExpectedAt = _date(j['scansExpectedAt']),
+      negativesExpectedAt = _date(j['negativesExpectedAt']),
       scansReceivedAt = _date(j['scansReceivedAt']),
       negativesReturnedAt = _date(j['negativesReturnedAt']),
       price = j['price'],
       notes = j['notes'],
-      scanners = ((j['scanners'] as List?) ?? const [])
-          .map((e) => Scanner.parse(e as String))
-          .toList(),
+      scanOrders = _list(j['scanOrders'], JobScanOrder.fromJson),
       isOpen = j['isOpen'];
   final String id, rollId;
   final String? labId, labName, notes;
   final ProcessingType type;
   final Process process;
   final DateTime sentAt;
+  final DateTime? scansExpectedAt, negativesExpectedAt;
   final DateTime? scansReceivedAt, negativesReturnedAt;
   final int? price;
-  final List<Scanner> scanners;
+  final List<JobScanOrder> scanOrders;
   final bool isOpen;
   bool get isHome => labId == null;
+
+  /// The scanners ordered, each once. Your own scanners share one code.
+  List<Scanner> get scanners =>
+      {for (final o in scanOrders) ?o.scanner}.toList();
+
+  /// The scanners that have imported scans, each once.
+  List<Scanner> get scannedWith => {
+    for (final o in scanOrders)
+      if (o.scanCount > 0) ?o.scanner,
+  }.toList();
+
+  /// The server refuses to delete a job with imported scans.
+  bool get hasScans => scanOrders.any((o) => o.scanCount > 0);
   String get where => labName ?? 'Home';
 }
 

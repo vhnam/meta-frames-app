@@ -14,4 +14,17 @@ extension AppNavigation on BuildContext {
       go(Routes.home);
     }
   }
+
+  /// Closes an edit screen and the details screen under it, once the object
+  /// they show is deleted. Without a screen left to return to, goes Home.
+  void closeDeleted() {
+    final router = GoRouter.of(this);
+    for (var i = 0; i < 2; i++) {
+      if (!router.canPop()) {
+        router.go(Routes.home);
+        return;
+      }
+      router.pop();
+    }
+  }
 }

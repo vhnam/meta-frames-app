@@ -57,7 +57,7 @@ class _State extends ConsumerState<AddRollsScreen> {
                 hint: 'Select a film stock',
                 value: stock?.label,
                 onTap: () async {
-                  final s = await pickStock(context, ref, withRollsFirst: true);
+                  final s = await pickStock(context, ref);
                   if (s != null) setState(() => stock = s);
                 },
                 validator: () => stock == null ? 'Select a film stock' : null,
@@ -158,7 +158,7 @@ class _State extends ConsumerState<AddRollsScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
-    toast(context, '$n roll${n == 1 ? '' : 's'} added to stock');
+    toast(context, '$n roll${n == 1 ? '' : 's'} added');
     context.closeScreen();
   }
 }

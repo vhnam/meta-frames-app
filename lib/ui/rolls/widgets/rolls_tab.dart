@@ -98,7 +98,7 @@ class RollsTab extends ConsumerWidget {
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => const _FilterSheet(),
+    builder: (_) => const SafeArea(top: false, child: _FilterSheet()),
   );
 }
 

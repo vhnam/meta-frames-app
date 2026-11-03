@@ -6,6 +6,8 @@ import 'package:meta_frames/data/services/session_store.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
+import 'package:meta_frames/ui/core/widgets/common.dart';
+import 'package:meta_frames/ui/labs/widgets/lab_detail.dart';
 import 'package:meta_frames/routing/routes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,6 +47,10 @@ Future<GoRouter> pumpRouter(
         processingRepositoryProvider.overrideWithValue(
           FakeProcessingRepository(),
         ),
+        labRepositoryProvider.overrideWithValue(
+          FakeLabRepository([lab('b1', 'Foto Lab')]),
+        ),
+        scannerRepositoryProvider.overrideWithValue(FakeScannerRepository()),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -60,7 +66,9 @@ void main() {
   group('Routes', () {
     test('builds paths with their ids', () {
       expect(Routes.camera('c1'), '/cameras/c1');
+      expect(Routes.lab('b1'), '/labs/b1');
       expect(Routes.cameraEdit('c1'), '/cameras/c1/edit');
+      expect(Routes.scanner('s1'), '/scanners/s1');
       expect(Routes.frame('r1', 3), '/rolls/r1/frames/3');
       expect(Routes.compare('p1', 4), '/processing/p1/frames/4/compare');
       expect(
@@ -77,6 +85,16 @@ void main() {
     });
   });
 
+  group('labs', () {
+    testWidgets('a lab row opens the lab page', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.labs);
+      await tester.tap(find.text('Foto Lab'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.lab('b1'));
+      expect(find.byType(LabDetailScreen), findsOneWidget);
+    });
+  });
+
   group('tabs', () {
     testWidgets('opens on Home with the tab bar', (tester) async {
       await pumpRouter(tester);
@@ -89,15 +107,26 @@ void main() {
       expect(_location(router), Routes.home);
     });
 
+    testWidgets('the tabs are Rolls, Home and More, in that order', (
+      tester,
+    ) async {
+      await pumpRouter(tester);
+      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(
+        [for (final d in bar.destinations) (d as NavigationDestination).label],
+        ['Rolls', 'Home', 'More'],
+      );
+    });
+
     testWidgets('switching tabs changes the location and keeps each tab', (
       tester,
     ) async {
       final router = await pumpRouter(tester);
 
-      await tester.tap(find.text('Gear'));
+      await tester.tap(find.text('More'));
       await tester.pumpAndSettle();
-      expect(_location(router), Routes.gear);
-      expect(find.text('Nikon c1'), findsOneWidget);
+      expect(_location(router), Routes.more);
+      expect(find.text('Film stocks'), findsOneWidget);
 
       await tester.tap(find.text('Rolls').last);
       await tester.pumpAndSettle();
@@ -224,10 +253,12 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final label in [
+        'Gear',
         'Film stocks',
         'Expiry',
         'Negatives at lab',
         'Labs',
+        'Scanners',
         'Settings',
       ]) {
         expect(find.text(label), findsOneWidget, reason: label);
@@ -237,10 +268,12 @@ void main() {
     testWidgets('each entry opens its screen over the tab bar', (tester) async {
       final router = await pumpRouter(tester, location: Routes.more);
       final entries = {
+        'Gear': Routes.gear,
         'Film stocks': Routes.film,
         'Expiry': Routes.expiry,
         'Negatives at lab': Routes.negativesAtLab,
         'Labs': Routes.labs,
+        'Scanners': Routes.scanners,
         'Settings': Routes.settings,
       };
 
@@ -254,6 +287,119 @@ void main() {
         await tester.pumpAndSettle();
         expect(_location(router), Routes.more);
       }
+    });
+  });
+
+  group('Gear', () {
+    testWidgets('Back returns to More', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.more);
+      await tester.tap(find.text('Gear'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nikon c1'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.more);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    });
+
+    testWidgets('opened from a link, Back goes Home', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.gear);
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.home);
+    });
+  });
+
+  group('deleting a camera', () {
+    Future<void> delete(WidgetTester tester) async {
+      await tester.tap(find.text('Delete camera'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+    }
+
+    void tallView(WidgetTester tester) {
+      tester.view
+        ..physicalSize = const Size(800, 3000)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('returns to Gear when opened from Gear, then Back to More', (
+      tester,
+    ) async {
+      tallView(tester);
+      final router = await pumpRouter(tester, location: Routes.more);
+      await tester.tap(find.text('Gear'));
+      await tester.pumpAndSettle();
+      router.push(Routes.camera('c1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+
+      await delete(tester);
+      expect(_location(router), Routes.gear);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.more);
+    });
+
+    testWidgets('goes Home when Edit Camera was opened from a link', (
+      tester,
+    ) async {
+      tallView(tester);
+      final router = await pumpRouter(
+        tester,
+        location: Routes.cameraEdit('c1'),
+      );
+      await delete(tester);
+      expect(_location(router), Routes.home);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    });
+  });
+
+  group('system navigation bar', () {
+    const inset = 48.0;
+
+    void useBar(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1200, 1500);
+      tester.view.devicePixelRatio = 3;
+      tester.view.padding = const FakeViewPadding(bottom: inset * 3);
+      tester.view.viewPadding = const FakeViewPadding(bottom: inset * 3);
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('a screen over the tab bar stays clear of it', (tester) async {
+      useBar(tester);
+      await pumpRouter(tester, location: Routes.rollNew());
+
+      await tester.drag(find.byType(ListView), const Offset(0, -3000));
+      await tester.pumpAndSettle();
+
+      final save = tester.getBottomRight(find.byType(FilledButton)).dy;
+      expect(save, lessThanOrEqualTo(500 - inset));
+    });
+
+    testWidgets('a pick sheet stays clear of it', (tester) async {
+      useBar(tester);
+      await pumpRouter(tester);
+      final context = tester.element(find.byType(NavigationBar));
+
+      pickOne<String>(
+        context,
+        title: 'Stock',
+        items: const ['a'],
+        label: (s) => s,
+        footer: const Text('footer'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getBottomRight(find.text('footer')).dy,
+        lessThanOrEqualTo(500 - inset),
+      );
     });
   });
 }

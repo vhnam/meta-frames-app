@@ -48,7 +48,7 @@ void main() {
     expect(lenses.listCalls, lensListCalls);
   });
 
-  test('setting a roll\'s lenses only refreshes that roll', () async {
+  test('setting a roll\'s lenses refreshes roll lists once', () async {
     final rolls = FakeRollRepository([roll('a')]);
     final container = ProviderContainer(
       overrides: [rollRepositoryProvider.overrideWithValue(rolls)],
@@ -62,7 +62,8 @@ void main() {
     await container.read(rollActionsProvider).setLenses('a', ['l1']);
     await Future<void>.delayed(Duration.zero);
 
+    // A cached list filtered by lens must not keep the old answer.
     expect(rolls.calls, ['setLenses:a']);
-    expect(rolls.listCalls, before);
+    expect(rolls.listCalls, before + 1);
   });
 }

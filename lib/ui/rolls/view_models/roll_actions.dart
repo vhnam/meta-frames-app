@@ -14,7 +14,9 @@ class RollActions {
     ..invalidate(inventoryProvider)
     ..invalidate(expiryProvider)
     ..invalidate(camerasProvider)
-    ..invalidate(cameraProvider);
+    ..invalidate(cameraProvider)
+    // A job's entry names the roll's stock.
+    ..invalidate(negativesAtLabProvider);
 
   Future<void> add(NewRolls rolls) async {
     await _ref.read(rollRepositoryProvider).addRolls(rolls);
@@ -47,7 +49,10 @@ class RollActions {
 
   Future<void> setLenses(String rollId, List<String> lensIds) async {
     await _ref.read(rollRepositoryProvider).setLenses(rollId, lensIds);
-    _ref.invalidate(rollDetailProvider(rollId));
+    _ref
+      ..invalidate(rollDetailProvider(rollId))
+      // The Rolls filter finds rolls by lens.
+      ..invalidate(rollsProvider);
   }
 }
 

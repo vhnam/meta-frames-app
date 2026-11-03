@@ -5,6 +5,9 @@ abstract class ProcessingRepository {
   Future<List<Processing>> forRoll(String rollId);
   Future<Processing> send(String rollId, NewProcessing job);
   Future<Processing> processing(String id);
+
+  /// Refused while the job has imported scans.
+  Future<void> delete(String id);
   Future<Processing> scansReceived(String id, DateTime date);
   Future<Processing> negativesReturned(String id, DateTime date);
   Future<List<NegativesAtLabItem>> negativesAtLab();
