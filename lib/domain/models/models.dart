@@ -8,6 +8,7 @@ enum Process {
 
   const Process(this.wire);
   final String wire;
+  String get label => this == bw ? 'B&W' : wire;
   static Process parse(String s) => values.firstWhere((e) => e.wire == s);
 }
 

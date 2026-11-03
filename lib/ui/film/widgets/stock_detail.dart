@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
@@ -92,14 +93,14 @@ class _Body extends ConsumerWidget {
         WarningBanner(d.warnings),
         CardList(
           children: [
-            DetailInfoRow('Type', s.type.name.toUpperCase()),
-            DetailInfoRow('Box ISO', '${s.boxIso}'),
-            DetailInfoRow('Process', s.process.wire),
-            DetailInfoRow('Packaging', s.packaging.name),
+            _BadgeRow('Type', _typeBadge(s.type, cs)),
+            DetailInfoRow('Box ISO', s.boxIso),
+            _BadgeRow('Process', ProcessBadge(s.process)),
+            _BadgeRow('Packaging', _packagingBadge(s.packaging, cs)),
             DetailInfoRow('Stock origin', s.stockOrigin),
             if (s.packaging != Packaging.factory)
               DetailInfoRow('Pack origin', s.packOrigin),
-            if (notes.isNotEmpty) DetailInfoRow('Notes', notes),
+            if (notes.isNotEmpty) _NotesRow(notes),
           ],
         ),
         if (d.baseStock != null) ...[
@@ -124,6 +125,84 @@ class _Body extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+StampBadge _typeBadge(StockType type, ColorScheme cs) => switch (type) {
+  StockType.color => StampBadge('Color', color: cs.onPrimaryContainer),
+  StockType.bw => StampBadge('B&W', color: cs.onSurfaceVariant),
+  StockType.slide => StampBadge('Slide', color: cs.tertiary),
+};
+
+StampBadge _packagingBadge(Packaging packaging, ColorScheme cs) =>
+    switch (packaging) {
+      Packaging.factory => StampBadge('Factory', color: cs.onSurfaceVariant),
+      Packaging.repack => StampBadge('Repack', color: cs.tertiary),
+      Packaging.respooled => StampBadge(
+        'Respooled',
+        color: cs.onPrimaryContainer,
+      ),
+    };
+
+/// Label on the left, badge on the right; a row inside a [CardList].
+class _BadgeRow extends StatelessWidget {
+  const _BadgeRow(this.label, this.badge);
+  final String label;
+  final Widget badge;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        badge,
+      ],
+    ),
+  );
+}
+
+/// Label above the note, which fills the row and renders as Markdown.
+class _NotesRow extends StatelessWidget {
+  const _NotesRow(this.notes);
+  final String notes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Notes',
+            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          MarkdownBody(
+            data: notes,
+            // A line break typed in the form stays a line break.
+            softLineBreak: true,
+            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+              p: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
