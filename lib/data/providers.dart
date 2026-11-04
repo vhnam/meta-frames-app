@@ -7,6 +7,8 @@ import 'repositories/camera_repository.dart';
 import 'repositories/camera_repository_remote.dart';
 import 'repositories/film_stock_repository.dart';
 import 'repositories/film_stock_repository_remote.dart';
+import 'repositories/lab_order_repository.dart';
+import 'repositories/lab_order_repository_remote.dart';
 import 'repositories/lab_repository.dart';
 import 'repositories/lab_repository_remote.dart';
 import 'repositories/lens_repository.dart';
@@ -72,6 +74,9 @@ final filmStockRepositoryProvider = Provider<FilmStockRepository>(
 );
 final labRepositoryProvider = Provider<LabRepository>(
   (ref) => LabRepositoryRemote(ref.watch(apiClientProvider)),
+);
+final labOrderRepositoryProvider = Provider<LabOrderRepository>(
+  (ref) => LabOrderRepositoryRemote(ref.watch(apiClientProvider)),
 );
 final scannerRepositoryProvider = Provider<ScannerRepository>(
   (ref) => ScannerRepositoryRemote(ref.watch(apiClientProvider)),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:meta_frames/data/repositories/camera_repository.dart';
 import 'package:meta_frames/data/repositories/film_stock_repository.dart';
+import 'package:meta_frames/data/repositories/lab_order_repository.dart';
 import 'package:meta_frames/data/repositories/lab_repository.dart';
 import 'package:meta_frames/data/repositories/scanner_repository.dart';
 import 'package:meta_frames/data/repositories/lens_repository.dart';
@@ -10,6 +11,7 @@ import 'package:meta_frames/data/repositories/roll_repository.dart';
 import 'package:meta_frames/data/repositories/scan_repository.dart';
 import 'package:meta_frames/domain/models/film_requests.dart';
 import 'package:meta_frames/domain/models/gear_requests.dart';
+import 'package:meta_frames/domain/models/lab_order_requests.dart';
 import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/scanner_requests.dart';
@@ -368,6 +370,15 @@ class FakeProcessingRepository implements ProcessingRepository {
   final receipts = <String>[];
   final deleted = <String>[];
 
+  /// Order lines set, by job.
+  final orderLines = <String, List<String>>{};
+
+  @override
+  Future<Processing> setOrderLines(String id, List<String> lineIds) async {
+    orderLines[id] = lineIds;
+    return _job(id, ProcessingType.develop, Process.c41);
+  }
+
   /// Jobs that [processing] can load.
   final jobs = <String, Processing>{};
 
@@ -420,6 +431,106 @@ FilmStock stock(String id, {String brand = 'Kodak', String name = 'Gold'}) =>
       'process': 'C-41',
       'packaging': 'factory',
     });
+
+/// An order as the API returns it, with its amounts worked out.
+LabOrder labOrder(
+  String id, {
+  String labId = 'b1',
+  String labName = 'Lab A',
+  String code = '0510006',
+  int vat = 10000,
+  List<Map<String, dynamic>>? lines,
+}) {
+  final items =
+      lines ??
+      [
+        orderLine('develop', 'Develop', 60000),
+        orderLine('scan', 'Scan', 40000),
+      ];
+  final subtotal = items.fold<int>(
+    0,
+    (sum, l) => sum + (l['quantity'] as int) * (l['unitPrice'] as int),
+  );
+  return LabOrder.fromJson({
+    'id': id,
+    'labId': labId,
+    'labName': labName,
+    'code': code,
+    'orderedAt': '2026-10-05T03:03:00Z',
+    'dueDate': '2026-10-20',
+    'vat': vat,
+    'discount': 0,
+    'subtotal': subtotal,
+    'total': subtotal + vat,
+    'items': [
+      for (final l in items)
+        {
+          ...l,
+          'lineTotal': (l['quantity'] as int) * (l['unitPrice'] as int),
+          'unitCost': subtotal == 0
+              ? 0
+              : ((l['unitPrice'] as int) * (subtotal + vat) / subtotal).round(),
+        },
+    ],
+  });
+}
+
+Map<String, dynamic> orderLine(
+  String id,
+  String product,
+  int unitPrice, {
+  int quantity = 1,
+  List<Map<String, dynamic>> jobs = const [],
+}) => {
+  'id': id,
+  'product': product,
+  'quantity': quantity,
+  'unitPrice': unitPrice,
+  'jobs': jobs,
+};
+
+Map<String, dynamic> orderJob(
+  String id, {
+  String rollId = 'r1',
+  List<String>? lineIds,
+}) => {
+  'id': id,
+  'rollId': rollId,
+  'type': 'develop_scan',
+  'sentAt': '2026-10-05',
+  'stockName': 'Kodak Gold',
+  'format': 135,
+  'exposures': 36,
+  'orderItemIds': ?lineIds,
+};
+
+class FakeLabOrderRepository implements LabOrderRepository {
+  FakeLabOrderRepository([List<LabOrder> orders = const []])
+    : all = [...orders];
+  List<LabOrder> all;
+  List<LabOrderJob> linkable = [];
+
+  /// The last order written, and the ids deleted.
+  LabOrderEdit? saved;
+  String? savedId;
+  final deleted = <String>[];
+
+  @override
+  Future<List<LabOrder>> orders() async => all;
+  @override
+  Future<LabOrder> order(String id) async => all.firstWhere((o) => o.id == id);
+  @override
+  Future<LabOrder> save(String id, LabOrderEdit order) async {
+    saved = order;
+    savedId = id;
+    return all.isEmpty ? labOrder(id) : all.first;
+  }
+
+  @override
+  Future<void> delete(String id) async => deleted.add(id);
+  @override
+  Future<List<LabOrderJob>> linkableJobs(String id) async => linkable;
+}
 
 class FakeLabRepository implements LabRepository {
   FakeLabRepository([List<Lab> labs = const []]) : all = [...labs];

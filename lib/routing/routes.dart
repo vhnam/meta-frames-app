@@ -24,6 +24,15 @@ abstract final class Routes {
   // Labs.
   static String lab(String id) => '/labs/$id';
 
+  // Orders.
+  static const orders = '/orders';
+  static const orderNew = '/orders/new';
+  static String order(String id) => '/orders/$id';
+  static String orderEdit(String id) => '/orders/$id/edit';
+  static String orderAddRoll(String id, {String? lineId}) => lineId == null
+      ? '/orders/$id/add-roll'
+      : '/orders/$id/add-roll?lineId=$lineId';
+
   // Scanners.
   static const scanners = '/scanners';
   static const scannerNew = '/scanners/new';

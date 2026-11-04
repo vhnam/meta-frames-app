@@ -11,6 +11,7 @@ import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
 import '../../rolls/widgets/roll_form_kit.dart';
+import '../../orders/widgets/order_lines_picker.dart';
 import '../view_models/processing_actions.dart';
 import 'lab_dialog.dart';
 import 'scan_order_picker.dart';
@@ -49,9 +50,13 @@ class _State extends ConsumerState<SendRollScreen> {
 
   /// Kept across retries, so saving again cannot create a second job.
   late final _jobId = widget.job?.id ?? newId();
+  // A job on an order takes its price from its lines.
   late final _price = TextEditingController(
-    text: widget.job?.price?.toString() ?? '',
+    text: widget.job?.order != null ? '' : widget.job?.price?.toString() ?? '',
   );
+  late String? _orderId = widget.job?.order?.id;
+  late List<String> _orderLineIds = widget.job?.order?.lineIds ?? const [];
+  String? _orderError;
   late final _notes = TextEditingController(text: widget.job?.notes ?? '');
 
   // A new job starts at home, where the work is done by the time it is recorded.
@@ -96,6 +101,7 @@ class _State extends ConsumerState<SendRollScreen> {
         ];
 
   bool get _atHome => _labId == _self;
+  bool get _onOrder => !_atHome && _orderId != null;
   bool get _editing => widget.job != null;
 
   /// Receipt dates are asked for when editing a job, and for work done at home.
@@ -143,6 +149,18 @@ class _State extends ConsumerState<SendRollScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final labs = ref.watch(labsProvider).value ?? const <Lab>[];
+    // This lab's orders with room for the roll; the job's own always counts.
+    final labOrders = _atHome
+        ? const <LabOrder>[]
+        : (ref.watch(labOrdersProvider).value ?? const <LabOrder>[])
+              .where(
+                (o) =>
+                    o.labId == _labId &&
+                    (o.id == widget.job?.order?.id ||
+                        o.lines.any((l) => l.room > 0)),
+              )
+              .toList();
+    final order = labOrders.where((o) => o.id == _orderId).firstOrNull;
     final scanners = ref.watch(scannersProvider);
     final kinds = ref.watch(scannerKindsProvider);
     // Orders start from the scanner's settings, so saving waits for both.
@@ -260,18 +278,54 @@ class _State extends ConsumerState<SendRollScreen> {
               FormNote(
                 'Cross-processing: stock is ${widget.stock.process.label}',
               ),
-            LabeledField(
-              label: 'Price (optional)',
-              child: TextFormField(
-                controller: _price,
-                decoration: formInputDecoration(
-                  'e.g. 280000',
-                  cs,
-                ).copyWith(suffixText: '₫'),
-                keyboardType: TextInputType.number,
-                validator: validPrice,
+            if (!_atHome)
+              LabeledField(
+                label: 'Order (optional)',
+                gapAfter: labOrders.isEmpty ? 6 : 16,
+                child: SelectField(
+                  hint: 'Not on an order',
+                  value: order == null ? null : '#${order.code}',
+                  onTap: labOrders.isEmpty ? null : () => _pickOrder(labOrders),
+                  onClear: _orderId == null
+                      ? null
+                      : () => setState(() {
+                          _orderId = null;
+                          _orderLineIds = const [];
+                          _orderError = null;
+                        }),
+                ),
               ),
-            ),
+            if (!_atHome && labOrders.isEmpty)
+              const FormNote(
+                'This lab has no order with room. Add one under Orders.',
+              ),
+            if (order != null) ...[
+              const DetailLabel('ORDER LINES', top: 4),
+              OrderLinesPicker(
+                lines: order.lines,
+                selected: _orderLineIds,
+                ownLineIds: widget.job?.order?.lineIds ?? const [],
+                error: _orderError,
+                onChanged: (v) => setState(() {
+                  _orderLineIds = v;
+                  _orderError = null;
+                }),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (!_onOrder)
+              LabeledField(
+                label: 'Price (optional)',
+                child: TextFormField(
+                  controller: _price,
+                  decoration: formInputDecoration(
+                    'e.g. 280000',
+                    cs,
+                  ).copyWith(suffixText: '₫'),
+                  keyboardType: TextInputType.number,
+                  validator: validPrice,
+                ),
+              ),
             if (_needsScanners) ...[
               FormSectionHeader(
                 number: next(),
@@ -468,17 +522,46 @@ class _State extends ConsumerState<SendRollScreen> {
     );
     if (id != null) {
       setState(() {
+        // An order belongs to one lab, so another lab leaves it behind.
+        if (id != _labId) {
+          _orderId = null;
+          _orderLineIds = const [];
+          _orderError = null;
+        }
         _labId = id;
         if (_pickedOrders?.isEmpty ?? false) _pickedOrders = null;
       });
     }
   }
 
+  Future<void> _pickOrder(List<LabOrder> orders) async {
+    final picked = await pickOne<LabOrder>(
+      context,
+      title: 'Order',
+      items: orders,
+      label: (o) => '#${o.code}',
+      subtitle: (o) => '${fmtDate(o.orderedAt)} · ${fmtVnd(o.total)}',
+    );
+    if (picked == null || picked.id == _orderId) return;
+    setState(() {
+      _orderId = picked.id;
+      _orderError = null;
+      // Back on its own order, a job finds its lines again.
+      _orderLineIds = picked.id == widget.job?.order?.id
+          ? widget.job!.order!.lineIds
+          : const [];
+    });
+  }
+
   Future<void> _save(List<ScanOrder> orders) async {
     final valid = _key.currentState!.validate();
     final missing = _needsScanners && orders.isEmpty;
-    setState(() => _scanError = missing ? 'Pick at least one scanner.' : null);
-    if (!valid || missing) return;
+    final noLines = _onOrder && _orderLineIds.isEmpty;
+    setState(() {
+      _scanError = missing ? 'Pick at least one scanner.' : null;
+      _orderError = noLines ? 'Tick at least one line.' : null;
+    });
+    if (!valid || missing || noLines) return;
     setState(() => _busy = true);
     final job = NewProcessing(
       id: _jobId,
@@ -489,7 +572,8 @@ class _State extends ConsumerState<SendRollScreen> {
       // Scans are only expected from a scanning job; negatives from a lab.
       scansExpectedAt: _needsScanners && !_atHome ? _scansExpected : null,
       negativesExpectedAt: _expectsNegatives ? _negativesExpected : null,
-      price: _price.text.isEmpty ? null : int.parse(_price.text),
+      price: _onOrder || _price.text.isEmpty ? null : int.parse(_price.text),
+      orderItemIds: _onOrder ? _orderLineIds : const [],
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       scanOrders: _needsScanners ? orders : const [],
     );

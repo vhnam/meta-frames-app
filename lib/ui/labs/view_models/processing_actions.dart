@@ -8,14 +8,18 @@ class ProcessingActions {
   ProcessingActions(this._ref);
   final Ref _ref;
 
-  /// Job state shows in the job, the roll, the roll lists and the lab list.
+  /// Job state shows in the job, the roll, the roll lists, the lab list and orders.
   void _invalidateJob(String? processingId, String? rollId) {
     if (processingId != null) _ref.invalidate(processingProvider(processingId));
     if (rollId != null) _ref.invalidate(rollDetailProvider(rollId));
     _ref
       ..invalidate(rollsProvider)
       ..invalidate(expiryProvider)
-      ..invalidate(negativesAtLabProvider);
+      ..invalidate(negativesAtLabProvider)
+      // A job on an order shows in the order, and takes a place on its lines.
+      ..invalidate(labOrdersProvider)
+      ..invalidate(labOrderProvider)
+      ..invalidate(linkableJobsProvider);
   }
 
   /// Sends the roll. Work done at home is finished when it is recorded, so its

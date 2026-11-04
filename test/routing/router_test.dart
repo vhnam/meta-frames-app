@@ -258,9 +258,11 @@ void main() {
         'Expiry',
         'Negatives at lab',
         'Labs',
+        'Orders',
         'Scanners',
         'Settings',
       ]) {
+        await tester.scrollUntilVisible(find.text(label), 200);
         expect(find.text(label), findsOneWidget, reason: label);
       }
     });
@@ -273,11 +275,14 @@ void main() {
         'Expiry': Routes.expiry,
         'Negatives at lab': Routes.negativesAtLab,
         'Labs': Routes.labs,
+        'Orders': Routes.orders,
         'Scanners': Routes.scanners,
         'Settings': Routes.settings,
       };
 
       for (final e in entries.entries) {
+        // A lazy list builds only what is near the screen.
+        await tester.scrollUntilVisible(find.text(e.key), 200);
         await tester.tap(find.text(e.key));
         await tester.pumpAndSettle();
         expect(_location(router), e.value, reason: e.key);

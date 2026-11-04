@@ -89,6 +89,14 @@ class _JobCard extends StatelessWidget {
                         color: cs.onSurfaceVariant,
                       ),
                     ),
+                    if (job.order case final order?)
+                      InkWell(
+                        onTap: () => context.push(Routes.order(order.id)),
+                        child: Text(
+                          'Order #${order.code} · ${order.products}',
+                          style: TextStyle(fontSize: 13, color: cs.primary),
+                        ),
+                      ),
                   ],
                 ),
               ),

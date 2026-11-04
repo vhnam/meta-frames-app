@@ -111,6 +111,16 @@ final rollDetailProvider = FutureProvider.autoDispose
     .family<RollDetail, String>(
       (ref, id) => ref.watch(rollRepositoryProvider).roll(id),
     );
+final labOrdersProvider = FutureProvider.autoDispose<List<LabOrder>>(
+  (ref) => ref.cached(ref.watch(labOrderRepositoryProvider).orders()),
+);
+final labOrderProvider = FutureProvider.autoDispose.family<LabOrder, String>(
+  (ref, id) => ref.watch(labOrderRepositoryProvider).order(id),
+);
+final linkableJobsProvider = FutureProvider.autoDispose
+    .family<List<LabOrderJob>, String>(
+      (ref, id) => ref.watch(labOrderRepositoryProvider).linkableJobs(id),
+    );
 final expiryProvider = FutureProvider.autoDispose<ExpiryView>(
   (ref) => ref.cached(ref.watch(rollRepositoryProvider).expiry()),
 );
@@ -158,6 +168,9 @@ void invalidateAllData(Ref ref) {
     ..invalidate(inventoryProvider)
     ..invalidate(labsProvider)
     ..invalidate(labProvider)
+    ..invalidate(labOrdersProvider)
+    ..invalidate(labOrderProvider)
+    ..invalidate(linkableJobsProvider)
     ..invalidate(scannersProvider)
     ..invalidate(scannerProvider)
     ..invalidate(scannerKindsProvider)
