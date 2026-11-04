@@ -48,6 +48,7 @@ class NewProcessing {
     this.scansExpectedAt,
     this.negativesExpectedAt,
     this.price,
+    this.orderItemIds = const [],
     this.notes,
     this.scanOrders = const [],
   });
@@ -63,6 +64,10 @@ class NewProcessing {
   final DateTime? sentAt;
   final DateTime? scansExpectedAt, negativesExpectedAt;
   final int? price;
+
+  /// The order lines the job is billed on, which then set its price. Replaces
+  /// its set; empty takes the job off its order.
+  final List<String> orderItemIds;
   final String? notes;
 
   /// One per scanner. The API needs at least one for a scanning job, and none
@@ -78,6 +83,7 @@ class NewProcessing {
     if (negativesExpectedAt != null)
       'negativesExpectedAt': ymd(negativesExpectedAt!),
     if (price != null) 'price': price,
+    if (orderItemIds.isNotEmpty) 'orderItemIds': orderItemIds,
     if (notes != null) 'notes': notes,
     'scanOrders': [for (final o in scanOrders) o.toJson()],
   };
