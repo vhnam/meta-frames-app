@@ -32,6 +32,10 @@ import '../ui/rolls/widgets/roll_detail.dart';
 import '../ui/rolls/widgets/roll_form.dart';
 import '../ui/rolls/widgets/roll_lenses.dart';
 import '../ui/rolls/widgets/rolls_tab.dart';
+import '../ui/orders/widgets/add_roll_to_order.dart';
+import '../ui/orders/widgets/order_detail.dart';
+import '../ui/orders/widgets/order_form.dart';
+import '../ui/orders/widgets/orders_screen.dart';
 import '../ui/scanners/widgets/scanner_form.dart';
 import '../ui/scanners/widgets/scanners_screen.dart';
 import '../ui/scans/widgets/compare_screen.dart';
@@ -109,6 +113,31 @@ GoRouter buildRouter({
     _route('/labs/:id', (s) => LabDetailScreen(labId: s.pathParameters['id']!)),
     _route(Routes.negativesAtLab, (_) => const NegativesAtLabScreen()),
     _route(Routes.settings, (_) => const SettingsScreen()),
+
+    // Orders. `new` is declared before `:id` so it is not read as an id.
+    _route(Routes.orders, (_) => const OrdersScreen()),
+    _route(Routes.orderNew, (_) => const OrderFormScreen()),
+    _route(
+      '/orders/:id',
+      (s) => OrderDetailScreen(orderId: s.pathParameters['id']!),
+    ),
+    _route(
+      '/orders/:id/edit',
+      (s) => routeData(
+        labOrderProvider(s.pathParameters['id']!),
+        (o) => OrderFormScreen(order: o),
+      ),
+    ),
+    _route(
+      '/orders/:id/add-roll',
+      (s) => routeData(
+        labOrderProvider(s.pathParameters['id']!),
+        (o) => AddRollToOrderScreen(
+          order: o,
+          lineId: s.uri.queryParameters['lineId'],
+        ),
+      ),
+    ),
 
     // Scanners. `new` is declared before `:id` so it is not read as an id.
     _route(Routes.scanners, (_) => const ScannersScreen()),

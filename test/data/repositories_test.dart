@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:meta_frames/data/repositories/camera_repository_remote.dart';
 import 'package:meta_frames/data/repositories/film_stock_repository_remote.dart';
+import 'package:meta_frames/data/repositories/lab_order_repository_remote.dart';
 import 'package:meta_frames/data/repositories/lab_repository_remote.dart';
 import 'package:meta_frames/data/repositories/scanner_repository_remote.dart';
 import 'package:meta_frames/domain/models/scanner_requests.dart';
@@ -17,6 +18,7 @@ import 'package:meta_frames/data/repositories/settings_repository_prefs.dart';
 import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/film_requests.dart';
 import 'package:meta_frames/domain/models/gear_requests.dart';
+import 'package:meta_frames/domain/models/lab_order_requests.dart';
 import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
@@ -561,6 +563,120 @@ void main() {
       rec.reply = [];
       await repo.negativesAtLab();
       expect(rec.call, 'GET /negatives-at-lab');
+    });
+  });
+
+  group('LabOrderRepositoryRemote', () {
+    const order = {
+      'id': 'o1',
+      'labId': 'b1',
+      'labName': 'Lab A',
+      'code': '0510006',
+      'orderedAt': '2026-10-05T03:03:00Z',
+      'dueDate': '2026-10-20',
+      'vat': 44800,
+      'discount': 0,
+      'subtotal': 560000,
+      'total': 604800,
+      'items': [
+        {
+          'id': 'l1',
+          'product': '35mm Colour',
+          'options': 'Dev + Scan',
+          'quantity': 3,
+          'unitPrice': 145000,
+          'lineTotal': 435000,
+          'unitCost': 156600,
+          'jobs': [],
+        },
+      ],
+    };
+
+    test('saves an order and its lines at a chosen id', () async {
+      final rec = Recorder(order);
+      final saved = await LabOrderRepositoryRemote(rec.client).save(
+        'o1',
+        LabOrderEdit(
+          labId: 'b1',
+          code: '0510006',
+          orderedAt: DateTime.utc(2026, 10, 5, 3, 3),
+          dueDate: DateTime(2026, 10, 20),
+          vat: 44800,
+          lines: const [
+            LabOrderLineEdit(
+              id: 'l1',
+              product: '35mm Colour',
+              quantity: 3,
+              unitPrice: 145000,
+            ),
+          ],
+        ),
+      );
+      expect(rec.call, 'PUT /lab-orders/o1');
+      expect(rec.body, {
+        'labId': 'b1',
+        'code': '0510006',
+        'orderedAt': '2026-10-05T03:03:00.000Z',
+        'dueDate': '2026-10-20',
+        'vat': 44800,
+        'discount': 0,
+        'items': [
+          {
+            'id': 'l1',
+            'product': '35mm Colour',
+            'quantity': 3,
+            'unitPrice': 145000,
+          },
+        ],
+      });
+      expect(saved.total, 604800);
+      expect(saved.lines.single.unitCost, 156600);
+      expect(saved.lines.single.room, 3);
+    });
+
+    test('lists orders and the jobs that can join one', () async {
+      final rec = Recorder([order]);
+      final repo = LabOrderRepositoryRemote(rec.client);
+      expect((await repo.orders()).single.code, '0510006');
+      expect(rec.call, 'GET /lab-orders');
+
+      rec.reply = [
+        {
+          'id': 'j1',
+          'rollId': 'r1',
+          'type': 'develop_scan',
+          'sentAt': '2026-10-05',
+          'stockName': 'Kodak Gold',
+          'format': 135,
+          'exposures': 36,
+          'orderItemIds': ['l1'],
+        },
+      ];
+      final jobs = await repo.linkableJobs('o1');
+      expect(rec.call, 'GET /lab-orders/o1/linkable-jobs');
+      expect(jobs.single.lineIds, ['l1']);
+    });
+
+    test('sets a job\'s order lines', () async {
+      final rec = Recorder({
+        ..._processing,
+        'price': 110000,
+        'order': {
+          'id': 'o1',
+          'code': '0510006',
+          'items': [
+            {'id': 'l1', 'product': 'Develop'},
+            {'id': 'l2', 'product': 'Scan'},
+          ],
+        },
+      });
+      final job = await ProcessingRepositoryRemote(rec.client)
+          .setOrderLines('j1', ['l1', 'l2']);
+      expect(rec.call, 'PUT /processing/j1/order-items');
+      expect(rec.body, {
+        'orderItemIds': ['l1', 'l2'],
+      });
+      expect(job.order!.products, 'Develop + Scan');
     });
   });
 

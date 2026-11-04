@@ -8,7 +8,7 @@ import '../../auth/view_models/auth_actions.dart';
 import '../../core/widgets/common.dart';
 
 /// Everything that is not a main tab: the account, gear, film stocks, expiry,
-/// labs, scanners and settings.
+/// labs, orders, scanners and settings.
 class MoreTab extends ConsumerWidget {
   const MoreTab({super.key});
 
@@ -54,6 +54,7 @@ class MoreTab extends ConsumerWidget {
                     Routes.negativesAtLab,
                   ),
                   entry(Icons.store_outlined, 'Labs', Routes.labs),
+                  entry(Icons.receipt_long_outlined, 'Orders', Routes.orders),
                   entry(Icons.scanner_outlined, 'Scanners', Routes.scanners),
                   entry(Icons.settings_outlined, 'Settings', Routes.settings),
                   ListTile(

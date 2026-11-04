@@ -512,6 +512,7 @@ class Processing {
       scansReceivedAt = _date(j['scansReceivedAt']),
       negativesReturnedAt = _date(j['negativesReturnedAt']),
       price = j['price'],
+      order = j['order'] == null ? null : JobOrder.fromJson(j['order']),
       notes = j['notes'],
       scanOrders = _list(j['scanOrders'], JobScanOrder.fromJson),
       isOpen = j['isOpen'];
@@ -522,7 +523,12 @@ class Processing {
   final DateTime sentAt;
   final DateTime? scansExpectedAt, negativesExpectedAt;
   final DateTime? scansReceivedAt, negativesReturnedAt;
+
+  /// From its order lines when the job is on an order, otherwise the job's own.
   final int? price;
+
+  /// The order the job is billed on, and its lines there.
+  final JobOrder? order;
   final List<JobScanOrder> scanOrders;
   final bool isOpen;
   bool get isHome => labId == null;
@@ -540,6 +546,110 @@ class Processing {
   /// The server refuses to delete a job with imported scans.
   bool get hasScans => scanOrders.any((o) => o.scanCount > 0);
   String get where => labName ?? 'Home';
+}
+
+/// The order a job is billed on: one roll can be on several of its lines.
+class JobOrder {
+  JobOrder.fromJson(Map<String, dynamic> j)
+    : id = j['id'],
+      code = j['code'],
+      lines = _list(j['items'], JobOrderLine.fromJson);
+  final String id, code;
+  final List<JobOrderLine> lines;
+  List<String> get lineIds => [for (final l in lines) l.id];
+  String get products => lines.map((l) => l.product).join(' + ');
+}
+
+class JobOrderLine {
+  JobOrderLine.fromJson(Map<String, dynamic> j)
+    : id = j['id'],
+      product = j['product'];
+  final String id, product;
+}
+
+/// A processing job and the roll it works on.
+class LabOrderJob {
+  LabOrderJob.fromJson(Map<String, dynamic> j)
+    : id = j['id'],
+      rollId = j['rollId'],
+      type = ProcessingType.parse(j['type']),
+      sentAt = DateTime.parse(j['sentAt']),
+      stockName = j['stockName'],
+      format = j['format'],
+      exposures = j['exposures'],
+      lineIds = List<String>.from(j['orderItemIds'] ?? const []);
+  final String id, rollId, stockName;
+  final ProcessingType type;
+  final DateTime sentAt;
+  final int format, exposures;
+
+  /// Only from the linkable jobs: the lines of this order the job is on.
+  final List<String> lineIds;
+}
+
+class LabOrderLine {
+  LabOrderLine.fromJson(Map<String, dynamic> j)
+    : id = j['id'],
+      product = j['product'],
+      options = j['options'],
+      quantity = j['quantity'],
+      unitPrice = j['unitPrice'],
+      lineTotal = j['lineTotal'],
+      unitCost = j['unitCost'],
+      jobs = _list(j['jobs'], LabOrderJob.fromJson);
+  final String id, product;
+
+  /// The services the lab lists under the product, as Markdown.
+  final String? options;
+  final int quantity, unitPrice, lineTotal;
+
+  /// What a roll on this line costs, with the order's VAT and discount shared out.
+  final int unitCost;
+  final List<LabOrderJob> jobs;
+
+  /// Rolls still to come on the line.
+  int get room => quantity - jobs.length;
+}
+
+/// What a lab billed.
+class LabOrder {
+  LabOrder.fromJson(Map<String, dynamic> j)
+    : id = j['id'],
+      labId = j['labId'],
+      labName = j['labName'],
+      code = j['code'],
+      orderedAt = DateTime.parse(j['orderedAt']).toLocal(),
+      dueDate = _date(j['dueDate']),
+      vat = j['vat'],
+      discount = j['discount'],
+      notes = j['notes'],
+      subtotal = j['subtotal'],
+      total = j['total'],
+      lines = _list(j['items'], LabOrderLine.fromJson);
+  final String id, labId, labName, code;
+  final DateTime orderedAt;
+  final DateTime? dueDate;
+  final int vat, discount, subtotal, total;
+  final String? notes;
+  final List<LabOrderLine> lines;
+
+  /// Every job on the order once, with the lines that bill it.
+  List<({LabOrderJob job, List<LabOrderLine> lines})> get jobs {
+    final byJob = <String, ({LabOrderJob job, List<LabOrderLine> lines})>{};
+    for (final line in lines) {
+      for (final job in line.jobs) {
+        byJob.putIfAbsent(job.id, () => (job: job, lines: [])).lines.add(line);
+      }
+    }
+    return byJob.values.toList();
+  }
+
+  /// Rolls on the order: one roll on two lines counts once.
+  int get rolls => {for (final j in jobs) j.job.rollId}.length;
+
+  /// How many of the places its lines bill are taken.
+  int get takenPlaces => lines.fold(0, (sum, l) => sum + l.jobs.length);
+  int get billedPlaces => lines.fold(0, (sum, l) => sum + l.quantity);
 }
 
 class RollDetail {

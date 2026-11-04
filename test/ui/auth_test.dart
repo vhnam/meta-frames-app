@@ -167,6 +167,10 @@ Future<void> _logOut(WidgetTester tester) async {
 }
 
 Future<void> _tapAndSettle(WidgetTester tester, Finder finder) async {
+  // A lazy list builds only what is near the screen.
+  if (finder.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(finder, 200);
+  }
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
