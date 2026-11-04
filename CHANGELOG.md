@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+These changes need a MetaFrames API with lab orders (`/lab-orders`).
+
+### Added
+
+- An Orders screen under More records what a lab billed: code, dates, lines with product, description, quantity and unit price, then VAT, discount and total. An order's screen shows its lines and rolls, adds or removes rolls, and edits or deletes the order. One roll can go on several lines, such as developing and scanning. Only rolls already sent to that lab, on no order or only on this one, can be added. Once an order has rolls its lab is locked, and a line with rolls cannot be removed.
+- Send to Lab and Edit Processing Job pick an order and its lines for a lab job. A job on an order links to it from the roll's processing history.
+
+### Changed
+
+- A job on an order takes its price from its lines added up, with the order's VAT and discount shared out by price, and the Price field is hidden. Work at home and jobs on no order keep the Price field.
+
 ## [1.1.0] - 2026-11-03
 
 ### Added

@@ -8,6 +8,7 @@ A film photography log for Android and iOS, built with Flutter. MetaFrames track
 - **Film**: a film stock catalog with ISO, process and packaging.
 - **Rolls**: a roll log with status filters. Load a roll into a camera, finish it, record the lenses used, and see which film is about to expire.
 - **Labs**: send rolls to a lab, track negatives at the lab, and record processing.
+- **Orders**: copy the order a lab issues and put rolls on its lines. A roll on an order takes its price from there.
 - **Scans**: import scans, view frames, add frame notes, and compare scans side by side.
 - **Home**: a dashboard of loaded cameras, rolls ready for the lab, negatives at the lab, and film expiring soon.
 
