@@ -16,15 +16,6 @@ class LensRepositoryRemote implements LensRepository {
   Future<Lens> lens(String id) async =>
       Lens.fromJson(await _api.send('GET', '/lenses/$id'));
   @override
-  Future<Lens> create(LensEdit lens) async =>
-      Lens.fromJson(await _api.send('POST', '/lenses', body: lens.toJson()));
-  @override
-  Future<Lens> update(String id, LensEdit lens) async =>
-      Lens.fromJson(await _api.send('PUT', '/lenses/$id', body: lens.toJson()));
-  @override
-  Future<void> delete(String id) => _api.send('DELETE', '/lenses/$id');
-  @override
-  Future<Lens> setActive(String id, bool active) async => Lens.fromJson(
-    await _api.send('PUT', '/lenses/$id/active', body: {'isActive': active}),
-  );
+  Future<Lens> create(LensEdit lens, {String? id}) async =>
+      Lens.fromJson(await _api.create('/lenses', lens.toJson(), id: id));
 }

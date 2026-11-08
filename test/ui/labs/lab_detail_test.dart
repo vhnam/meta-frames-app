@@ -72,21 +72,4 @@ void main() {
     await _pump(tester, lab('a', 'Foto Lab', scannerIds: ['s1']));
     expect(find.byType(StampBadge), findsNothing);
   });
-
-  testWidgets('Edit opens the lab dialog with the lab filled in', (
-    tester,
-  ) async {
-    await _pump(tester, lab('a', 'Foto Lab', address: 'Hanoi'));
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
-    expect(find.text('Edit lab'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Foto Lab'), findsOneWidget);
-  });
-
-  testWidgets('Delete asks first', (tester) async {
-    await _pump(tester, lab('a', 'Foto Lab'));
-    await tester.tap(find.text('Delete lab'));
-    await tester.pumpAndSettle();
-    expect(find.text('Delete lab?'), findsOneWidget);
-  });
 }

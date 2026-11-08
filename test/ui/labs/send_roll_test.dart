@@ -111,15 +111,12 @@ Future<FakeProcessingRepository> _pump(
   String? path,
   List<Lab> labs = const [],
   List<ScannerDevice>? scanners,
-  List<LabOrder> orders = const [],
-  Processing? editing,
 }) async {
   tester.view
     ..physicalSize = const Size(800, 4000)
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final processing = FakeProcessingRepository();
-  if (editing != null) processing.jobs[editing.id] = editing;
   final router = buildRouter(initialLocation: Routes.rolls);
   addTearDown(router.dispose);
   await tester.pumpWidget(
@@ -131,9 +128,6 @@ Future<FakeProcessingRepository> _pump(
         ),
         processingRepositoryProvider.overrideWithValue(processing),
         labRepositoryProvider.overrideWithValue(FakeLabRepository(labs)),
-        labOrderRepositoryProvider.overrideWithValue(
-          FakeLabOrderRepository(orders),
-        ),
         scannerRepositoryProvider.overrideWithValue(
           FakeScannerRepository(scanners ?? [_noritsu, _frontier], _kinds),
         ),
@@ -235,12 +229,16 @@ void main() {
       expect(find.text('NEGATIVES EXPECTED BACK (OPTIONAL)'), findsOneWidget);
       expect(find.text('NEGATIVES DEVELOPED (OPTIONAL)'), findsNothing);
 
-      await tester.enterText(find.byType(TextFormField).first, '280000');
+      await tester.enterText(find.byType(TextFormField).first, 'ISO 800 push');
       await _tap(tester, 'Send to lab');
 
+      // Create-only: no price, no order lines; notes are what was typed.
       final job = p.sent.single;
       expect(job.labId, 'l1');
-      expect(job.price, 280000);
+      expect(job.price, isNull);
+      expect(job.orderItemIds, isEmpty);
+      expect(job.notes, 'ISO 800 push');
+      expect(job.toJson().containsKey('orderItemIds'), isFalse);
       expect(p.receipts, isEmpty);
     });
 
@@ -338,113 +336,6 @@ void main() {
       await _pump(tester, status: 'at_lab', jobs: 1, path: Routes.roll('r'));
       expect(find.text('Re-scan'), findsNothing);
       expect(find.text('Send to lab'), findsNothing);
-    });
-  });
-
-  group('on an order', () {
-    final lab = Lab.fromJson({'id': 'b1', 'name': 'Foto Lab'});
-    CheckboxListTile tick(WidgetTester tester, String title) =>
-        tester.widget(find.widgetWithText(CheckboxListTile, title));
-
-    testWidgets('bills a lab job on two lines instead of a price', (
-      tester,
-    ) async {
-      final p = await _pump(tester, labs: [lab], orders: [labOrder('o1')]);
-      // At home there is no order to pick.
-      expect(find.text('ORDER (OPTIONAL)'), findsNothing);
-      expect(find.text('PRICE (OPTIONAL)'), findsOneWidget);
-
-      await _pickLab(tester, 'Self-develop', 'Foto Lab');
-      await _tap(tester, 'Not on an order');
-      await _tap(tester, '#0510006');
-      expect(find.text('PRICE (OPTIONAL)'), findsNothing);
-
-      await _tap(tester, 'Send to lab');
-      expect(find.text('Tick at least one line.'), findsOneWidget);
-      expect(p.sent, isEmpty);
-
-      await _tap(tester, 'Develop (0 of 1)');
-      await _tap(tester, 'Scan (0 of 1)');
-      await _tap(tester, 'Send to lab');
-      final job = p.sent.single;
-      expect(job.orderItemIds, ['develop', 'scan']);
-      expect(job.price, isNull);
-      expect(job.toJson()['orderItemIds'], ['develop', 'scan']);
-    });
-
-    testWidgets('says when the lab has no order with room', (tester) async {
-      final full = labOrder(
-        'o1',
-        lines: [
-          orderLine('develop', 'Develop', 60000, jobs: [orderJob('j9')]),
-        ],
-      );
-      await _pump(tester, labs: [lab], orders: [full]);
-      await _pickLab(tester, 'Self-develop', 'Foto Lab');
-      expect(
-        find.text('This lab has no order with room. Add one under Orders.'),
-        findsOneWidget,
-      );
-      expect(find.text('PRICE (OPTIONAL)'), findsOneWidget);
-    });
-
-    testWidgets('another lab leaves the order behind', (tester) async {
-      final other = Lab.fromJson({'id': 'b2', 'name': 'Other Lab'});
-      final p = await _pump(
-        tester,
-        labs: [lab, other],
-        orders: [labOrder('o1')],
-      );
-      await _pickLab(tester, 'Self-develop', 'Foto Lab');
-      await _tap(tester, 'Not on an order');
-      await _tap(tester, '#0510006');
-      await _pickLab(tester, 'Foto Lab', 'Other Lab');
-      expect(find.text('ORDER LINES'), findsNothing);
-      await _tap(tester, 'Send to lab');
-      expect(p.sent.single.orderItemIds, isEmpty);
-    });
-
-    testWidgets('editing keeps a job on its full lines', (tester) async {
-      final job = orderJob('p1');
-      final order = labOrder(
-        'o1',
-        lines: [
-          orderLine('develop', 'Develop', 60000, jobs: [job]),
-          orderLine('scan', 'Scan', 40000, jobs: [job]),
-        ],
-      );
-      final p = await _pump(
-        tester,
-        labs: [lab],
-        orders: [order],
-        path: Routes.processingEdit('p1'),
-        editing: Processing.fromJson({
-          'id': 'p1',
-          'rollId': 'r',
-          'labId': 'b1',
-          'labName': 'Foto Lab',
-          'type': 'develop',
-          'process': 'C-41',
-          'sentAt': '2026-03-21',
-          'price': 110000,
-          'order': {
-            'id': 'o1',
-            'code': '0510006',
-            'items': [
-              {'id': 'develop', 'product': 'Develop'},
-              {'id': 'scan', 'product': 'Scan'},
-            ],
-          },
-          'isOpen': true,
-        }),
-      );
-      expect(tick(tester, 'Scan (1 of 1)').value, isTrue);
-      expect(tick(tester, 'Scan (1 of 1)').onChanged, isNotNull);
-      expect(find.text('PRICE (OPTIONAL)'), findsNothing);
-
-      await _tap(tester, 'Save changes');
-      expect(p.sent.single.orderItemIds, ['develop', 'scan']);
-      expect(p.sent.single.price, isNull);
     });
   });
 }

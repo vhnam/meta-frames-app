@@ -263,13 +263,6 @@ void main() {
         findsOneWidget,
       );
     });
-    testWidgets('the lab dialog labels its fields', (t) async {
-      await pump(t, const LabsScreen());
-      await t.tap(find.text('+ Lab'));
-      await t.pumpAndSettle();
-      expect(find.text('NAME'), findsOneWidget);
-      expect(find.text('ADDRESS (OPTIONAL)'), findsOneWidget);
-    });
   });
 
   group('filters', () {

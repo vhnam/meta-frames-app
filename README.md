@@ -1,16 +1,32 @@
 # MetaFrames
 
-A film photography log for Android and iOS, built with Flutter. MetaFrames tracks your cameras and lenses, film stocks, rolls, lab processing and scans. It is a client for the MetaFrames API server and keeps no data on the device except settings and the session token.
+A film photography log for Android and iOS, built with Flutter. MetaFrames is the field companion of the MetaFrames dashboard. It is a client for the MetaFrames API server.
+
+The app keeps a local store (SQLite) on the phone, so the field workflow works without a signal (see [Working offline](#working-offline)). The store has one partition for each account and server. Pending changes and drafts stay on the phone until they sync. The app also keeps the settings and the session token.
 
 ## Features
 
-- **Gear**: cameras and lenses, including fixed-lens bodies.
-- **Film**: a film stock catalog with ISO, process and packaging.
-- **Rolls**: a roll log with status filters. Load a roll into a camera, finish it, record the lenses used, and see which film is about to expire.
-- **Labs**: send rolls to a lab, track negatives at the lab, and record processing.
-- **Orders**: copy the order a lab issues and put rolls on its lines. A roll on an order takes its price from there.
-- **Scans**: import scans, view frames, add frame notes, and compare scans side by side.
-- **Home**: a dashboard of loaded cameras, rolls ready for the lab, negatives at the lab, and film expiring soon.
+The app has three tabs.
+
+- **Shooting**: the cameras with film in them, each with its roll, shot ISO and start date. Note a frame by typing its number, finish a roll, or load a new one into an empty camera.
+- **Rolls**: a roll log with a chip for each status, a Negatives at lab chip and a format filter. Film in stock lists the soonest expiry first and marks expired or expiring film. Load a roll into a camera, finish it, record the lenses used, and note frames from the roll's page. Send a roll to a lab, or record work done at home, and mark negatives and scans as received. A roll's page shows its scans: view, zoom, download and share them.
+- **More**: Gear, Film stocks, Labs, Negatives at lab, Sync status, the signed-in account, a link to the dashboard, Settings and Log out.
+
+Gear, Film stocks and Labs are for lookup and picking. A quick add makes the minimum record that lets you continue: a camera (brand, model, and a mount or a fixed lens's focal length and aperture), a lens (focal length, aperture), a film stock (brand, name, ISO, type, process, packaging) or a lab (name).
+
+### Done on the dashboard
+
+The app does not do these tasks. Use the dashboard.
+
+- Scanners and scan settings.
+- Lab orders and prices.
+- Edit or delete a processing job.
+- Import scans and compare scans.
+- Full gear admin: edit, activate, deactivate and delete cameras and lenses, and link lenses to cameras.
+- Full film stock admin: edit a stock, its origins, base stock and notes.
+- Full lab admin: edit or delete a lab, its address and its scanners.
+
+The app only hides these tasks. It does not delete data. A link to a removed screen opens the router error page.
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
@@ -83,6 +99,16 @@ Android allows cleartext HTTP (`android:usesCleartextTraffic="true"`), so a loca
 
 To use the app, log in or register. The session token is stored with `flutter_secure_storage`. Saving a different base URL ends the session, so the token never goes to another server. Password reset emails link to the web dashboard.
 
+## Working offline
+
+The Shooting tab, load, finish, roll notes and frame notes keep working without a connection.
+
+- **What is kept.** For the signed-in account on the selected server, the app stores the answers of the reads the field workflow uses (cameras, rolls, a loaded roll's page and frames, film, labs, lenses) in a SQLite file on the phone. Scans are never kept. A list that was never fetched shows "Not available offline yet", not an empty list.
+- **What is queued.** Loading and finishing a roll, roll notes and frame notes are saved on the phone first, shown on the screens as "waiting to sync", and sent in order when the server can be reached. The app asks the server to confirm each one and never sends one twice; a change someone else made on the dashboard shows as a conflict with both sides, and nothing is overwritten until you choose (Use server, Keep mine or Try again, Copy mine). **More > Sync status** lists what is waiting, the drafts, and what other accounts have left on the phone.
+- **Accounts and servers.** Everything kept is filed under one account on one server, in its own file. A queued change is only ever sent to that server as that account. Logging out or changing the server with unsent changes asks whether to keep them on the phone (the default) or discard them. If the session expires, changes wait until the same account signs in again.
+- **Drafts.** The quick-create forms (camera, lens, film stock, lab, added rolls) save what you typed before the first request, so a timeout or a restart never loses it. A record is not created offline: a draft waits until the server can be reached.
+- **Dashboard.** Each saved server can have its own dashboard URL, opened from More.
+
 ### Sign in with Google
 
 The app uses the device's Google account picker and sends the resulting ID token to the server's `POST /auth/google/token`. An iOS build without its client id hides the Google button. To enable it:
@@ -114,20 +140,22 @@ lib/
 ├── app.dart             # MaterialApp and themes
 ├── providers.dart       # Query providers
 ├── data/
-│   ├── services/        # ApiClient: HTTP transport, error mapping, JSON decoding
+│   ├── services/        # ApiClient: HTTP transport, error mapping, JSON decoding; SessionStore
+│   ├── local/           # SQLite store per account and server, read cache, partition controller
+│   ├── sync/            # The outbox: pending operations, projection, sync engine
 │   └── repositories/    # One abstract repository and one remote version per domain
 ├── domain/
 │   └── models/          # Models and typed request bodies
 ├── routing/             # Router, Routes path builders, tab shell
 └── ui/
     ├── core/            # Theme and shared widgets
-    └── <feature>/       # home, gear, film, rolls, labs, scanners, scans, more
+    └── <feature>/       # shooting, gear, film, rolls, labs, scanners, scans, more, sync, auth
         ├── view_models/
         └── widgets/
 ```
 
 - Widgets do not read repositories. Logic lives in view models, actions classes and derived providers.
-- The three tabs (Rolls, Home, More) sit in a stateful shell. Every other screen is a root-level route that takes ids in its path and loads its own data.
+- The three tabs (Shooting, Rolls, More) sit in a stateful shell. Every other screen is a root-level route that takes ids in its path and loads its own data.
 - Build paths with `Routes`, for example `context.push(Routes.roll(id))`.
 
 [docs/improvement-plan.md](docs/improvement-plan.md) records the architecture and performance work and what is still open.

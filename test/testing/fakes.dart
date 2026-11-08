@@ -2,19 +2,17 @@ import 'dart:io';
 
 import 'package:meta_frames/data/repositories/camera_repository.dart';
 import 'package:meta_frames/data/repositories/film_stock_repository.dart';
-import 'package:meta_frames/data/repositories/lab_order_repository.dart';
 import 'package:meta_frames/data/repositories/lab_repository.dart';
 import 'package:meta_frames/data/repositories/scanner_repository.dart';
 import 'package:meta_frames/data/repositories/lens_repository.dart';
 import 'package:meta_frames/data/repositories/processing_repository.dart';
 import 'package:meta_frames/data/repositories/roll_repository.dart';
 import 'package:meta_frames/data/repositories/scan_repository.dart';
+import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/film_requests.dart';
 import 'package:meta_frames/domain/models/gear_requests.dart';
-import 'package:meta_frames/domain/models/lab_order_requests.dart';
 import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
-import 'package:meta_frames/domain/models/scanner_requests.dart';
 import 'package:meta_frames/domain/utils.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
 
@@ -56,18 +54,24 @@ RollSummary roll(
   String status = 'in_stock',
   String stockId = 's1',
   Map<String, dynamic>? expiry,
+  int format = 135,
+  bool negativesAtLab = false,
 }) => RollSummary.fromJson({
   'id': id,
   'filmStockId': stockId,
   'stockBrand': 'Kodak',
   'stockName': 'Gold',
-  'format': 135,
+  'format': format,
   'exposures': 36,
   'status': status,
   'expiry': expiry,
+  'negativesAtLab': negativesAtLab,
 });
 
-RollDetail rollDetail(String id) => RollDetail.fromJson({
+RollDetail rollDetail(
+  String id, {
+  List<Map<String, dynamic>> frames = const [],
+}) => RollDetail.fromJson({
   'roll': {
     'id': id,
     'filmStockId': 's1',
@@ -92,6 +96,7 @@ RollDetail rollDetail(String id) => RollDetail.fromJson({
     'total': 0,
     'incomplete': false,
   },
+  'frames': frames,
 });
 
 class FakeRollRepository implements RollRepository {
@@ -142,16 +147,38 @@ class FakeRollRepository implements RollRepository {
   @override
   Future<void> delete(String id) async => calls.add('delete:$id');
 
+  /// The `If-Match` version sent with each [update].
+  final versions = <int?>[];
+
   @override
-  Future<RollDetail> update(String id, RollEdit edit) async {
+  Future<RollDetail> update(String id, RollEdit edit, {int? version}) async {
     calls.add('update:$id');
+    versions.add(version);
     return _unusedDetail();
   }
 
+  /// The idempotency key sent with each [addRolls].
+  final keys = <String?>[];
+
   @override
-  Future<List<RollSummary>> addRolls(NewRolls rolls) async {
+  Future<List<RollSummary>> addRolls(
+    NewRolls rolls, {
+    String? idempotencyKey,
+  }) async {
     calls.add('add');
-    return const [];
+    keys.add(idempotencyKey);
+    return [
+      for (var i = 0; i < rolls.quantity; i++)
+        RollSummary.fromJson({
+          'id': 'added$i',
+          'filmStockId': rolls.filmStockId,
+          'stockBrand': 'Kodak',
+          'stockName': 'Gold',
+          'format': rolls.format,
+          'exposures': rolls.exposures,
+          'status': 'in_stock',
+        }),
+    ];
   }
 
   /// Served by [expiry].
@@ -160,8 +187,66 @@ class FakeRollRepository implements RollRepository {
   @override
   Future<ExpiryView> expiry() async => expiryView;
 
+  /// The roll with the frames noted through [saveFrameNotes].
   @override
-  Future<RollDetail> roll(String id) async => _unusedDetail();
+  Future<RollDetail> roll(String id) async => rollDetail(
+    id,
+    frames: [
+      for (final k in frameNotes.keys)
+        if (k.$1 == id) _frameJson(id, k.$2),
+    ],
+  );
+
+  /// Frame notes by roll id and number, as the server keeps them.
+  final frameNotes = <(String, int), String?>{};
+
+  @override
+  Future<Frame> frame(String rollId, int n) async {
+    if (!frameNotes.containsKey((rollId, n))) {
+      throw ApiException(404, 'not_found', 'frame not found');
+    }
+    return _frame(rollId, n);
+  }
+
+  /// The base sent with each frame notes save.
+  final bases = <String?>[];
+
+  @override
+  Future<Frame> saveFrameNotes(
+    String rollId,
+    int n,
+    String? notes, {
+    String? baseNotes,
+  }) async {
+    calls.add('frameNotes:$rollId:$n');
+    bases.add(baseNotes);
+    frameNotes[(rollId, n)] = notes;
+    return _frame(rollId, n);
+  }
+
+  /// Roll notes by roll id, as the server keeps them.
+  final rollNotes = <String, String>{};
+
+  @override
+  Future<RollDetail> saveRollNotes(
+    String id,
+    String description, {
+    String? baseDescription,
+  }) async {
+    calls.add('rollNotes:$id');
+    bases.add(baseDescription);
+    rollNotes[id] = description;
+    return _unusedDetail();
+  }
+
+  Map<String, dynamic> _frameJson(String rollId, int n) => {
+    'id': '$rollId-$n',
+    'number': n,
+    'notes': frameNotes[(rollId, n)],
+    'scans': [],
+  };
+
+  Frame _frame(String rollId, int n) => Frame.fromJson(_frameJson(rollId, n));
 
   RollDetail _unusedDetail() => rollDetail('r');
 }
@@ -197,30 +282,15 @@ class FakeCameraRepository implements CameraRepository {
       cameraList.firstWhere((c) => c.id == id);
 
   @override
-  Future<Camera> create(CameraEdit camera) async {
+  Future<Camera> create(CameraEdit camera, {String? id}) async {
     calls.add('create');
     return Camera.fromJson({
-      'id': 'new',
+      'id': id ?? 'new',
       'brand': camera.brand,
       'model': camera.model,
       'hasFixedLens': camera.hasFixedLens,
       'isActive': true,
     });
-  }
-
-  @override
-  Future<Camera> update(String id, CameraEdit camera) async {
-    calls.add('update:$id');
-    return cameraList.firstWhere((c) => c.id == id);
-  }
-
-  @override
-  Future<void> delete(String id) async => calls.add('delete:$id');
-
-  @override
-  Future<Camera> setActive(String id, bool active) async {
-    calls.add('setActive:$id:$active');
-    return cameraList.firstWhere((c) => c.id == id);
   }
 }
 
@@ -240,10 +310,7 @@ class FakeLensRepository implements LensRepository {
   Future<Lens> lens(String id) async => all.firstWhere((l) => l.id == id);
 
   @override
-  Future<Lens> create(LensEdit lens) async => _find('new');
-
-  @override
-  Future<Lens> update(String id, LensEdit lens) async => _find(id);
+  Future<Lens> create(LensEdit lens, {String? id}) async => _find(id ?? 'new');
 
   Lens _find(String id) => all.firstWhere(
     (l) => l.id == id,
@@ -255,82 +322,12 @@ class FakeLensRepository implements LensRepository {
       'isActive': true,
     }),
   );
-
-  @override
-  Future<void> delete(String id) async => calls.add('delete:$id');
-
-  @override
-  Future<Lens> setActive(String id, bool active) async {
-    calls.add('setActive:$id:$active');
-    return _find(id);
-  }
 }
 
 class FakeScanRepository implements ScanRepository {
-  /// File names the fake server cannot number, with the reason.
-  final unnumberable = <String, String>{};
-
-  /// File names whose upload throws.
-  final uploadFails = <String>{};
-  final uploaded = <String>[];
-
-  @override
-  Future<List<ImportPreviewItem>> previewImport(
-    String processingId,
-    List<String> names, {
-    int? startFrame,
-    int? offset,
-  }) async => [
-    for (var i = 0; i < names.length; i++)
-      ImportPreviewItem.fromJson({
-        'fileName': names[i],
-        'frameNumber': unnumberable.containsKey(names[i])
-            ? null
-            : (startFrame ?? 1) + i + (offset ?? 0),
-        'error': unnumberable[names[i]],
-      }),
-  ];
-
-  @override
-  Future<ImportResult> importScan(
-    String processingId, {
-    required Scanner scanner,
-    required String path,
-    required String fileName,
-    required int frameNumber,
-    required bool replace,
-  }) async {
-    if (uploadFails.contains(fileName)) throw 'disk full';
-    uploaded.add('$fileName@$frameNumber');
-    return ImportResult.fromJson({
-      'imported': [
-        {
-          'id': 's$frameNumber',
-          'processingId': processingId,
-          'frameId': 'f',
-          'frameNumber': frameNumber,
-          'scanner': scanner.name,
-          'fileName': fileName,
-          'sizeBytes': 1,
-          'fileUrl': '/x',
-        },
-      ],
-      'skipped': [],
-      'failed': [],
-    });
-  }
-
-  @override
-  Future<Frame> frame(String rollId, int n) => throw UnimplementedError();
-  @override
-  Future<Frame> saveFrameNotes(String rollId, int n, String? notes) =>
-      throw UnimplementedError();
   @override
   Future<List<Scan>> scans(String processingId, {Scanner? scanner}) async =>
       const [];
-  @override
-  Future<FrameComparison> compare(String processingId, int n) =>
-      throw UnimplementedError();
   @override
   String fileUrl(Scan s) => 'http://x${s.fileUrl}';
   @override
@@ -349,10 +346,7 @@ class FakeFilmStockRepository implements FilmStockRepository {
   @override
   Future<FilmStockDetail> stock(String id) => throw UnimplementedError();
   @override
-  Future<FilmStockDetail> create(FilmStockEdit stock) =>
-      throw UnimplementedError();
-  @override
-  Future<FilmStockDetail> update(String id, FilmStockEdit stock) =>
+  Future<FilmStockDetail> create(FilmStockEdit stock, {String? id}) =>
       throw UnimplementedError();
   @override
   Future<List<InventoryItem>> inventory({
@@ -369,15 +363,6 @@ class FakeProcessingRepository implements ProcessingRepository {
   final sent = <NewProcessing>[];
   final receipts = <String>[];
   final deleted = <String>[];
-
-  /// Order lines set, by job.
-  final orderLines = <String, List<String>>{};
-
-  @override
-  Future<Processing> setOrderLines(String id, List<String> lineIds) async {
-    orderLines[id] = lineIds;
-    return _job(id, ProcessingType.develop, Process.c41);
-  }
 
   /// Jobs that [processing] can load.
   final jobs = <String, Processing>{};
@@ -432,106 +417,6 @@ FilmStock stock(String id, {String brand = 'Kodak', String name = 'Gold'}) =>
       'packaging': 'factory',
     });
 
-/// An order as the API returns it, with its amounts worked out.
-LabOrder labOrder(
-  String id, {
-  String labId = 'b1',
-  String labName = 'Lab A',
-  String code = '0510006',
-  int vat = 10000,
-  List<Map<String, dynamic>>? lines,
-}) {
-  final items =
-      lines ??
-      [
-        orderLine('develop', 'Develop', 60000),
-        orderLine('scan', 'Scan', 40000),
-      ];
-  final subtotal = items.fold<int>(
-    0,
-    (sum, l) => sum + (l['quantity'] as int) * (l['unitPrice'] as int),
-  );
-  return LabOrder.fromJson({
-    'id': id,
-    'labId': labId,
-    'labName': labName,
-    'code': code,
-    'orderedAt': '2026-10-05T03:03:00Z',
-    'dueDate': '2026-10-20',
-    'vat': vat,
-    'discount': 0,
-    'subtotal': subtotal,
-    'total': subtotal + vat,
-    'items': [
-      for (final l in items)
-        {
-          ...l,
-          'lineTotal': (l['quantity'] as int) * (l['unitPrice'] as int),
-          'unitCost': subtotal == 0
-              ? 0
-              : ((l['unitPrice'] as int) * (subtotal + vat) / subtotal).round(),
-        },
-    ],
-  });
-}
-
-Map<String, dynamic> orderLine(
-  String id,
-  String product,
-  int unitPrice, {
-  int quantity = 1,
-  List<Map<String, dynamic>> jobs = const [],
-}) => {
-  'id': id,
-  'product': product,
-  'quantity': quantity,
-  'unitPrice': unitPrice,
-  'jobs': jobs,
-};
-
-Map<String, dynamic> orderJob(
-  String id, {
-  String rollId = 'r1',
-  List<String>? lineIds,
-}) => {
-  'id': id,
-  'rollId': rollId,
-  'type': 'develop_scan',
-  'sentAt': '2026-10-05',
-  'stockName': 'Kodak Gold',
-  'format': 135,
-  'exposures': 36,
-  'orderItemIds': ?lineIds,
-};
-
-class FakeLabOrderRepository implements LabOrderRepository {
-  FakeLabOrderRepository([List<LabOrder> orders = const []])
-    : all = [...orders];
-  List<LabOrder> all;
-  List<LabOrderJob> linkable = [];
-
-  /// The last order written, and the ids deleted.
-  LabOrderEdit? saved;
-  String? savedId;
-  final deleted = <String>[];
-
-  @override
-  Future<List<LabOrder>> orders() async => all;
-  @override
-  Future<LabOrder> order(String id) async => all.firstWhere((o) => o.id == id);
-  @override
-  Future<LabOrder> save(String id, LabOrderEdit order) async {
-    saved = order;
-    savedId = id;
-    return all.isEmpty ? labOrder(id) : all.first;
-  }
-
-  @override
-  Future<void> delete(String id) async => deleted.add(id);
-  @override
-  Future<List<LabOrderJob>> linkableJobs(String id) async => linkable;
-}
-
 class FakeLabRepository implements LabRepository {
   FakeLabRepository([List<Lab> labs = const []]) : all = [...labs];
   List<Lab> all;
@@ -546,23 +431,14 @@ class FakeLabRepository implements LabRepository {
   Future<Lab> lab(String id) async => all.firstWhere((l) => l.id == id);
 
   @override
-  Future<Lab> create(LabEdit lab) async {
+  Future<Lab> create(LabEdit lab, {String? id}) async {
     saved = lab;
     return Lab.fromJson({
-      'id': 'new',
+      'id': id ?? 'new',
       'name': lab.name,
       'address': lab.address,
     });
   }
-
-  @override
-  Future<Lab> update(String id, LabEdit lab) async {
-    saved = lab;
-    return all.firstWhere((l) => l.id == id);
-  }
-
-  @override
-  Future<void> delete(String id) async => all.removeWhere((l) => l.id == id);
 }
 
 Lab lab(
@@ -584,40 +460,11 @@ class FakeScannerRepository implements ScannerRepository {
   final List<ScannerDevice> all;
   final List<ScannerKindOptions> kindOptions;
 
-  /// Writes made, and the last scanner written.
-  final calls = <String>[];
-  ScannerEdit? saved;
-
   @override
   Future<List<ScannerDevice>> scanners() async => all;
 
   @override
-  Future<ScannerDevice> scanner(String id) async =>
-      all.firstWhere((s) => s.id == id);
-
-  @override
   Future<List<ScannerKindOptions>> kinds() async => kindOptions;
-
-  @override
-  Future<ScannerDevice> create(ScannerEdit scanner) async {
-    calls.add('create');
-    saved = scanner;
-    return ScannerDevice.fromJson({
-      'id': 'new',
-      'brand': scanner.brand,
-      'name': scanner.brand,
-    });
-  }
-
-  @override
-  Future<ScannerDevice> update(String id, ScannerEdit scanner) async {
-    calls.add('update:$id');
-    saved = scanner;
-    return all.firstWhere((s) => s.id == id);
-  }
-
-  @override
-  Future<void> delete(String id) async => calls.add('delete:$id');
 }
 
 ScannerDevice scanner(

@@ -7,21 +7,20 @@ import '../../../domain/utils.dart';
 import '../../../providers.dart';
 import '../../../routing/navigation.dart';
 import '../../core/theme.dart';
-import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
-import '../../rolls/widgets/roll_form_kit.dart';
-import '../../orders/widgets/order_lines_picker.dart';
 import '../view_models/processing_actions.dart';
 import 'lab_dialog.dart';
+import '../../../data/local/local_store.dart';
+import '../../sync/view_models/drafts.dart' show draftsOf;
+import '../../sync/widgets/create_footer.dart';
 import 'scan_order_picker.dart';
 
 /// Stand-in for working at home: the API takes no lab id then.
 const _self = 'self';
 
 /// M-27 send a roll for processing, or record work done at home; M-31 scan a
-/// processed roll again; or edit a [job] already recorded. Follows the
-/// dashboard's Send to Lab dialog.
+/// processed roll again. Follows the dashboard's Send to Lab dialog.
 class SendRollScreen extends ConsumerStatefulWidget {
   const SendRollScreen({
     super.key,
@@ -29,7 +28,6 @@ class SendRollScreen extends ConsumerStatefulWidget {
     required this.stock,
     required this.types,
     this.rescan = false,
-    this.job,
   });
   final RollSummary roll;
   final FilmStock stock;
@@ -37,10 +35,6 @@ class SendRollScreen extends ConsumerStatefulWidget {
   /// Services offered for this job.
   final List<ProcessingType> types;
   final bool rescan;
-
-  /// Edit this job instead of sending the roll. Its lab and service stay fixed:
-  /// the server refuses a change of service.
-  final Processing? job;
   @override
   ConsumerState<SendRollScreen> createState() => _State();
 }
@@ -49,32 +43,21 @@ class _State extends ConsumerState<SendRollScreen> {
   final _key = GlobalKey<FormState>();
 
   /// Kept across retries, so saving again cannot create a second job.
-  late final _jobId = widget.job?.id ?? newId();
-  // A job on an order takes its price from its lines.
-  late final _price = TextEditingController(
-    text: widget.job?.order != null ? '' : widget.job?.price?.toString() ?? '',
-  );
-  late String? _orderId = widget.job?.order?.id;
-  late List<String> _orderLineIds = widget.job?.order?.lineIds ?? const [];
-  String? _orderError;
-  late final _notes = TextEditingController(text: widget.job?.notes ?? '');
+  late final _jobId = newId();
+  final _notes = TextEditingController();
 
   // A new job starts at home, where the work is done by the time it is recorded.
-  late String _labId = widget.job?.labId ?? _self;
-  late ProcessingType _type = widget.job?.type ?? widget.types.first;
-  late Process _process = widget.job?.process ?? widget.stock.process;
-  late DateTime? _sent = widget.job?.sentAt;
-  late DateTime? _scansExpected = widget.job?.scansExpectedAt;
-  late DateTime? _negativesExpected = widget.job?.negativesExpectedAt;
-  late DateTime? _scansReceived = widget.job == null
-      ? _today()
-      : widget.job!.scansReceivedAt;
-  late DateTime? _negativesReturned = widget.job == null
-      ? _today()
-      : widget.job!.negativesReturnedAt;
+  String _labId = _self;
+  late ProcessingType _type = widget.types.first;
+  late Process _process = widget.stock.process;
+  DateTime? _sent;
+  DateTime? _scansExpected;
+  DateTime? _negativesExpected;
+  DateTime? _scansReceived = _today();
+  DateTime? _negativesReturned = _today();
 
   /// Null until picked by hand: the job follows the lab's default scanner.
-  late List<ScanOrder>? _pickedOrders = _ordersOfJob();
+  List<ScanOrder>? _pickedOrders;
   String? _scanError;
   bool _busy = false;
 
@@ -85,27 +68,14 @@ class _State extends ConsumerState<SendRollScreen> {
 
   @override
   void dispose() {
-    _price.dispose();
     _notes.dispose();
     super.dispose();
   }
 
-  List<JobScanOrder> get _jobOrders => widget.job?.scanOrders ?? const [];
-
-  /// Null for a job without scanners, so it gets the default if it needs one.
-  List<ScanOrder>? _ordersOfJob() => _jobOrders.isEmpty
-      ? null
-      : [
-          for (final o in _jobOrders)
-            ScanOrder(scannerId: o.scannerId, settings: o.settings),
-        ];
-
   bool get _atHome => _labId == _self;
-  bool get _onOrder => !_atHome && _orderId != null;
-  bool get _editing => widget.job != null;
 
-  /// Receipt dates are asked for when editing a job, and for work done at home.
-  bool get _showReceipts => _editing || _atHome;
+  /// Receipt dates are asked for work done at home.
+  bool get _showReceipts => _atHome;
   bool get _needsScanners => _type.hasScans;
 
   /// A lab that develops the film returns the negatives.
@@ -149,18 +119,6 @@ class _State extends ConsumerState<SendRollScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final labs = ref.watch(labsProvider).value ?? const <Lab>[];
-    // This lab's orders with room for the roll; the job's own always counts.
-    final labOrders = _atHome
-        ? const <LabOrder>[]
-        : (ref.watch(labOrdersProvider).value ?? const <LabOrder>[])
-              .where(
-                (o) =>
-                    o.labId == _labId &&
-                    (o.id == widget.job?.order?.id ||
-                        o.lines.any((l) => l.room > 0)),
-              )
-              .toList();
-    final order = labOrders.where((o) => o.id == _orderId).firstOrNull;
     final scanners = ref.watch(scannersProvider);
     final kinds = ref.watch(scannerKindsProvider);
     // Orders start from the scanner's settings, so saving waits for both.
@@ -171,11 +129,7 @@ class _State extends ConsumerState<SendRollScreen> {
               _defaultOrders(labs, scanners.requireValue, kinds.requireValue);
 
     final String title, description, submit;
-    if (_editing) {
-      title = 'Edit Processing Job';
-      description = 'Update the process, price, scanners and dates of this job';
-      submit = 'Save changes';
-    } else if (widget.rescan) {
+    if (widget.rescan) {
       title = 'Re-scan Roll';
       description = 'Scan the negatives again, at another lab or yourself. Earlier jobs and scans stay';
       submit = 'Add re-scan';
@@ -217,48 +171,33 @@ class _State extends ConsumerState<SendRollScreen> {
               note: '* Required attributes',
             ),
             LabeledField(
-              label: _editing ? 'Lab (locked)' : 'Lab *',
+              label: 'Lab *',
               child: SelectField(
                 hint: 'Select a lab',
                 value: _atHome
                     ? _selfLabel
-                    : labs.where((l) => l.id == _labId).firstOrNull?.name ??
-                          widget.job?.labName,
-                onTap: _editing ? null : _pickLab,
+                    : labs.where((l) => l.id == _labId).firstOrNull?.name,
+                onTap: _pickLab,
               ),
             ),
-            if (_editing) ...[
-              LabeledField(
-                label: 'Service (locked)',
-                gapAfter: 6,
-                child: SelectField(
-                  hint: 'Service',
-                  value: _type.label,
-                  onTap: null,
-                ),
+            LabeledField(
+              label: 'Service *',
+              child: DropdownButtonFormField<ProcessingType>(
+                initialValue: _type,
+                style: Theme.of(context).textTheme.bodyLarge,
+                decoration: formInputDecoration('', cs),
+                borderRadius: kCorners,
+                items: [
+                  for (final t in widget.types)
+                    DropdownMenuItem(value: t, child: Text(t.label)),
+                ],
+                onChanged: (v) => setState(() {
+                  _type = v!;
+                  _scanError = null;
+                  if (_pickedOrders?.isEmpty ?? false) _pickedOrders = null;
+                }),
               ),
-              const FormNote(
-                'The lab and service cannot be changed once the job is recorded.',
-              ),
-            ] else
-              LabeledField(
-                label: 'Service *',
-                child: DropdownButtonFormField<ProcessingType>(
-                  initialValue: _type,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  decoration: formInputDecoration('', cs),
-                  borderRadius: kCorners,
-                  items: [
-                    for (final t in widget.types)
-                      DropdownMenuItem(value: t, child: Text(t.label)),
-                  ],
-                  onChanged: (v) => setState(() {
-                    _type = v!;
-                    _scanError = null;
-                    if (_pickedOrders?.isEmpty ?? false) _pickedOrders = null;
-                  }),
-                ),
-              ),
+            ),
             LabeledField(
               label: 'Process *',
               gapAfter: _process == widget.stock.process ? 16 : 6,
@@ -277,54 +216,6 @@ class _State extends ConsumerState<SendRollScreen> {
             if (_process != widget.stock.process)
               FormNote(
                 'Cross-processing: stock is ${widget.stock.process.label}',
-              ),
-            if (!_atHome)
-              LabeledField(
-                label: 'Order (optional)',
-                gapAfter: labOrders.isEmpty ? 6 : 16,
-                child: SelectField(
-                  hint: 'Not on an order',
-                  value: order == null ? null : '#${order.code}',
-                  onTap: labOrders.isEmpty ? null : () => _pickOrder(labOrders),
-                  onClear: _orderId == null
-                      ? null
-                      : () => setState(() {
-                          _orderId = null;
-                          _orderLineIds = const [];
-                          _orderError = null;
-                        }),
-                ),
-              ),
-            if (!_atHome && labOrders.isEmpty)
-              const FormNote(
-                'This lab has no order with room. Add one under Orders.',
-              ),
-            if (order != null) ...[
-              const DetailLabel('ORDER LINES', top: 4),
-              OrderLinesPicker(
-                lines: order.lines,
-                selected: _orderLineIds,
-                ownLineIds: widget.job?.order?.lineIds ?? const [],
-                error: _orderError,
-                onChanged: (v) => setState(() {
-                  _orderLineIds = v;
-                  _orderError = null;
-                }),
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (!_onOrder)
-              LabeledField(
-                label: 'Price (optional)',
-                child: TextFormField(
-                  controller: _price,
-                  decoration: formInputDecoration(
-                    'e.g. 280000',
-                    cs,
-                  ).copyWith(suffixText: '₫'),
-                  keyboardType: TextInputType.number,
-                  validator: validPrice,
-                ),
               ),
             if (_needsScanners) ...[
               FormSectionHeader(
@@ -351,13 +242,6 @@ class _State extends ConsumerState<SendRollScreen> {
                           .firstOrNull
                           ?.scannerIds ??
                       const [],
-                  locked: {
-                    for (final o in _jobOrders)
-                      if (o.scanCount > 0) o.scannerId,
-                  },
-                  names: {
-                    for (final o in _jobOrders) o.scannerId: o.scannerName,
-                  },
                   error: _scanError,
                 ),
               const SizedBox(height: 16),
@@ -371,8 +255,6 @@ class _State extends ConsumerState<SendRollScreen> {
               _atHome ? 'Date started' : 'Date sent',
               _sent,
               (d) => _sent = d,
-              // Without a date the server would move the job to today.
-              required: _editing,
             ),
             if (_needsScanners && !_atHome)
               _date(
@@ -386,8 +268,7 @@ class _State extends ConsumerState<SendRollScreen> {
                 _negativesExpected,
                 (d) => _negativesExpected = d,
               ),
-            // Work done at home is finished when it is recorded. The API cannot
-            // clear a receipt date once it is recorded.
+            // Work done at home is finished when it is recorded.
             if (_showReceipts && _recordsNegatives)
               _date(
                 !_atHome
@@ -397,14 +278,12 @@ class _State extends ConsumerState<SendRollScreen> {
                     : 'Negatives developed',
                 _negativesReturned,
                 (d) => _negativesReturned = d,
-                clearable: widget.job?.negativesReturnedAt == null,
               ),
             if (_showReceipts && _needsScanners)
               _date(
                 _atHome ? 'Scanned' : 'Scans received',
                 _scansReceived,
                 (d) => _scansReceived = d,
-                clearable: widget.job?.scansReceivedAt == null,
               ),
             FormSectionHeader(number: next(), title: 'Notes'),
             LabeledField(
@@ -427,19 +306,6 @@ class _State extends ConsumerState<SendRollScreen> {
                   ? null
                   : () => _save(orders),
             ),
-            // The server refuses to delete a job with imported scans.
-            if (_editing && !widget.job!.hasScans) ...[
-              const SizedBox(height: 20),
-              CardList(
-                children: [
-                  DetailActionRow(
-                    label: 'Delete job',
-                    color: cs.error,
-                    onTap: _delete,
-                  ),
-                ],
-              ),
-            ],
           ],
         ),
       ),
@@ -474,30 +340,24 @@ class _State extends ConsumerState<SendRollScreen> {
     );
   }
 
-  Widget _date(
-    String label,
-    DateTime? value,
-    ValueChanged<DateTime?> set, {
-    bool required = false,
-    bool clearable = true,
-  }) => LabeledField(
-    label: required ? '$label *' : '$label (optional)',
-    child: SelectField(
-      hint: 'Select a date',
-      value: value == null ? null : fmtDate(value),
-      icon: Icons.calendar_today,
-      onTap: () async {
-        final d = await pickDate(context, value);
-        if (d != null) setState(() => set(d));
-      },
-      onClear: value == null || required || !clearable
-          ? null
-          : () => setState(() => set(null)),
-    ),
-  );
+  Widget _date(String label, DateTime? value, ValueChanged<DateTime?> set) =>
+      LabeledField(
+        label: '$label (optional)',
+        child: SelectField(
+          hint: 'Select a date',
+          value: value == null ? null : fmtDate(value),
+          icon: Icons.calendar_today,
+          onTap: () async {
+            final d = await pickDate(context, value);
+            if (d != null) setState(() => set(d));
+          },
+          onClear: value == null ? null : () => setState(() => set(null)),
+        ),
+      );
 
   Future<void> _pickLab() async {
     final labs = await ref.read(labsProvider.future);
+    final drafts = await draftsOf(ref, DraftKind.lab);
     if (!mounted) return;
     final names = {for (final l in labs) l.id: l};
     final id = await pickOne<String>(
@@ -506,62 +366,26 @@ class _State extends ConsumerState<SendRollScreen> {
       items: [_self, ...names.keys],
       label: (i) => i == _self ? _selfLabel : names[i]!.name,
       subtitle: (i) => names[i]?.address ?? '',
-      footer: Builder(
-        builder: (c) => Padding(
-          padding: const EdgeInsets.all(8),
-          child: TextButton.icon(
-            icon: const Icon(Icons.add),
-            label: const Text('New lab'),
-            onPressed: () async {
-              final l = await editLab(c);
-              if (l != null && c.mounted) Navigator.pop(c, l.id);
-            },
-          ),
-        ),
+      footer: CreateFooter<String>(
+        label: 'New lab',
+        drafts: drafts,
+        create: (c) async => (await editLab(c))?.id,
+        resume: (c, d) async => (await editLab(c, d))?.id,
       ),
     );
     if (id != null) {
       setState(() {
-        // An order belongs to one lab, so another lab leaves it behind.
-        if (id != _labId) {
-          _orderId = null;
-          _orderLineIds = const [];
-          _orderError = null;
-        }
         _labId = id;
         if (_pickedOrders?.isEmpty ?? false) _pickedOrders = null;
       });
     }
   }
 
-  Future<void> _pickOrder(List<LabOrder> orders) async {
-    final picked = await pickOne<LabOrder>(
-      context,
-      title: 'Order',
-      items: orders,
-      label: (o) => '#${o.code}',
-      subtitle: (o) => '${fmtDate(o.orderedAt)} · ${fmtVnd(o.total)}',
-    );
-    if (picked == null || picked.id == _orderId) return;
-    setState(() {
-      _orderId = picked.id;
-      _orderError = null;
-      // Back on its own order, a job finds its lines again.
-      _orderLineIds = picked.id == widget.job?.order?.id
-          ? widget.job!.order!.lineIds
-          : const [];
-    });
-  }
-
   Future<void> _save(List<ScanOrder> orders) async {
     final valid = _key.currentState!.validate();
     final missing = _needsScanners && orders.isEmpty;
-    final noLines = _onOrder && _orderLineIds.isEmpty;
-    setState(() {
-      _scanError = missing ? 'Pick at least one scanner.' : null;
-      _orderError = noLines ? 'Tick at least one line.' : null;
-    });
-    if (!valid || missing || noLines) return;
+    setState(() => _scanError = missing ? 'Pick at least one scanner.' : null);
+    if (!valid || missing) return;
     setState(() => _busy = true);
     final job = NewProcessing(
       id: _jobId,
@@ -572,8 +396,6 @@ class _State extends ConsumerState<SendRollScreen> {
       // Scans are only expected from a scanning job; negatives from a lab.
       scansExpectedAt: _needsScanners && !_atHome ? _scansExpected : null,
       negativesExpectedAt: _expectsNegatives ? _negativesExpected : null,
-      price: _onOrder || _price.text.isEmpty ? null : int.parse(_price.text),
-      orderItemIds: _onOrder ? _orderLineIds : const [],
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       scanOrders: _needsScanners ? orders : const [],
     );
@@ -585,13 +407,10 @@ class _State extends ConsumerState<SendRollScreen> {
             widget.roll.id,
             job,
             scansReceivedAt: _showReceipts && _needsScanners
-                ? _ifChanged(_scansReceived, widget.job?.scansReceivedAt)
+                ? _scansReceived
                 : null,
             negativesReturnedAt: _showReceipts && _recordsNegatives
-                ? _ifChanged(
-                    _negativesReturned,
-                    widget.job?.negativesReturnedAt,
-                  )
+                ? _negativesReturned
                 : null,
           ),
     );
@@ -599,31 +418,4 @@ class _State extends ConsumerState<SendRollScreen> {
     setState(() => _busy = false);
     if (ok) context.closeScreen();
   }
-
-  /// Tells the screen that opened this form, whose job is gone. Edit Roll stays
-  /// open, because the roll still exists.
-  Future<void> _delete() async {
-    if (_busy) return;
-    if (!await confirm(
-      context,
-      'Delete job?',
-      'The roll goes back to the status its other jobs give it.',
-      ok: 'Delete',
-    )) {
-      return;
-    }
-    if (!mounted) return;
-    final job = widget.job!;
-    final ok = await guard(
-      context,
-      () => ref.read(processingActionsProvider).delete(job.id, job.rollId),
-    );
-    if (ok && mounted) context.closeScreen(true);
-  }
-
-  /// A receipt date already on the job is not sent again.
-  DateTime? _ifChanged(DateTime? date, DateTime? recorded) =>
-      date != null && recorded != null && ymd(date) == ymd(recorded)
-      ? null
-      : date;
 }

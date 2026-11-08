@@ -16,7 +16,7 @@ class _RecordingRolls extends FakeRollRepository {
   RollEdit? edited;
 
   @override
-  Future<RollDetail> update(String id, RollEdit edit) async {
+  Future<RollDetail> update(String id, RollEdit edit, {int? version}) async {
     edited = edit;
     return rollDetail(id);
   }

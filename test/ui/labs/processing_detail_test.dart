@@ -6,6 +6,8 @@ import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/routing/routes.dart';
+import 'package:meta_frames/ui/scans/widgets/scan_grid.dart';
+import 'package:meta_frames/ui/scans/widgets/scan_viewer.dart';
 
 import '../../testing/fakes.dart';
 
@@ -71,8 +73,9 @@ class _Rolls extends FakeRollRepository {
 
 Future<(GoRouter, FakeProcessingRepository)> _open(
   WidgetTester tester,
-  Map<String, dynamic> job,
-) async {
+  Map<String, dynamic> job, {
+  List<Scan> scans = const [],
+}) async {
   tester.view
     ..physicalSize = const Size(800, 3000)
     ..devicePixelRatio = 1;
@@ -100,7 +103,8 @@ Future<(GoRouter, FakeProcessingRepository)> _open(
             ),
           ], const []),
         ),
-        scansProvider.overrideWith((ref, k) async => const <Scan>[]),
+        scanRepositoryProvider.overrideWithValue(FakeScanRepository()),
+        scansProvider.overrideWith((ref, k) async => scans),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -114,32 +118,44 @@ Future<(GoRouter, FakeProcessingRepository)> _open(
 }
 
 void main() {
-  testWidgets('shows the job in labelled sections, with Edit in the top bar', (
-    tester,
-  ) async {
+  testWidgets('shows the job in labelled sections', (tester) async {
     await _open(
       tester,
       _job(extra: {'notes': 'Push one stop', 'price': 90000}),
     );
     expect(find.text('Saigon Lab · Develop + scan'), findsOneWidget);
-    expect(find.widgetWithText(TextButton, 'Edit'), findsOneWidget);
     for (final label in ['JOB', 'DATES', 'SCANNERS', 'NOTES', 'SCANS']) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
     expect(find.text('Scans back'), findsOneWidget);
     expect(find.text('Noritsu HS-1800'), findsOneWidget);
     expect(find.text('Push one stop'), findsOneWidget);
-    expect(find.text('No scans imported yet'), findsOneWidget);
+    expect(find.text('No scans yet'), findsOneWidget);
   });
 
-  testWidgets('a job that makes no scans has no scan sections or import', (
-    tester,
-  ) async {
+  testWidgets('a job that makes no scans has no scan sections', (tester) async {
     await _open(tester, _job(type: 'develop', orders: const []));
     expect(find.text('SCANS'), findsNothing);
     expect(find.text('SCANNERS'), findsNothing);
-    expect(find.text('Import scans'), findsNothing);
     expect(find.text('Negatives returned'), findsOneWidget);
+  });
+
+  testWidgets('shows the order code of a job on an order only', (tester) async {
+    await _open(
+      tester,
+      _job(
+        extra: {
+          'order': {
+            'id': 'o1',
+            'code': '0510006',
+            'items': [
+              {'id': 'l1', 'product': 'Develop'},
+            ],
+          },
+        },
+      ),
+    );
+    expect(find.text('#0510006'), findsOneWidget);
   });
 
   testWidgets('home work takes its finish date in its own words', (
@@ -165,20 +181,52 @@ void main() {
     expect(p.receipts.single, startsWith('negatives:j1:'));
   });
 
-  testWidgets('deleting from Edit returns past the job to the roll', (
-    tester,
-  ) async {
-    final (_, p) = await _open(tester, _job());
-    await tester.tap(find.widgetWithText(TextButton, 'Edit'));
+  testWidgets('records a scans-received date from its button', (tester) async {
+    final (router, p) = await _open(
+      tester,
+      _job(extra: {'negativesReturnedAt': '2026-03-25'}),
+    );
+    final before =
+        router.routerDelegate.currentConfiguration.last.matchedLocation;
+    await tester.tap(find.text('Scans received'));
     await tester.pumpAndSettle();
-    expect(find.text('Edit Processing Job'), findsOneWidget);
-    await tester.tap(find.text('Delete job'));
+    await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
+    expect(p.receipts.single, startsWith('scans:j1:'));
+    expect(
+      router.routerDelegate.currentConfiguration.last.matchedLocation,
+      before,
+    );
+  });
+
+  testWidgets('a scan thumbnail opens that scan in the viewer', (tester) async {
+    final scan = Scan.fromJson({
+      'id': 's1',
+      'processingId': 'j1',
+      'frameId': 'f1',
+      'frameNumber': 4,
+      'scanner': 'noritsu',
+      'fileName': 'a.jpg',
+      'sizeBytes': 1,
+      'fileUrl': '/x',
+    });
+    final (router, _) = await _open(
+      tester,
+      _job(orders: [_order(scanCount: 1)]),
+      scans: [scan],
+    );
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ScanGrid),
+        matching: find.byType(GestureDetector),
+      ),
+    );
     await tester.pumpAndSettle();
-    expect(p.deleted, ['j1']);
-    expect(find.text('PROCESSING HISTORY'), findsOneWidget);
-    expect(find.text('DATES'), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.last.matchedLocation,
+      Routes.scanViewer('j1', Scanner.noritsu, 0),
+    );
+    expect(find.byType(ScanViewerScreen), findsOneWidget);
   });
 
   test('scanners come from the scan orders; scannedWith from their scans', () {

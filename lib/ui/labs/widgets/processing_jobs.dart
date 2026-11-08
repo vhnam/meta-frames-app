@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
-import '../../../routing/routes.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/job_steps.dart';
@@ -90,11 +88,11 @@ class _JobCard extends StatelessWidget {
                       ),
                     ),
                     if (job.order case final order?)
-                      InkWell(
-                        onTap: () => context.push(Routes.order(order.id)),
-                        child: Text(
-                          'Order #${order.code} · ${order.products}',
-                          style: TextStyle(fontSize: 13, color: cs.primary),
+                      Text(
+                        'Order #${order.code} · ${order.products}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                   ],
@@ -110,13 +108,6 @@ class _JobCard extends StatelessWidget {
             _Section(title: 'Scans', child: JobScanOrders(job.scanOrders)),
           if (notes.isNotEmpty)
             _Section(title: 'Notes', child: JobNotes(notes)),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton(
-              onPressed: () => context.push(Routes.processingEdit(job.id)),
-              child: const Text('Edit'),
-            ),
-          ),
         ],
       ),
     );

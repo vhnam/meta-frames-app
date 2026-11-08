@@ -14,19 +14,8 @@ class CameraRepositoryRemote implements CameraRepository {
   Future<Camera> camera(String id) async =>
       Camera.fromJson(await _api.send('GET', '/cameras/$id'));
   @override
-  Future<Camera> create(CameraEdit camera) async => Camera.fromJson(
-    await _api.send('POST', '/cameras', body: camera.toJson()),
-  );
-  @override
-  Future<Camera> update(String id, CameraEdit camera) async => Camera.fromJson(
-    await _api.send('PUT', '/cameras/$id', body: camera.toJson()),
-  );
-  @override
-  Future<void> delete(String id) => _api.send('DELETE', '/cameras/$id');
-  @override
-  Future<Camera> setActive(String id, bool active) async => Camera.fromJson(
-    await _api.send('PUT', '/cameras/$id/active', body: {'isActive': active}),
-  );
+  Future<Camera> create(CameraEdit camera, {String? id}) async =>
+      Camera.fromJson(await _api.create('/cameras', camera.toJson(), id: id));
   @override
   Future<List<Lens>> lenses(String id) async =>
       decodeList(await _api.send('GET', '/cameras/$id/lenses'), Lens.fromJson);

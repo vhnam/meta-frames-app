@@ -7,11 +7,10 @@ import '../../../providers.dart';
 import '../../../routing/routes.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/form_kit.dart';
-import '../view_models/lab_actions.dart';
 import 'lab_dialog.dart';
 
-/// M-25 browse labs, M-26 add/edit/delete own labs.
+/// Labs to pick from and look up, with a quick add of a name. The dashboard
+/// edits and deletes labs.
 class LabsScreen extends ConsumerWidget {
   const LabsScreen({super.key});
 
@@ -55,60 +54,30 @@ class LabsScreen extends ConsumerWidget {
                         title: 'No labs yet',
                         text: 'Add the labs you send film to. You pick one each time you send a roll.',
                       )
-                    else ...[
+                    else
                       CardList(
                         children: [
                           for (final l in labs)
-                            Dismissible(
-                              key: ValueKey(l.id),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                color: cs.error,
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 16),
-                                child: Icon(Icons.delete, color: cs.onError),
+                            CardTile(
+                              icon: Icons.store_outlined,
+                              iconSize: 44,
+                              iconBg: cs.surfaceContainer,
+                              iconColor: cs.onSurfaceVariant,
+                              title: l.name,
+                              subtitle: l.address ?? 'No address',
+                              detail: _scannerNames(l, scanners),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
                               ),
-                              confirmDismiss: (_) async {
-                                if (!await confirm(
-                                  context,
-                                  'Delete lab?',
-                                  l.name,
-                                  ok: 'Delete',
-                                )) {
-                                  return false;
-                                }
-                                if (!context.mounted) return false;
-                                // Server refuses (409) when the lab has processing history.
-                                return guard(
-                                  context,
-                                  () =>
-                                      ref.read(labActionsProvider).delete(l.id),
-                                );
-                              },
-                              child: CardTile(
-                                icon: Icons.store_outlined,
-                                iconSize: 44,
-                                iconBg: cs.surfaceContainer,
-                                iconColor: cs.onSurfaceVariant,
-                                title: l.name,
-                                subtitle: l.address ?? 'No address',
-                                detail: _scannerNames(l, scanners),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                trailing: Icon(
-                                  Icons.chevron_right,
-                                  color: cs.onSurfaceVariant,
-                                ),
-                                onTap: () => context.push(Routes.lab(l.id)),
+                              trailing: Icon(
+                                Icons.chevron_right,
+                                color: cs.onSurfaceVariant,
                               ),
+                              onTap: () => context.push(Routes.lab(l.id)),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      const FormNote('Swipe a lab left to delete it.'),
-                    ],
                   ],
                 ),
               ),

@@ -6,6 +6,11 @@ class FixedLensSpec {
     required this.brand,
     this.model,
   });
+  FixedLensSpec.fromJson(Map<String, dynamic> j)
+    : focalLength = j['focalLength'],
+      maxAperture = (j['maxAperture'] as num).toDouble(),
+      brand = j['brand'],
+      model = j['model'];
   final int focalLength;
   final double maxAperture;
   final String brand;
@@ -28,6 +33,15 @@ class CameraEdit {
     this.description,
     this.fixedLens,
   });
+  CameraEdit.fromJson(Map<String, dynamic> j)
+    : brand = j['brand'],
+      model = j['model'],
+      hasFixedLens = j['hasFixedLens'] ?? false,
+      mount = j['mount'],
+      description = j['description'],
+      fixedLens = j['fixedLens'] == null
+          ? null
+          : FixedLensSpec.fromJson(j['fixedLens']);
   final String brand, model;
   final bool hasFixedLens;
   final String? mount, description;
@@ -54,6 +68,13 @@ class LensEdit {
     this.mount,
     this.description,
   });
+  LensEdit.fromJson(Map<String, dynamic> j)
+    : focalLength = j['focalLength'],
+      maxAperture = (j['maxAperture'] as num).toDouble(),
+      brand = j['brand'],
+      model = j['model'],
+      mount = j['mount'],
+      description = j['description'];
   final int focalLength;
   final double maxAperture;
   final String? brand, model, mount, description;

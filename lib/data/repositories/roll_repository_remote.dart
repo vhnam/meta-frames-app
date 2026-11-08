@@ -34,12 +34,15 @@ class RollRepositoryRemote implements RollRepository {
     RollSummary.fromJson,
   );
   @override
-  Future<List<RollSummary>> addRolls(NewRolls rolls) async => decodeList(
+  Future<List<RollSummary>> addRolls(
+    NewRolls rolls, {
+    String? idempotencyKey,
+  }) async => decodeList(
     await _api.send(
       'POST',
       '/rolls/bulk',
       body: rolls.toJson(),
-      extraHeaders: {'Idempotency-Key': newId()},
+      extraHeaders: {'Idempotency-Key': idempotencyKey ?? newId()},
     ),
     RollSummary.fromJson,
   );
@@ -50,9 +53,14 @@ class RollRepositoryRemote implements RollRepository {
   Future<RollDetail> roll(String id) async =>
       RollDetail.fromJson(await _api.send('GET', '/rolls/$id'));
   @override
-  Future<RollDetail> update(String id, RollEdit edit) async =>
+  Future<RollDetail> update(String id, RollEdit edit, {int? version}) async =>
       RollDetail.fromJson(
-        await _api.send('PUT', '/rolls/$id', body: edit.toJson()),
+        await _api.send(
+          'PUT',
+          '/rolls/$id',
+          body: edit.toJson(),
+          extraHeaders: version == null ? null : {'If-Match': '"$version"'},
+        ),
       );
   @override
   Future<void> delete(String id) => _api.send('DELETE', '/rolls/$id');
@@ -69,4 +77,32 @@ class RollRepositoryRemote implements RollRepository {
       RollDetail.fromJson(
         await _api.send('PUT', '/rolls/$id/finish', body: {'date': ymd(date)}),
       );
+  @override
+  Future<Frame> frame(String rollId, int n) async =>
+      Frame.fromJson(await _api.send('GET', '/rolls/$rollId/frames/$n'));
+  @override
+  Future<Frame> saveFrameNotes(
+    String rollId,
+    int n,
+    String? notes, {
+    String? baseNotes,
+  }) async => Frame.fromJson(
+    await _api.send(
+      'PUT',
+      '/rolls/$rollId/frames/$n',
+      body: {'notes': notes, 'baseNotes': ?baseNotes},
+    ),
+  );
+  @override
+  Future<RollDetail> saveRollNotes(
+    String id,
+    String description, {
+    String? baseDescription,
+  }) async => RollDetail.fromJson(
+    await _api.send(
+      'PUT',
+      '/rolls/$id/notes',
+      body: {'description': description, 'baseDescription': ?baseDescription},
+    ),
+  );
 }

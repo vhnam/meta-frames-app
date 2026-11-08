@@ -3,15 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
-import '../../../routing/navigation.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../scans/widgets/scan_grid.dart';
 import '../view_models/processing_actions.dart';
 import 'processing_jobs.dart';
-import '../../../routing/routes.dart';
-
-import 'package:go_router/go_router.dart';
 
 /// Marks scans received / negatives returned. Date defaults to today.
 Future<void> markReceived(
@@ -48,7 +44,7 @@ Future<void> markReceived(
     ),
   );
   if (ok != true || !context.mounted) return;
-  final done = await guard(context, () async {
+  await guard(context, () async {
     final actions = ref.read(processingActionsProvider);
     if (negatives) {
       await actions.markNegativesReturned(p.id, date);
@@ -56,22 +52,9 @@ Future<void> markReceived(
       await actions.markScansReceived(p.id, date);
     }
   });
-  if (!done || !context.mounted) return;
-  // M-28: offer to import the files now.
-  if (!negatives &&
-      await confirm(
-        context,
-        'Import scans now?',
-        'Pick the scan files from this device.',
-        ok: 'Import',
-      ) &&
-      context.mounted) {
-    context.push(Routes.importScans(p.id));
-  }
 }
 
-/// M-28, M-29, M-32 (job part), M-33, M-35. Read-only summary; changing and
-/// deleting the job are on the edit screen.
+/// M-28, M-29, M-32 (job part), M-35. Read-only summary of the job.
 class ProcessingDetailScreen extends ConsumerWidget {
   const ProcessingDetailScreen({super.key, required this.processingId});
   final String processingId;
@@ -94,26 +77,6 @@ class ProcessingDetailScreen extends ConsumerWidget {
               : '${v.value!.where} · ${v.value!.type.label}',
           style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
         ),
-        actions: [
-          if (v.value != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: TextButton(
-                onPressed: () async {
-                  final deleted = await context.push<bool>(
-                    Routes.processingEdit(processingId),
-                  );
-                  if (deleted == true && context.mounted) {
-                    context.closeScreen();
-                  }
-                },
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-        ],
       ),
       body: AsyncBody(
         value: v,
@@ -168,13 +131,6 @@ class _Body extends ConsumerWidget {
             title: negativesLabel,
           ),
         ),
-      if (p.type.hasScans)
-        FilledButton.icon(
-          style: FilledButton.styleFrom(padding: pad),
-          icon: const Icon(Icons.upload_file),
-          label: const Text('Import scans'),
-          onPressed: () => context.push(Routes.importScans(p.id)),
-        ),
     ];
     const cardPad = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
     return CustomScrollView(
@@ -190,6 +146,8 @@ class _Body extends ConsumerWidget {
                   DetailInfoRow('Service', p.type.label),
                   DetailInfoRow('Process', p.process.label),
                   DetailInfoRow('Price', fmtVnd(p.price)),
+                  if (p.order case final o?)
+                    DetailInfoRow('Order', '#${o.code}'),
                   DetailInfoRow('Status', p.isOpen ? 'Open' : 'Closed'),
                 ],
               ),

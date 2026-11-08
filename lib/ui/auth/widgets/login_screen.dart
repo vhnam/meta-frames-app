@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/repositories/settings_repository.dart';
 import '../../../domain/auth_validators.dart';
+import '../../../providers.dart';
 import '../../../routing/routes.dart';
+import '../../sync/view_models/sync_actions.dart';
+import '../../sync/widgets/sync_screen.dart';
 import '../view_models/auth_actions.dart';
 import 'auth_form.dart';
 
@@ -72,6 +76,7 @@ class _State extends ConsumerState<LoginScreen> {
       ),
     ],
     footer: [
+      const _KeptOnPhone(),
       TextButton(
         onPressed: () => context.push(Routes.recover),
         child: const Text('Forgot password?'),
@@ -82,4 +87,36 @@ class _State extends ConsumerState<LoginScreen> {
       ),
     ],
   );
+}
+
+/// Says what this phone keeps for accounts on this server, so a user whose
+/// session expired knows their changes wait for them. Counts only.
+class _KeptOnPhone extends ConsumerWidget {
+  const _KeptOnPhone();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final server = normalizeBaseUrl(
+      ref.read(settingsRepositoryProvider).baseUrl,
+    );
+    final kept = [
+      for (final p in ref.watch(partitionsProvider).value ?? const [])
+        if (p.key.server == server && p.hasUnsynced) p,
+    ];
+    if (kept.isEmpty) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          for (final p in kept)
+            Text(
+              '${partitionCounts(p)} kept on this phone for ${p.email}. Sign in as ${p.email} to sync them.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            ),
+        ],
+      ),
+    );
+  }
 }

@@ -7,16 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-These changes need a MetaFrames API with lab orders (`/lab-orders`).
-
 ### Added
 
-- An Orders screen under More records what a lab billed: code, dates, lines with product, description, quantity and unit price, then VAT, discount and total. An order's screen shows its lines and rolls, adds or removes rolls, and edits or deletes the order. One roll can go on several lines, such as developing and scanning. Only rolls already sent to that lab, on no order or only on this one, can be added. Once an order has rolls its lab is locked, and a line with rolls cannot be removed.
-- Send to Lab and Edit Processing Job pick an order and its lines for a lab job. A job on an order links to it from the roll's processing history.
+- A job on an order shows the order's code and products in the roll's processing history. The order is read-only.
+- A Shooting tab, where the app now opens, shows every camera holding a roll: the stock, the shot ISO against the box speed, and the start date. Each camera has Note frame and Finish, and lists its noted frames to open again. Empty cameras each have Load, and + Load picks both a camera and a roll.
+- The Rolls list has a Negatives at lab chip that finds rolls whose negatives are still at a lab, whatever their status, and format pills built from the formats in the list.
+- The field workflow works offline. Cameras, rolls, frames, film and labs you have opened are kept on the phone, and loading a roll, finishing it, roll notes and frame notes are saved on the phone first and sent when the server can be reached, in order, once each. A change made elsewhere in the meantime is shown as a conflict with the server's side and yours, never overwritten. More > Sync status lists what waits, with Sync now, and what other accounts have left on the phone.
+- Roll notes can be edited from the roll and from the Shooting card, and frame notes show their sync state.
+- Logging out or switching server with unsent changes asks to keep them on the phone or discard them. Kept changes are sent only when the same account signs in again on the same server.
+- Quick-create forms for cameras, lenses, film stocks, labs and added rolls save a draft before sending. A create that times out or is interrupted is kept, listed in the picker and in Sync status, and sent again under the same id without making a second record.
+- Each saved server can have a dashboard URL. The Dashboard entry in More opens it in the browser (the one of the server in use when tapped); if no browser takes it, the address can be copied.
+- Edit Roll sends the version of the roll it opened with. If the roll changed meanwhile, such as a note saved from the phone, nothing is saved and the form reloads to show what changed. Needs a MetaFrames API that returns `version` on rolls and accepts `If-Match`.
 
 ### Changed
 
-- A job on an order takes its price from its lines added up, with the order's VAT and discount shared out by price, and the Price field is hidden. Work at home and jobs on no order keep the Price field.
+- The tabs are Shooting, Rolls and More. Shooting replaces Home and its counters. Rolls ready for the lab are under the Done shooting chip, negatives at the lab under More and the new Negatives at lab chip, and expiring film in the Rolls list. Links to `/home` open Shooting.
+- Note frame asks only for the frame number and starts empty each time: the app does not guess which frame was just taken. Any whole number from 0 opens, including frames past the exposure count. Frame notes need no scans.
+- In stock, the Rolls list shows film soonest expiry first and marks expired film. Load roll's picker marks expired and expiring rolls, and searching it by format, such as 120, narrows the list.
+- The Expiry entry left More. The screen still opens from a link.
+- Load roll's ISO field shows the box speed it defaults to, and refuses text that is not a whole number instead of loading the roll at box speed. Lenses are marked optional.
+- A camera's page shows the shot ISO with the box speed it differs from, instead of calling it pushed or pulled: the development request is asked for separately when the roll is sent to a lab.
+
+### Removed
+
+These workflows left the phone. The data stays on the server. Use the dashboard.
+
+- Scanners and orders: the Scanners and Orders screens and their links. Use the dashboard to add, edit and delete scanners, to set scan settings, and to record orders, order lines and prices. Send to Lab still picks a scanner and its settings for a scan job.
+- Processing edit: Edit Processing Job. A job can no longer be edited or deleted on the phone. Send to Lab and Re-scan still record new jobs, with no order and no price. Use the dashboard to change a job.
+- Import and compare: Import scans and the scan comparison. Use the dashboard to import and to compare scans. A roll's page still shows scans, with view, zoom, download and share.
+- Full gear admin: edit, activate, deactivate and delete for cameras and lenses, and the Manage lenses screen. A camera's page and a lens's page are read-only. Quick add of a camera or a lens stays. Use the dashboard for specs, notes and lens links.
+- Stock and lab admin: edit for film stocks, and edit and delete for labs. A film stock's page and a lab's page are read-only. Quick add of a film stock or a lab name stays. Use the dashboard for stock origins, base stock, notes, lab address and lab scanners.
+
+### Fixed
+
+- A list or roll that was read while one of your own changes reached the server is read again, instead of showing the earlier state or nothing.
+- Opening a frame that has no notes or scans yet no longer leaves the app asking the server for it again in the background.
 
 ## [1.1.0] - 2026-11-03
 

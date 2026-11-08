@@ -7,6 +7,7 @@ import 'settings_repository.dart';
 
 const _baseUrlKey = 'base_url';
 const _serversKey = 'saved_servers';
+const _dashboardsKey = 'dashboard_urls';
 
 class SettingsRepositoryPrefs implements SettingsRepository {
   SettingsRepositoryPrefs(this._prefs);
@@ -50,6 +51,31 @@ class SettingsRepositoryPrefs implements SettingsRepository {
   Future<void> deleteServer(String url) {
     final target = normalizeBaseUrl(url);
     return _write(servers.where((s) => s.url != target).toList());
+  }
+
+  Map<String, String> get _dashboards {
+    final raw = _prefs.getString(_dashboardsKey);
+    if (raw == null) return {};
+    return Map<String, String>.from(jsonDecode(raw) as Map);
+  }
+
+  @override
+  String? dashboardUrl(String server) => _dashboards[normalizeBaseUrl(server)];
+
+  @override
+  Future<void> setDashboardUrl(String server, String? url) {
+    final map = _dashboards;
+    final key = normalizeBaseUrl(server);
+    if (url == null || url.trim().isEmpty) {
+      map.remove(key);
+    } else {
+      final valid = validDashboardUrl(url);
+      if (valid == null) {
+        throw const FormatException('Enter an http:// or https:// address');
+      }
+      map[key] = valid;
+    }
+    return _prefs.setString(_dashboardsKey, jsonEncode(map));
   }
 
   Future<void> _write(List<SavedServer> list) =>

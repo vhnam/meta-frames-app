@@ -5,23 +5,24 @@ import 'routes.dart';
 
 extension AppNavigation on BuildContext {
   /// Closes the current screen, passing [result] to whoever pushed it. A screen
-  /// opened directly from a link has nothing under it, so go Home instead of
-  /// failing.
+  /// opened directly from a link has nothing under it, so go to Shooting
+  /// instead of failing.
   void closeScreen<T extends Object?>([T? result]) {
     if (canPop()) {
       pop(result);
     } else {
-      go(Routes.home);
+      go(Routes.shooting);
     }
   }
 
   /// Closes an edit screen and the details screen under it, once the object
-  /// they show is deleted. Without a screen left to return to, goes Home.
+  /// they show is deleted. Without a screen left to return to, goes to
+  /// Shooting.
   void closeDeleted() {
     final router = GoRouter.of(this);
     for (var i = 0; i < 2; i++) {
       if (!router.canPop()) {
-        router.go(Routes.home);
+        router.go(Routes.shooting);
         return;
       }
       router.pop();

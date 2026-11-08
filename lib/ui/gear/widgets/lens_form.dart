@@ -4,10 +4,12 @@ import '../../core/theme.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/local/local_store.dart';
 import '../../../domain/models/gear_requests.dart';
+import '../../../domain/utils.dart';
+import '../../sync/view_models/drafts.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
-import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/gear_actions.dart';
 import '../../core/widgets/form_kit.dart';
@@ -26,36 +28,39 @@ String? validAperture(String? v) {
       : null;
 }
 
-/// M-06 add lens, M-07 edit lens, M-08 activate/deactivate.
-/// Cameras sharing the mount are linked inline instead of in a follow-up dialog.
+/// Quick add of a lens (picked up mid-trip, or added from Gear or the load
+/// screen). It asks only what the server needs: focal length and maximum
+/// aperture. Brand, model and mount are optional; [mount] prefills the
+/// camera's. Notes and camera links are set on the dashboard. A new lens is
+/// kept as a draft until the server confirms it; [draft] reopens one.
 class LensFormScreen extends ConsumerStatefulWidget {
-  const LensFormScreen({super.key, this.lens});
-  final Lens? lens;
+  const LensFormScreen({super.key, this.draft, this.mount});
+  final Draft? draft;
+  final String? mount;
   @override
   ConsumerState<LensFormScreen> createState() => _State();
 }
 
 class _State extends ConsumerState<LensFormScreen> {
   final _key = GlobalKey<FormState>();
-  late final brand = TextEditingController(text: widget.lens?.brand);
-  late final model = TextEditingController(text: widget.lens?.model);
-  late final mount = TextEditingController(text: widget.lens?.mount);
-  late final desc = TextEditingController(text: widget.lens?.description);
+  late final LensEdit? _restored = widget.draft == null
+      ? null
+      : LensEdit.fromJson(widget.draft!.json['request']);
+  late final brand = TextEditingController(text: _restored?.brand);
+  late final model = TextEditingController(text: _restored?.model);
+  late final mount = TextEditingController(
+    text: _restored?.mount ?? widget.mount,
+  );
   late final focal = TextEditingController(
-    text: widget.lens?.focalLength.toString(),
+    text: _restored?.focalLength.toString(),
   );
   late final aperture = TextEditingController(
-    text: widget.lens?.maxAperture.toStringAsFixed(1),
+    text: _restored?.maxAperture.toStringAsFixed(1),
   );
   bool busy = false;
 
-  /// Cameras the lens is linked to; null while loading when editing.
-  Set<String>? linked;
-  Set<String>? _initialLinked;
-
-  bool get editing => widget.lens != null;
-  bool get builtIn => widget.lens?.isBuiltIn ?? false;
-
+  /// The new lens's client id, kept with its draft.
+  late String _draftId = widget.draft?.id ?? newId();
   String? _t(TextEditingController c) =>
       c.text.trim().isEmpty ? null : c.text.trim();
 
@@ -64,31 +69,7 @@ class _State extends ConsumerState<LensFormScreen> {
   @override
   void initState() {
     super.initState();
-    mount.addListener(() => setState(() {}));
     _mountFocus.addListener(() => setState(() {}));
-    if (editing && !builtIn) {
-      _loadLinked();
-    } else {
-      linked = {};
-    }
-  }
-
-  /// Cameras currently linked to the lens, derived from each camera's links.
-  Future<void> _loadLinked() async {
-    try {
-      final cams = await ref.read(lensCamerasProvider(widget.lens!.id).future);
-      final ids = {
-        for (final c in cams)
-          if (!c.hasFixedLens) c.id,
-      };
-      if (!mounted) return;
-      setState(() {
-        _initialLinked = {...ids};
-        linked = ids;
-      });
-    } catch (_) {
-      if (mounted) setState(() => linked = {});
-    }
   }
 
   @override
@@ -96,31 +77,26 @@ class _State extends ConsumerState<LensFormScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.surfaceContainerLow,
-      appBar: formAppBar(context, editing ? 'Edit Lens' : 'New Lens'),
+      appBar: formAppBar(context, 'New Lens'),
       body: Form(
         key: _key,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.draft?.error case final e?) WarningBanner([e]),
             LabeledField(
-              label: builtIn ? 'Brand (optional)' : 'Brand',
+              label: 'Brand (optional)',
               child: TextFormField(
                 controller: brand,
                 decoration: formInputDecoration('e.g. Nikkor', cs),
                 textCapitalization: TextCapitalization.words,
-                validator: (v) => !builtIn && (v == null || v.trim().isEmpty)
-                    ? 'Required'
-                    : null,
               ),
             ),
             LabeledField(
-              label: builtIn ? 'Model (optional)' : 'Model',
+              label: 'Model (optional)',
               child: TextFormField(
                 controller: model,
                 decoration: formInputDecoration('e.g. 50mm f/1.4 AI-S', cs),
-                validator: (v) => !builtIn && (v == null || v.trim().isEmpty)
-                    ? 'Required'
-                    : null,
               ),
             ),
             Padding(
@@ -158,46 +134,10 @@ class _State extends ConsumerState<LensFormScreen> {
                 ],
               ),
             ),
-            if (!builtIn) _mountField(cs),
-            LabeledField(
-              label: 'Notes (optional)',
-              child: TextFormField(
-                controller: desc,
-                decoration: formInputDecoration(
-                  'Serial number, condition, quirks…',
-                  cs,
-                ),
-                minLines: 4,
-                maxLines: 4,
-              ),
-            ),
-            if (!builtIn) _linkedCameras(cs),
+            _mountField(cs),
+            const FormNote('Notes and camera links can be added later.'),
             const SizedBox(height: 16),
-            FormSaveBar(
-              label: editing ? 'Save changes' : 'Add lens',
-              busy: busy,
-              onPressed: _save,
-            ),
-            // A built-in lens follows its camera.
-            if (editing && !builtIn) ...[
-              const SizedBox(height: 20),
-              CardList(
-                children: [
-                  DetailActionRow(
-                    label: widget.lens!.isActive
-                        ? 'Deactivate lens'
-                        : 'Activate lens',
-                    color: cs.onPrimaryContainer,
-                    onTap: _toggleActive,
-                  ),
-                  DetailActionRow(
-                    label: 'Delete lens',
-                    color: cs.error,
-                    onTap: _delete,
-                  ),
-                ],
-              ),
-            ],
+            FormSaveBar(label: 'Add lens', busy: busy, onPressed: _save),
           ],
         ),
       ),
@@ -291,8 +231,6 @@ class _State extends ConsumerState<LensFormScreen> {
                         open ? focus.unfocus() : focus.requestFocus(),
                   ),
                 ),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null,
               ),
           optionsViewBuilder: (context, onSelected, options) => Align(
             alignment: Alignment.topLeft,
@@ -351,144 +289,44 @@ class _State extends ConsumerState<LensFormScreen> {
     );
   }
 
-  List<Camera> _compatibleCameras() {
-    final m = _norm(mount.text);
-    if (m.isEmpty) return const [];
-    return (ref.watch(camerasProvider).value ?? const <Camera>[])
-        .where((c) => c.isActive && !c.hasFixedLens && _norm(c.mount) == m)
-        .toList();
-  }
-
-  Widget _linkedCameras(ColorScheme cs) {
-    final cams = _compatibleCameras();
-    final sel = linked;
-    Widget hint(String t) => Padding(
-      padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
-      child: Text(
-        t,
-        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-      ),
-    );
-    Widget body;
-    if (mount.text.trim().isEmpty) {
-      body = hint('Enter a mount to see compatible cameras.');
-    } else if (cams.isEmpty) {
-      body = hint('No cameras with a ${mount.text.trim()} mount yet.');
-    } else if (sel == null) {
-      body = const Padding(
-        padding: EdgeInsets.only(top: 10),
-        child: LinearProgressIndicator(),
-      );
-    } else {
-      body = Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: CardList(
-          children: [
-            for (final c in cams)
-              CardTile(
-                compact: true,
-                leading: Checkbox(
-                  value: sel.contains(c.id),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(kStampRadius),
-                  ),
-                  onChanged: (v) => _toggle(c.id, v ?? false),
-                ),
-                title: c.name,
-                subtitle: '${c.mount} mount',
-                onTap: () => _toggle(c.id, !sel.contains(c.id)),
-              ),
-          ],
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'LINKED TO CAMERAS',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.96,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 4, 2, 0),
-          child: Text(
-            'One lens can be linked to many cameras that share its mount.',
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-          ),
-        ),
-        body,
-      ],
-    );
-  }
-
-  void _toggle(String id, bool on) =>
-      setState(() => on ? linked!.add(id) : linked!.remove(id));
-
   Future<void> _save() async {
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
     final lens = LensEdit(
       brand: _t(brand),
       model: _t(model),
-      mount: builtIn ? null : _t(mount),
-      description: _t(desc),
+      mount: _t(mount),
       focalLength: int.parse(focal.text),
       maxAperture: double.parse(double.parse(aperture.text).toStringAsFixed(1)),
     );
     Lens? saved;
+    final actions = ref.read(lensActionsProvider);
+    final id = _draftId;
     final ok = await guard(context, () async {
-      saved = await ref
-          .read(lensActionsProvider)
-          .save(
-            lens,
-            existing: widget.lens,
-            // Only touch cameras the user could see; add or remove this lens.
-            links: builtIn || linked == null
-                ? null
-                : LensLinks(
-                    cameras: _compatibleCameras(),
-                    wanted: linked!,
-                    initial: _initialLinked ?? const {},
-                  ),
-          );
+      try {
+        saved = await ref
+            .read(draftActionsProvider)
+            .submit(
+              id: id,
+              kind: DraftKind.lens,
+              label: [
+                ?lens.brand,
+                ?lens.model,
+                '${lens.focalLength}mm f/${lens.maxAperture}',
+              ].join(' '),
+              form: {'request': lens.toJson()},
+              send: () => actions.save(lens, id: id),
+              readBack: () => actions.landed(id, lens),
+            );
+      } on DraftIdTaken catch (e) {
+        _draftId = e.newId;
+        throw draftError(e);
+      }
     });
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
     context.closeScreen(saved);
-  }
-
-  Future<void> _toggleActive() async {
-    if (busy) return;
-    final lens = widget.lens!;
-    await guard(
-      context,
-      () => ref.read(lensActionsProvider).setActive(lens.id, !lens.isActive),
-    );
-  }
-
-  Future<void> _delete() async {
-    if (busy) return;
-    final lens = widget.lens!;
-    if (!await confirm(
-      context,
-      'Delete lens?',
-      '${lens.name} will be removed. Refused if used on a roll; deactivate instead.',
-      ok: 'Delete',
-    )) {
-      return;
-    }
-    if (!mounted) return;
-    final ok = await guard(
-      context,
-      () => ref.read(lensActionsProvider).delete(lens.id),
-    );
-    if (ok && mounted) context.closeDeleted();
   }
 }
 

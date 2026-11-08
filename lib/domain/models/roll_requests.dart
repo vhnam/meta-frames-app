@@ -11,6 +11,14 @@ class NewRolls {
     this.expiryYear,
     this.expiryMonth,
   });
+  NewRolls.fromJson(Map<String, dynamic> j)
+    : filmStockId = j['filmStockId'],
+      format = j['format'],
+      exposures = j['exposures'],
+      quantity = j['quantity'],
+      price = j['price'],
+      expiryYear = (j['expiry'] as Map?)?['year'],
+      expiryMonth = (j['expiry'] as Map?)?['month'];
   final String filmStockId;
   final int format, exposures, quantity;
   final int? price, expiryYear, expiryMonth;

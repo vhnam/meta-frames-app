@@ -36,6 +36,31 @@ void main() {
       expect(jsonDecode(seen.body), {'a': 1});
     });
 
+    test('a create with a client id is a PUT that only creates', () async {
+      late http.Request seen;
+      final api = clientFor((r) async {
+        seen = r;
+        return json({'ok': true}, 201);
+      });
+      await api.create('/labs', {'name': 'Lab'}, id: 'lab-1');
+      expect(seen.method, 'PUT');
+      expect(seen.url.path, '/labs/lab-1');
+      expect(seen.headers['If-None-Match'], '*');
+      expect(jsonDecode(seen.body), {'name': 'Lab'});
+    });
+
+    test('a create without a client id is a plain POST', () async {
+      late http.Request seen;
+      final api = clientFor((r) async {
+        seen = r;
+        return json({'ok': true}, 201);
+      });
+      await api.create('/labs', {'name': 'Lab'});
+      expect(seen.method, 'POST');
+      expect(seen.url.path, '/labs');
+      expect(seen.headers.containsKey('If-None-Match'), isFalse);
+    });
+
     test('drops null and empty query values', () async {
       late Uri seen;
       final api = clientFor((r) async {
@@ -143,61 +168,6 @@ void main() {
 
     test('an ApiException prints its message', () {
       expect(ApiException(500, 'error', 'Boom').toString(), 'Boom');
-    });
-  });
-
-  group('upload', () {
-    late File file;
-
-    setUp(() async {
-      final dir = await Directory.systemTemp.createTemp('api_client_test');
-      addTearDown(() => dir.delete(recursive: true));
-      file = File('${dir.path}/scan.jpg')..writeAsBytesSync([1, 2, 3]);
-    });
-
-    test('posts a multipart form with the fields and the file', () async {
-      late http.Request seen;
-      final api = clientFor((r) async {
-        seen = r;
-        return json({'imported': []});
-      });
-
-      await api.upload(
-        '/processing/p1/scans',
-        fields: {'scanner': 'noritsu', 'frameNumber': '3'},
-        fileField: 'file',
-        filePath: file.path,
-        fileName: 'frame3.jpg',
-      );
-
-      expect(seen.method, 'POST');
-      expect(seen.url.path, '/processing/p1/scans');
-      expect(seen.headers['content-type'], startsWith('multipart/form-data'));
-      expect(seen.headers['X-Actor'], 'mobile');
-      expect(seen.body, contains('name="scanner"'));
-      expect(seen.body, contains('noritsu'));
-      expect(seen.body, contains('filename="frame3.jpg"'));
-    });
-
-    test('a failed upload says so in the network error', () async {
-      final api = clientFor((_) async => throw const SocketException('down'));
-
-      await expectLater(
-        api.upload(
-          '/x',
-          fields: {},
-          fileField: 'file',
-          filePath: file.path,
-          fileName: 'a.jpg',
-        ),
-        throwsA(
-          isA<ApiException>().having(
-            (e) => e.message,
-            'message',
-            'Cannot reach the server at http://srv:8080. Upload failed.',
-          ),
-        ),
-      );
     });
   });
 

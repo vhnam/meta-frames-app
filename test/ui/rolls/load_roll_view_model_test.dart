@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meta_frames/domain/models/models.dart';
+import 'package:meta_frames/domain/utils.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/ui/rolls/view_models/load_roll_view_model.dart';
 
@@ -119,5 +121,57 @@ void main() {
     await vm.submit();
 
     expect(rolls.lastLoad!.toJson().containsKey('lensIds'), isFalse);
+  });
+
+  test('camera and roll are enough: today, box speed, no lenses', () async {
+    final provider = loadRollViewModelProvider(args(withCamera: true));
+    final sub = container.listen(provider, (_, _) {});
+    addTearDown(sub.close);
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(provider).canSubmit, isTrue);
+
+    await container.read(provider.notifier).submit();
+
+    expect(rolls.lastLoad!.toJson(), {
+      'cameraId': 'free',
+      'startedAt': ymd(DateTime.now()),
+    });
+  });
+
+  group('parseShotIso', () {
+    test('empty means box speed', () {
+      expect(parseShotIso(''), isNull);
+      expect(parseShotIso('  '), isNull);
+      expect(parseShotIso(' 800 '), 800);
+    });
+
+    test('a typo is refused, never loaded as box speed', () {
+      for (final bad in ['0', '-400', '8OO', '400.5', '1/3']) {
+        expect(() => parseShotIso(bad), throwsFormatException, reason: bad);
+      }
+    });
+  });
+
+  test('the roll picker flags what the server reports as expiring', () async {
+    rolls.expiryView = ExpiryView.fromJson({
+      'expiring': [
+        {
+          'roll': {
+            'id': 'soon',
+            'filmStockId': 's1',
+            'stockBrand': 'Kodak',
+            'stockName': 'Gold',
+            'format': 135,
+            'exposures': 36,
+            'status': 'in_stock',
+          },
+          'expiresOn': '2020-01-31',
+          'expired': true,
+        },
+      ],
+      'noExpiry': [],
+    });
+    final vm = container.read(loadRollViewModelProvider(args()).notifier);
+    expect(await vm.expiringRollIds(), {'soon'});
   });
 }

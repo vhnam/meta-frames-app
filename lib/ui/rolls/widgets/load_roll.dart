@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../../../data/local/local_store.dart';
 import '../../../domain/models/expiry.dart';
 import '../../../domain/models/models.dart';
+import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
+import '../../sync/view_models/drafts.dart' show draftsOf;
+import '../../sync/widgets/create_footer.dart';
 import '../view_models/load_roll_view_model.dart';
+import '../../../routing/routes.dart';
 
 import '../../../routing/navigation.dart';
 
-/// M-19 load roll into camera. Pass [camera], [roll], both or neither.
+/// M-19 load roll into camera. Pass [camera], [roll], both or neither. Only the
+/// camera and the roll are needed: the start date defaults to today, the shot
+/// ISO to the box speed, and lenses can be left out.
 class LoadRollScreen extends ConsumerStatefulWidget {
   const LoadRollScreen({super.key, this.camera, this.roll});
   final Camera? camera;
@@ -22,6 +31,7 @@ class LoadRollScreen extends ConsumerStatefulWidget {
 class _State extends ConsumerState<LoadRollScreen> {
   final iso = TextEditingController();
   bool busy = false;
+  String? _isoError;
 
   late final _provider = loadRollViewModelProvider((
     camera: widget.camera,
@@ -44,18 +54,38 @@ class _State extends ConsumerState<LoadRollScreen> {
       if (mounted) toast(context, e.toString());
       return;
     }
+    // Expiry warnings help but must not stop a roll being picked.
+    final expiring = await _vm.expiringRollIds().catchError(
+      (_) => const <String>{},
+    );
+    final drafts = await draftsOf(ref, DraftKind.rolls);
     if (!mounted) return;
+    String expiry(RollSummary r) {
+      if (r.expiry == null) return 'no expiry';
+      if (isExpired(r.expiry)) return 'exp ${r.expiry} (expired)';
+      if (expiring.contains(r.id)) return 'exp ${r.expiry} (expires soon)';
+      return 'exp ${r.expiry}';
+    }
+
     final r = await pickOne<RollSummary>(
       context,
       title: 'In-stock rolls',
       items: rolls,
-      label: (r) => r.stockLabel,
-      subtitle: (r) =>
-          '${r.format} · ${r.exposures} exp · ${r.expiry == null ? 'no expiry' : 'exp ${r.expiry}${isExpired(r.expiry) ? ' (expired)' : ''}'}',
+      // The format is in the label so searching "120" narrows the list.
+      label: (r) => '${r.stockLabel} · ${r.format}',
+      subtitle: (r) => '${r.exposures} exp · ${expiry(r)}',
+      // Film bought mid-trip: add it, then load it.
+      footer: CreateFooter<RollSummary>(
+        label: 'Add new film',
+        drafts: drafts,
+        create: (c) => c.push(Routes.rollNew(quick: true)),
+        resume: (c, d) => c.push(Routes.rollNew(draft: d.id)),
+      ),
     );
     if (r != null) {
       _vm.selectRoll(r);
       iso.text = '';
+      setState(() => _isoError = null);
     }
   }
 
@@ -67,6 +97,7 @@ class _State extends ConsumerState<LoadRollScreen> {
       if (mounted) toast(context, e.toString());
       return;
     }
+    final drafts = await draftsOf(ref, DraftKind.camera);
     if (!mounted) return;
     final c = await pickOne<Camera>(
       context,
@@ -75,19 +106,40 @@ class _State extends ConsumerState<LoadRollScreen> {
       label: (c) => c.name,
       subtitle: (c) =>
           c.hasFixedLens ? 'Fixed lens' : 'Mount ${c.mount ?? '—'}',
+      // A borrowed camera: add the minimum, then load it.
+      footer: CreateFooter<Camera>(
+        label: 'Add a camera',
+        drafts: drafts,
+        create: (c) => c.push(Routes.cameraCreate()),
+        resume: (c, d) => c.push(Routes.cameraCreate(draft: d.id)),
+      ),
     );
     if (c != null) _vm.selectCamera(c);
   }
 
   Future<void> _addOtherLens() async {
-    final cand = await _vm.otherLenses();
+    final List<Lens> cand;
+    try {
+      cand = await _vm.otherLenses();
+    } catch (e) {
+      if (mounted) toast(context, e.toString());
+      return;
+    }
+    final drafts = await draftsOf(ref, DraftKind.lens);
     if (!mounted) return;
+    final mount = ref.read(_provider).camera?.mount;
     final l = await pickOne<Lens>(
       context,
       title: 'Lens',
       items: cand,
       label: (l) => l.name,
       subtitle: (l) => 'Mount ${l.mount ?? '—'}',
+      footer: CreateFooter<Lens>(
+        label: 'Add a lens',
+        drafts: drafts,
+        create: (c) => c.push(Routes.lensCreate(mount: mount)),
+        resume: (c, d) => c.push(Routes.lensCreate(draft: d.id)),
+      ),
     );
     if (l == null || !mounted) return;
     _vm.addExtraLens(l);
@@ -112,6 +164,9 @@ class _State extends ConsumerState<LoadRollScreen> {
     final s = ref.watch(_provider);
     final cam = s.camera;
     final roll = s.roll;
+    final boxIso = roll == null
+        ? null
+        : ref.watch(stocksByIdProvider)[roll.filmStockId]?.boxIso;
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: formAppBar(context, 'Load roll'),
@@ -157,15 +212,16 @@ class _State extends ConsumerState<LoadRollScreen> {
             child: TextFormField(
               controller: iso,
               decoration: formInputDecoration(
-                roll == null
-                    ? 'Empty = box ISO'
-                    : 'Box ISO (change to push/pull)',
+                boxIso == null ? 'Empty = box ISO' : 'Empty = box ISO $boxIso',
                 cs,
-              ),
+              ).copyWith(errorText: _isoError),
               keyboardType: TextInputType.number,
+              onChanged: (_) {
+                if (_isoError != null) setState(() => _isoError = null);
+              },
             ),
           ),
-          const DetailLabel('LENSES', top: 4),
+          const DetailLabel('LENSES (OPTIONAL)', top: 4),
           if (cam == null)
             _note(cs, 'Select a camera first.')
           else if (cam.hasFixedLens)
@@ -210,11 +266,15 @@ class _State extends ConsumerState<LoadRollScreen> {
       Text(t, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant));
 
   Future<void> _save() async {
+    final int? shotIso;
+    try {
+      shotIso = parseShotIso(iso.text);
+    } on FormatException catch (e) {
+      setState(() => _isoError = e.message);
+      return;
+    }
     setState(() => busy = true);
-    final ok = await guard(
-      context,
-      () => _vm.submit(shotIso: int.tryParse(iso.text)),
-    );
+    final ok = await guard(context, () => _vm.submit(shotIso: shotIso));
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;

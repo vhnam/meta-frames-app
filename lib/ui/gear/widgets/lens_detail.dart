@@ -11,8 +11,7 @@ import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
-/// M-11 lens details. Read-only summary; activating and deleting are on the
-/// edit screen.
+/// Lens details. Read-only: the dashboard edits lenses.
 class LensDetailScreen extends ConsumerWidget {
   const LensDetailScreen({super.key, required this.lensId});
   final String lensId;
@@ -33,19 +32,6 @@ class LensDetailScreen extends ConsumerWidget {
           lens.value?.name ?? 'Lens',
           style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
         ),
-        actions: [
-          if (lens.value != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: TextButton(
-                onPressed: () => context.push(Routes.lensEdit(lens.value!.id)),
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-        ],
       ),
       body: AsyncBody(
         value: lens,

@@ -8,6 +8,7 @@ import '../../../domain/models/saved_server.dart';
 import '../../../routing/routes.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
+import '../../sync/widgets/sync_screen.dart';
 import '../view_models/settings_actions.dart';
 
 import '../../../routing/navigation.dart';
@@ -23,10 +24,24 @@ class _State extends ConsumerState<SettingsScreen> {
     text: ref.read(settingsActionsProvider).baseUrl,
   );
 
+  /// The dashboard of the server in [url]; follows the server picked.
+  late final dashboard = TextEditingController(
+    text: ref.read(settingsActionsProvider).dashboardUrl(),
+  );
+  String? _dashboardError;
+
   @override
   void dispose() {
     url.dispose();
+    dashboard.dispose();
     super.dispose();
+  }
+
+  void _pick(String server) {
+    url.text = server;
+    dashboard.text =
+        ref.read(settingsActionsProvider).dashboardUrl(server) ?? '';
+    setState(() => _dashboardError = null);
   }
 
   @override
@@ -51,7 +66,7 @@ class _State extends ConsumerState<SettingsScreen> {
                         _ServerRow(
                           server: s,
                           selected: s.url == entered,
-                          onTap: () => url.text = s.url,
+                          onTap: () => _pick(s.url),
                           onDelete: () => _delete(s),
                         ),
                     ],
@@ -73,6 +88,26 @@ class _State extends ConsumerState<SettingsScreen> {
               const FormNote(
                 'Android emulator reaches the host machine at 10.0.2.2. '
                 'Changing the server logs you out.',
+              ),
+              LabeledField(
+                label: 'Dashboard URL (optional)',
+                gapAfter: 8,
+                child: TextField(
+                  controller: dashboard,
+                  decoration: formInputDecoration(
+                    'https://dashboard.example.com',
+                    cs,
+                  ).copyWith(errorText: _dashboardError),
+                  keyboardType: TextInputType.url,
+                  onChanged: (_) {
+                    if (_dashboardError != null) {
+                      setState(() => _dashboardError = null);
+                    }
+                  },
+                ),
+              ),
+              const FormNote(
+                'The web dashboard for this server. More links to it.',
               ),
               FormSaveBar(label: 'Save', busy: false, onPressed: _save),
             ],
@@ -104,7 +139,25 @@ class _State extends ConsumerState<SettingsScreen> {
 
   Future<void> _save() async {
     final actions = ref.read(settingsActionsProvider);
-    final saved = await actions.saveBaseUrl(url.text);
+    final dash = dashboard.text.trim();
+    if (dash.isNotEmpty && validDashboardUrl(dash) == null) {
+      setState(() => _dashboardError = 'Enter an http:// or https:// address');
+      return;
+    }
+    var discard = false;
+    final changing =
+        normalizeBaseUrl(url.text) != normalizeBaseUrl(actions.baseUrl);
+    if (changing && actions.signedIn) {
+      final choice = await askKeepOrDiscard(
+        context,
+        ref,
+        action: 'Change server',
+      );
+      if (choice == null) return;
+      discard = choice;
+    }
+    final saved = await actions.saveBaseUrl(url.text, discardKept: discard);
+    await actions.setDashboardUrl(saved, dash.isEmpty ? null : dash);
     if (!mounted) return;
     toast(context, 'Saved. Server URL: $saved');
     // Without a session, the screens under this one need one too.

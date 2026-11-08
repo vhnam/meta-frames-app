@@ -1,55 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/local/local_store.dart';
 import '../../../domain/models/film_requests.dart';
 import '../../../domain/models/models.dart';
-import '../../../providers.dart';
+import '../../../domain/utils.dart';
 import '../../core/widgets/common.dart';
+import '../../sync/view_models/drafts.dart';
 import '../view_models/film_stock_actions.dart';
 import '../../core/widgets/form_kit.dart';
 import 'iso_field.dart';
-import 'stock_picker.dart';
 
 import '../../../routing/navigation.dart';
 
-/// M-12 add stock, M-13 edit stock, M-14 set base stock.
+/// Quick add of a film stock (from a picker, mid-trip, or from the film list).
 /// Pops the saved [FilmStock] so callers can create stocks inline.
+///
+/// It asks only what the server needs: brand, name, box ISO, and the type,
+/// process and packaging, which stay visible with their usual defaults and are
+/// never inferred from each other (chromogenic B&W is C-41; cross-processed
+/// slide film exists). Origins, base stock and notes are set on the dashboard.
+/// A new stock is kept as a draft until the server confirms it; [draft]
+/// reopens one.
 class StockFormScreen extends ConsumerStatefulWidget {
-  const StockFormScreen({super.key, this.stock, this.baseStock});
-  final FilmStock? stock;
-  final FilmStock? baseStock;
+  const StockFormScreen({super.key, this.draft});
+  final Draft? draft;
   @override
   ConsumerState<StockFormScreen> createState() => _State();
 }
 
 class _State extends ConsumerState<StockFormScreen> {
   final _key = GlobalKey<FormState>();
-  late final brand = TextEditingController(text: widget.stock?.brand);
-  late final name = TextEditingController(text: widget.stock?.name);
-  late final iso = TextEditingController(text: widget.stock?.boxIso);
-  late final stockOrigin = TextEditingController(
-    text: widget.stock?.stockOrigin,
-  );
-  late final packOrigin = TextEditingController(text: widget.stock?.packOrigin);
-  late final desc = TextEditingController(text: widget.stock?.description);
-  late StockType type = widget.stock?.type ?? StockType.color;
-  late Process process = widget.stock?.process ?? Process.c41;
-  late Packaging packaging = widget.stock?.packaging ?? Packaging.factory;
-  late FilmStock? base = widget.baseStock;
+  late final FilmStockEdit? _restored = widget.draft == null
+      ? null
+      : FilmStockEdit.fromJson(widget.draft!.json['request']);
+  late final brand = TextEditingController(text: _restored?.brand);
+  late final name = TextEditingController(text: _restored?.name);
+  late final iso = TextEditingController(text: _restored?.boxIso);
+  late StockType type = _restored?.type ?? StockType.color;
+  late Process process = _restored?.process ?? Process.c41;
+  late Packaging packaging = _restored?.packaging ?? Packaging.factory;
   bool busy = false;
 
-  bool get editing => widget.stock != null;
-
-  @override
-  void initState() {
-    super.initState();
-    final id = widget.stock?.baseStockId;
-    if (id != null && base == null) {
-      ref.read(stockDetailProvider(id).future).then((d) {
-        if (mounted) setState(() => base = d.stock);
-      }, onError: (_) {});
-    }
-  }
+  /// The new stock's client id, kept with its draft.
+  late String _draftId = widget.draft?.id ?? newId();
 
   String? get _mismatch {
     if (type == StockType.bw && process != Process.bw) {
@@ -61,12 +55,9 @@ class _State extends ConsumerState<StockFormScreen> {
     return null;
   }
 
-  String? _t(TextEditingController c) =>
-      c.text.trim().isEmpty ? null : c.text.trim();
-
   @override
   void dispose() {
-    for (final c in [brand, name, iso, stockOrigin, packOrigin, desc]) {
+    for (final c in [brand, name, iso]) {
       c.dispose();
     }
     super.dispose();
@@ -80,15 +71,13 @@ class _State extends ConsumerState<StockFormScreen> {
     final cs = Theme.of(context).colorScheme;
     final warn = _mismatch;
     return Scaffold(
-      appBar: formAppBar(
-        context,
-        editing ? 'Edit film stock' : 'New film stock',
-      ),
+      appBar: formAppBar(context, 'New film stock'),
       body: Form(
         key: _key,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.draft?.error case final e?) WarningBanner([e]),
             LabeledField(
               label: 'Brand',
               child: TextFormField(
@@ -148,70 +137,10 @@ class _State extends ConsumerState<StockFormScreen> {
                 onChanged: (v) => setState(() => packaging = v),
               ),
             ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 12,
-              children: [
-                Expanded(
-                  child: LabeledField(
-                    label: 'Stock origin',
-                    child: TextFormField(
-                      controller: stockOrigin,
-                      decoration: formInputDecoration('e.g. USA', cs),
-                    ),
-                  ),
-                ),
-                if (packaging != Packaging.factory)
-                  Expanded(
-                    child: LabeledField(
-                      label: 'Pack origin',
-                      child: TextFormField(
-                        controller: packOrigin,
-                        decoration: formInputDecoration('e.g. Japan', cs),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            LabeledField(
-              label: 'Base stock (optional)',
-              gapAfter: 8,
-              child: SelectField(
-                hint: 'Select a base stock',
-                value: base?.label,
-                onTap: () async {
-                  final s = await pickStock(
-                    context,
-                    ref,
-                    title: 'Base stock',
-                    exclude: widget.stock?.id,
-                    allowCreate: false,
-                  );
-                  if (s != null) setState(() => base = s);
-                },
-                onClear: () => setState(() => base = null),
-              ),
-            ),
             const FormNote(
-              'Original emulsion of a repacked film. Leave empty if unknown and describe below.',
+              'Origins, base stock and notes can be added later on the dashboard.',
             ),
-            LabeledField(
-              label: 'Notes (optional)',
-              child: TextFormField(
-                controller: desc,
-                decoration: formInputDecoration(
-                  'Characteristics, where you buy it…',
-                  cs,
-                ),
-                minLines: 4,
-                maxLines: 4,
-              ),
-            ),
-            FormSaveBar(
-              label: editing ? 'Save changes' : 'Add film stock',
-              busy: busy,
-              onPressed: _save,
-            ),
+            FormSaveBar(label: 'Add film stock', busy: busy, onPressed: _save),
           ],
         ),
       ),
@@ -228,16 +157,26 @@ class _State extends ConsumerState<StockFormScreen> {
       boxIso: iso.text.trim(),
       process: process,
       packaging: packaging,
-      stockOrigin: _t(stockOrigin),
-      packOrigin: packaging == Packaging.factory ? null : _t(packOrigin),
-      description: _t(desc),
-      baseStockId: base?.id,
     );
     FilmStockDetail? saved;
+    final actions = ref.read(filmStockActionsProvider);
+    final id = _draftId;
     final ok = await guard(context, () async {
-      saved = await ref
-          .read(filmStockActionsProvider)
-          .save(stock, existing: widget.stock);
+      try {
+        saved = await ref
+            .read(draftActionsProvider)
+            .submit(
+              id: id,
+              kind: DraftKind.stock,
+              label: '${stock.brand} ${stock.name}',
+              form: {'request': stock.toJson()},
+              send: () => actions.save(stock, id: id),
+              readBack: () => actions.landed(id, stock),
+            );
+      } on DraftIdTaken catch (e) {
+        _draftId = e.newId;
+        throw draftError(e);
+      }
     });
     if (!mounted) return;
     setState(() => busy = false);

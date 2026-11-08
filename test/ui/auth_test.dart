@@ -183,7 +183,7 @@ void main() {
         authRedirect(signedIn: signedIn, location: location);
 
     test('a visitor goes to login from anywhere but signed-out screens', () {
-      expect(check(false, Routes.home), Routes.login);
+      expect(check(false, Routes.shooting), Routes.login);
       expect(check(false, Routes.camera('c1')), Routes.login);
       expect(check(false, Routes.login), isNull);
       expect(check(false, Routes.register), isNull);
@@ -191,10 +191,10 @@ void main() {
     });
 
     test('a signed-in user leaves the signed-out screens', () {
-      expect(check(true, Routes.login), Routes.home);
-      expect(check(true, Routes.register), Routes.home);
-      expect(check(true, Routes.recover), Routes.home);
-      expect(check(true, Routes.home), isNull);
+      expect(check(true, Routes.login), Routes.shooting);
+      expect(check(true, Routes.register), Routes.shooting);
+      expect(check(true, Routes.recover), Routes.shooting);
+      expect(check(true, Routes.shooting), isNull);
     });
 
     test('settings is open to both', () {
@@ -239,7 +239,7 @@ void main() {
 
     testWidgets('a saved session opens the app', (tester) async {
       final app = await _pumpApp(tester, token: 'saved');
-      expect(app.location, Routes.home);
+      expect(app.location, Routes.shooting);
       expect(find.byType(NavigationBar), findsOneWidget);
     });
 
@@ -266,7 +266,7 @@ void main() {
       await _enter(tester, 'you@example.com', 'a@b.co');
       await _enter(tester, 'Enter your password', 'right');
       await _tapAndSettle(tester, find.text('Log in'));
-      expect(app.location, Routes.home);
+      expect(app.location, Routes.shooting);
       expect(find.byType(NavigationBar), findsOneWidget);
     });
 
@@ -291,7 +291,7 @@ void main() {
       await _enter(tester, 'Repeat the password', 'Aaaaaaa1!');
       await _tapAndSettle(tester, find.text('Create account'));
       expect(app.auth.registeredName, 'Ansel');
-      expect(app.location, Routes.home);
+      expect(app.location, Routes.shooting);
     });
 
     testWidgets('recovery shows the server message', (tester) async {
@@ -356,7 +356,7 @@ void main() {
       await _tapAndSettle(tester, find.text(button));
       expect(google.requestedFor, 'web-client');
       expect(app.auth.googleToken, 'id-token');
-      expect(app.location, Routes.home);
+      expect(app.location, Routes.shooting);
     });
 
     testWidgets('a server without Google shows its message', (tester) async {
@@ -452,7 +452,10 @@ void main() {
     testWidgets('a new server URL ends the session', (tester) async {
       final app = await openMore(tester);
       await _tapAndSettle(tester, find.text('Settings'));
-      await tester.enterText(find.byType(TextField), 'https://other.example');
+      await tester.enterText(
+        find.byType(TextField).first,
+        'https://other.example',
+      );
       await _tapAndSettle(tester, find.text('Save'));
       expect(app.session.signedIn, isFalse);
       expect(app.location, Routes.login);
