@@ -47,6 +47,7 @@ These workflows left the phone. The data stays on the server. Use the dashboard.
 ### Fixed
 
 - After a change sent from the phone lands, the lists on the phone take the roll the server returned. A finish that happened meanwhile shows, instead of the phone's guess of that one step.
+- A conflict that could not read the server's note says so, instead of showing an empty note.
 - A list or roll that was read while one of your own changes reached the server is read again, instead of showing the earlier state or nothing.
 - Opening a frame that has no notes or scans yet no longer leaves the app asking the server for it again in the background.
 

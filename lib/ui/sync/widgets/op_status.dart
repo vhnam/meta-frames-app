@@ -77,10 +77,12 @@ class OpStatusCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: muted),
-          SelectableText(
-            value == null || value.trim().isEmpty ? '(empty)' : value,
-            style: const TextStyle(fontSize: 14),
-          ),
+          SelectableText(switch (value) {
+            // Not read (offline or refused): never shown as an empty note.
+            null => "Could not read the server's note",
+            _ when value.trim().isEmpty => '(empty)',
+            _ => value,
+          }, style: const TextStyle(fontSize: 14)),
         ],
       ),
     );
