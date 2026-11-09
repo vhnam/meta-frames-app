@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Settings has Appearance: System, Light or Dark, kept on this phone. Dark mode uses a lighter orange and lighter text so filled buttons, links and secondary text stay readable.
 - The tabs are Shooting, Rolls and More. Shooting replaces Home and its counters. Rolls ready for the lab are under the Done shooting chip, negatives at the lab under More and the new Negatives at lab chip, and expiring film in the Rolls list. Links to `/home` open Shooting.
 - Note frame asks only for the frame number and starts empty each time: the app does not guess which frame was just taken. Any whole number from 0 opens, including frames past the exposure count. Frame notes need no scans.
 - In stock, the Rolls list shows film soonest expiry first and marks expired film. Load roll's picker marks expired and expiring rolls, and searching it by format, such as 120, narrows the list.

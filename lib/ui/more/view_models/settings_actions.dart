@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -77,3 +78,23 @@ class SettingsActions {
 }
 
 final settingsActionsProvider = Provider<SettingsActions>(SettingsActions.new);
+
+/// System, light or dark, kept on this device apart from the server settings.
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  static const _key = 'theme_mode';
+
+  @override
+  ThemeMode build() {
+    final saved = ref.watch(prefsProvider).getString(_key);
+    return ThemeMode.values.asNameMap()[saved] ?? ThemeMode.system;
+  }
+
+  Future<void> set(ThemeMode mode) async {
+    state = mode;
+    await ref.read(prefsProvider).setString(_key, mode.name);
+  }
+}
+
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
+  ThemeModeNotifier.new,
+);

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers.dart';
 import 'routing/router.dart';
 import 'ui/core/theme.dart';
+import 'ui/more/view_models/settings_actions.dart';
 import 'ui/sync/view_models/prefetch.dart';
 import 'ui/sync/view_models/sync_actions.dart';
 
@@ -55,6 +56,7 @@ class _MetaFramesAppState extends ConsumerState<MetaFramesApp>
       title: 'MetaFrames',
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
+      themeMode: ref.watch(themeModeProvider),
       scrollBehavior: const _UniversalScroll(),
       routerConfig: ref.watch(routerProvider),
     );
