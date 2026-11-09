@@ -23,28 +23,37 @@ dynamic project(String key, dynamic json, Iterable<PendingOp> ops) {
 
 /// [json] with one operation applied: used for each open operation when
 /// reading, and for good when an operation is done so the stored lists agree
-/// with the server without waiting for a refresh.
-dynamic applyOp(String key, dynamic json, PendingOp op) {
+/// with the server without waiting for a refresh. [server] is the roll as the
+/// server answered for a done [op]: when given, it replaces the stored roll
+/// instead of the operation's own guess, so a step that landed and has moved
+/// on since (finished on the dashboard) shows where the roll is now.
+dynamic applyOp(
+  String key,
+  dynamic json,
+  PendingOp op, {
+  Map<String, dynamic>? server,
+}) {
   final read = ReadKey.parse(key);
   switch (read.kind) {
     case ReadKind.cameras:
       return [
-        for (final c in json as List) _camera(c as Map<String, dynamic>, op),
+        for (final c in json as List)
+          _camera(c as Map<String, dynamic>, op, server),
       ];
     case ReadKind.camera:
-      return _camera(json as Map<String, dynamic>, op);
+      return _camera(json as Map<String, dynamic>, op, server);
     case ReadKind.rolls:
       final status = read.query['status'];
       return [
         for (final r in json as List)
-          if (_summary(r as Map<String, dynamic>, op) case final s
+          if (_summary(r as Map<String, dynamic>, op, server) case final s
               when status == null || s['status'] == status)
             s,
       ];
     case ReadKind.roll:
       if (read.rollId != op.rollId) return json;
       final d = json as Map<String, dynamic>;
-      d['roll'] = _summary(d['roll'] as Map<String, dynamic>, op);
+      d['roll'] = _summary(d['roll'] as Map<String, dynamic>, op, server);
       if (op.kind == OpKind.frameNotes) {
         d['frames'] = _frames((d['frames'] as List?) ?? const [], op);
       }
@@ -64,12 +73,12 @@ dynamic applyOp(String key, dynamic json, PendingOp op) {
       e['expiring'] = [
         for (final x in (e['expiring'] as List? ?? const []))
           if (x as Map<String, dynamic> case final m
-              when inStock(m['roll'] = _summary(m['roll'], op)))
+              when inStock(m['roll'] = _summary(m['roll'], op, server)))
             m,
       ];
       e['noExpiry'] = [
         for (final r in (e['noExpiry'] as List? ?? const []))
-          if (_summary(r as Map<String, dynamic>, op) case final s
+          if (_summary(r as Map<String, dynamic>, op, server) case final s
               when inStock(s))
             s,
       ];
@@ -79,8 +88,16 @@ dynamic applyOp(String key, dynamic json, PendingOp op) {
   }
 }
 
-Map<String, dynamic> _camera(Map<String, dynamic> c, PendingOp op) {
-  switch (op.kind) {
+Map<String, dynamic> _camera(
+  Map<String, dynamic> c,
+  PendingOp op,
+  Map<String, dynamic>? server,
+) {
+  // The server says the roll is out of every camera: no camera holds it.
+  final kind = server != null && server['status'] != 'in_camera'
+      ? OpKind.finish
+      : op.kind;
+  switch (kind) {
     case OpKind.load:
       if (c['id'] != op.cameraId) return c;
       final p = op.payload;
@@ -104,8 +121,13 @@ Map<String, dynamic> _camera(Map<String, dynamic> c, PendingOp op) {
   }
 }
 
-Map<String, dynamic> _summary(Map<String, dynamic> r, PendingOp op) {
+Map<String, dynamic> _summary(
+  Map<String, dynamic> r,
+  PendingOp op,
+  Map<String, dynamic>? server,
+) {
   if (r['id'] != op.rollId) return r;
+  if (server != null) return _copy(server) as Map<String, dynamic>;
   final p = op.payload;
   switch (op.kind) {
     case OpKind.load:

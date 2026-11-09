@@ -653,7 +653,12 @@ class LocalStore {
         final kind = ReadKey.parse(key).kind;
         if (kind == ReadKind.other || row['status'] != 200) continue;
         final json = jsonDecode(row['json'] as String);
-        final next = applyOp(key, json, op);
+        final next = applyOp(
+          key,
+          json,
+          op,
+          server: (detail?['roll'] as Map?)?.cast<String, dynamic>(),
+        );
         await txn.update(
           'snapshot',
           {'json': jsonEncode(next)},

@@ -203,9 +203,26 @@ void main() {
       api.stored['b']!
         ..status = 'done_shooting'
         ..finishedAt = DateTime(2026, 11, 8);
+      // Lists kept on the phone while the load was still open.
+      await store.writeSnapshot('/rolls', 200, [
+        api.stored['b']!.summary()
+          ..['status'] = 'in_stock'
+          ..['finishedAt'] = null,
+      ], epoch: store.epoch);
+      await store.writeSnapshot('/cameras', 200, [
+        {'id': 'c', 'loadedRoll': null},
+      ], epoch: store.epoch);
       await engine.sync();
       expect(await open(), isEmpty);
       expect(api.writes, ['load:b']);
+      // The lists show where the server says the roll is, as its page does.
+      final roll = (await store.readSnapshot('/rolls'))!.json.single;
+      expect(roll['status'], 'done_shooting');
+      expect(roll['finishedAt'], isNotNull);
+      expect(
+        (await store.readSnapshot('/cameras'))!.json.single['loadedRoll'],
+        isNull,
+      );
     },
   );
 
