@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Note frame asks only for the frame number and starts empty each time: the app does not guess which frame was just taken. Any whole number from 0 opens, including frames past the exposure count. Frame notes need no scans.
 - In stock, the Rolls list shows film soonest expiry first and marks expired film. Load roll's picker marks expired and expiring rolls, and searching it by format, such as 120, narrows the list.
 - The Expiry entry left More. The screen still opens from a link.
+- Lenses used lists each lens as a row you can tap, shows how many are selected, and the save button waits while the change is sent.
 - Load roll's ISO field shows the box speed it defaults to, and refuses text that is not a whole number instead of loading the roll at box speed. Lenses are marked optional.
 - A camera's page shows the shot ISO with the box speed it differs from, instead of calling it pushed or pulled: the development request is asked for separately when the roll is sent to a lab.
 
