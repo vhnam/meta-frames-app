@@ -54,11 +54,11 @@ JobStep _arrived(String label, DateTime? expected, DateTime actual, int late) =>
     );
 
 /// The job's steps in order: the roll goes out, then the negatives (or prints)
-/// and the scans come back. Work at home expects no dates.
+/// and the scans come back. A stored expected date is shown at home too.
 List<JobStep> jobSteps(Processing job, DateTime today) {
   final atLab = !job.isHome;
-  final negativesExpected = atLab ? job.negativesExpectedAt : null;
-  final scansExpected = atLab ? job.scansExpectedAt : null;
+  final negativesExpected = job.negativesExpectedAt;
+  final scansExpected = job.scansExpectedAt;
   final negativesLabel = !atLab && job.type == ProcessingType.print
       ? 'Prints'
       : atLab
