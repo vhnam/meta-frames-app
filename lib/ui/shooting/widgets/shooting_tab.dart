@@ -10,15 +10,14 @@ import '../../core/theme.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../rolls/widgets/finish_roll.dart';
-import '../../rolls/widgets/frame_notes.dart';
 import '../../sync/view_models/sync_actions.dart';
 import '../../sync/widgets/op_status.dart';
 import '../../sync/widgets/sync_screen.dart';
 import '../view_models/shooting_view_model.dart';
 
 /// The cameras with film in them, opened in a few seconds between shots: what
-/// each one holds, a quick frame note, finishing the roll, and loading a new
-/// one into an empty camera.
+/// each one holds, finishing the roll, and loading a new one into an empty
+/// camera.
 class ShootingTab extends ConsumerWidget {
   const ShootingTab({super.key});
 
@@ -109,7 +108,6 @@ class _LoadedCameraCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final r = camera.loadedRoll!;
     final cs = Theme.of(context).colorScheme;
-    final noted = ref.watch(notedFramesProvider(r.rollId)).value;
     // Changes to this roll not on the server yet; one needing the user first.
     final ops = ref.watch(rollOpsProvider(r.rollId));
     final shown =
@@ -177,38 +175,11 @@ class _LoadedCameraCard extends ConsumerWidget {
                 meta,
                 style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
               ),
-              if (noted != null && noted.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final f in noted)
-                      ActionChip(
-                        visualDensity: VisualDensity.compact,
-                        avatar: const Icon(Icons.notes, size: 14),
-                        label: Text('#${f.number}'),
-                        tooltip: f.notes,
-                        onPressed: () =>
-                            context.push(Routes.frame(r.rollId, f.number)),
-                      ),
-                  ],
-                ),
-              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                    ),
-                    icon: const Icon(Icons.edit_note, size: 20),
-                    label: const Text('Note frame'),
-                    onPressed: () => noteFrame(context, r.rollId),
-                  ),
                   OutlinedButton(
                     style: compact,
                     onPressed: () => context.push(Routes.rollNotes(r.rollId)),
@@ -332,7 +303,7 @@ class _Welcome extends StatelessWidget {
           SizedBox(
             width: 280,
             child: Text(
-              'Know what is in each camera and note frames while you shoot. Start by adding a camera and some film.',
+              'Know what is in each camera. Start by adding a camera and some film.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,

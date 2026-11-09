@@ -73,21 +73,6 @@ void main() {
     ]);
   });
 
-  testWidgets('each camera notes a frame on its own roll', (tester) async {
-    final router = await pump(tester, [
-      _loaded('fm2', 'ra'),
-      _loaded('f3', 'rb'),
-    ]);
-
-    await tester.tap(find.text('Note frame').last);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '4');
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-
-    expect(location(router), Routes.frame('rb', 4));
-  });
-
   testWidgets('each camera finishes its own roll', (tester) async {
     await pump(tester, [_loaded('fm2', 'ra'), _loaded('f3', 'rb')]);
 
@@ -97,18 +82,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(rolls.calls, ['finish:ra']);
-  });
-
-  testWidgets('a saved frame note can be opened again from the card', (
-    tester,
-  ) async {
-    rolls.frameNotes[('ra', 9)] = 'Harbour';
-    final router = await pump(tester, [_loaded('fm2', 'ra')]);
-
-    await tester.tap(find.widgetWithText(ActionChip, '#9'));
-    await tester.pumpAndSettle();
-
-    expect(location(router), Routes.frame('ra', 9));
   });
 
   testWidgets('an empty camera loads into that camera', (tester) async {

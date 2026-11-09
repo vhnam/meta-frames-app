@@ -73,7 +73,7 @@ class NotesActions {
   void _refresh(NotesTarget t) {
     if (t.frame != null) _ref.invalidate(frameProvider((t.rollId, t.frame!)));
     _ref
-      // The roll's page and the Shooting tab list its frames and notes.
+      // The roll's page lists its frames and notes.
       ..invalidate(rollDetailProvider(t.rollId))
       ..invalidate(rollsProvider);
   }

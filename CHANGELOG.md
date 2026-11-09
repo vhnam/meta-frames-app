@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A job on an order shows the order's code and products in the roll's processing history. The order is read-only.
-- A Shooting tab, where the app now opens, shows every camera holding a roll: the stock, the shot ISO against the box speed, and the start date. Each camera has Note frame and Finish, and lists its noted frames to open again. Empty cameras each have Load, and + Load picks both a camera and a roll.
+- A Shooting tab, where the app now opens, shows every camera holding a roll: the stock, the shot ISO against the box speed, and the start date. Each camera has Finish. Frame notes are on the roll's page. Empty cameras each have Load, and + Load picks both a camera and a roll.
 - The Rolls list has a Negatives at lab chip that finds rolls whose negatives are still at a lab, whatever their status, and format pills built from the formats in the list.
 - The field workflow works offline. Cameras, rolls, frames, film and labs you have opened are kept on the phone, and loading a roll, finishing it, roll notes and frame notes are saved on the phone first and sent when the server can be reached, in order, once each. A change made elsewhere in the meantime is shown as a conflict with the server's side and yours, never overwritten. More > Sync status lists what waits, with Sync now, and what other accounts have left on the phone.
 - Roll notes can be edited from the roll and from the Shooting card, and frame notes show their sync state.
@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings has Appearance: System, Light or Dark, kept on this phone. Dark mode uses a lighter orange and lighter text so filled buttons, links and secondary text stay readable.
 - The Developed and Scanned chips each count a roll that is both. A roll processed at home is under neither. Rolls other than film in stock list the newest start date first, and rolls not started come last.
 - The tabs are Shooting, Rolls and More. Shooting replaces Home and its counters. Rolls ready for the lab are under the Done shooting chip, negatives at the lab under More and the new Negatives at lab chip, and expiring film in the Rolls list. Links to `/home` open Shooting.
+- Note frame left the Shooting tab. The card still finishes the roll and opens roll notes. Frame notes stay on the roll's page.
 - Note frame asks only for the frame number and starts empty each time: the app does not guess which frame was just taken. Any whole number from 0 opens, including frames past the exposure count. Frame notes need no scans.
 - In stock, the Rolls list shows film soonest expiry first and marks expired film. Load roll's picker marks expired and expiring rolls, and searching it by format, such as 120, narrows the list.
 - The Expiry entry left More. The screen still opens from a link.

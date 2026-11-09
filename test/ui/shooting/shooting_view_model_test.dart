@@ -3,73 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_filter.dart';
 import 'package:meta_frames/providers.dart';
-import 'package:meta_frames/ui/rolls/view_models/frame_notes.dart';
 import 'package:meta_frames/ui/shooting/view_models/shooting_view_model.dart';
 
 import '../../testing/fakes.dart';
 
-/// Serves a roll detail with the frames the fake server holds for it.
-class _Rolls extends FakeRollRepository {
-  _Rolls(super.all);
-
-  /// Frames with scans but no notes, by roll id.
-  final scanned = <String, List<int>>{};
-
-  @override
-  Future<RollDetail> roll(String id) async {
-    final numbers = {
-      for (final k in frameNotes.keys)
-        if (k.$1 == id) k.$2,
-      ...?scanned[id],
-    };
-    return RollDetail.fromJson({
-      ..._detail(id),
-      'frames': [
-        for (final n in numbers)
-          {
-            'id': '$id-$n',
-            'number': n,
-            'notes': frameNotes[(id, n)],
-            'scans': scanned[id]?.contains(n) ?? false
-                ? [
-                    {'id': 's$n', 'frameNumber': n, 'scanner': 'noritsu'},
-                  ]
-                : [],
-          },
-      ],
-    });
-  }
-}
-
-Map<String, dynamic> _detail(String id) => {
-  'roll': {
-    'id': id,
-    'filmStockId': 's1',
-    'stockBrand': 'Kodak',
-    'stockName': 'Gold',
-    'format': 135,
-    'exposures': 36,
-    'status': 'in_camera',
-  },
-  'stock': {
-    'id': 's1',
-    'brand': 'Kodak',
-    'name': 'Gold',
-    'type': 'color',
-    'boxIso': '200',
-    'process': 'C-41',
-    'packaging': 'factory',
-  },
-  'totals': {
-    'rollPrice': 0,
-    'processingPrice': 0,
-    'total': 0,
-    'incomplete': false,
-  },
-};
-
 void main() {
-  late _Rolls rolls;
+  late FakeRollRepository rolls;
 
   ProviderContainer containerWith({List<Camera> cams = const []}) {
     final c = ProviderContainer(
@@ -84,7 +23,7 @@ void main() {
     return c;
   }
 
-  setUp(() => rolls = _Rolls([]));
+  setUp(() => rolls = FakeRollRepository([]));
 
   test('every camera holding a roll is listed, active or not', () async {
     final c = containerWith(
@@ -93,7 +32,7 @@ void main() {
         camera('xa', loaded: true),
         camera('empty'),
         // Older data can leave a roll in a camera that was since retired. It
-        // must stay findable so the roll can be noted and finished.
+        // must stay findable so the roll can be finished.
         camera('retired', active: false, loaded: true),
       ],
     );
@@ -124,31 +63,6 @@ void main() {
       'empty',
     ]);
   });
-
-  test(
-    'a loaded roll lists its noted frames in order, not scan-only ones',
-    () async {
-      final c = containerWith();
-      rolls.scanned['r0'] = [2];
-      final actions = c.read(notesActionsProvider);
-      await actions.save((rollId: 'r0', frame: 12), 'Bridge');
-      await actions.save((rollId: 'r0', frame: 3), 'Market');
-      await actions.save((rollId: 'r0', frame: 5), 'cleared later');
-      await actions.save((rollId: 'r0', frame: 5), '');
-
-      final provider = notedFramesProvider('r0');
-      final sub = c.listen(provider, (_, _) {});
-      addTearDown(sub.close);
-      await c.read(rollDetailProvider('r0').future);
-
-      expect(c.read(provider).requireValue.map((f) => f.number), [3, 12]);
-
-      // A new note shows without a manual refresh.
-      await actions.save((rollId: 'r0', frame: 1), 'Leader');
-      await c.read(rollDetailProvider('r0').future);
-      expect(c.read(provider).requireValue.map((f) => f.number), [1, 3, 12]);
-    },
-  );
 
   test('a user with no cameras and no rolls is new', () async {
     final c = containerWith();

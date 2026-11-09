@@ -8,7 +8,7 @@ The app keeps a local store (SQLite) on the phone, so the field workflow works w
 
 The app has three tabs.
 
-- **Shooting**: the cameras with film in them, each with its roll, shot ISO and start date. Note a frame by typing its number, finish a roll, or load a new one into an empty camera.
+- **Shooting**: the cameras with film in them, each with its roll, shot ISO and start date. Finish a roll, or load a new one into an empty camera. Frame notes are on the roll's page.
 - **Rolls**: a roll log with a chip for each status, a Negatives at lab chip and a format filter. Film in stock lists the soonest expiry first and marks expired or expiring film. Load a roll into a camera, finish it, record the lenses used, and note frames from the roll's page. Send a roll to a lab, or record work done at home, and mark negatives and scans as received. A roll's page shows its scans: view, zoom, download and share them.
 - **More**: Gear, Film stocks, Labs, Negatives at lab, Sync status, the signed-in account, a link to the dashboard, Settings and Log out.
 
