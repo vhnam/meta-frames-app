@@ -56,6 +56,11 @@ RollSummary roll(
   Map<String, dynamic>? expiry,
   int format = 135,
   bool negativesAtLab = false,
+  String? startedAt,
+  bool? developed,
+  bool? scanned,
+  List<String>? openJobTypes,
+  bool? openAtLab,
 }) => RollSummary.fromJson({
   'id': id,
   'filmStockId': stockId,
@@ -66,6 +71,11 @@ RollSummary roll(
   'status': status,
   'expiry': expiry,
   'negativesAtLab': negativesAtLab,
+  'startedAt': ?startedAt,
+  'developed': ?developed,
+  'scanned': ?scanned,
+  'openJobTypes': ?openJobTypes,
+  'openAtLab': ?openAtLab,
 });
 
 RollDetail rollDetail(

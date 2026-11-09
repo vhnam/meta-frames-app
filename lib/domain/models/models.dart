@@ -453,6 +453,12 @@ class RollSummary {
       startedAt = _date(j['startedAt']),
       finishedAt = _date(j['finishedAt']),
       negativesAtLab = j['negativesAtLab'] ?? false,
+      developed = j['developed'],
+      scanned = j['scanned'],
+      openJobTypes = (j['openJobTypes'] as List?)
+          ?.map((t) => ProcessingType.parse(t))
+          .toList(),
+      openAtLab = j['openAtLab'],
       version = j['version'];
   final String id, filmStockId, stockBrand, stockName;
   final String? cameraId, cameraName, description;
@@ -462,6 +468,18 @@ class RollSummary {
   final ExpiryMonth? expiry;
   final DateTime? startedAt, finishedAt;
   final bool negativesAtLab;
+
+  /// Job summary from the server. Null in a summary cached from an older
+  /// server: the roll then falls back to its plain status.
+  /// [developed]: a develop job has a result back. [scanned]: scans arrived.
+  final bool? developed, scanned;
+
+  /// Types of the jobs still waiting for scans or negatives.
+  final List<ProcessingType>? openJobTypes;
+
+  /// A job is open at a lab. False while the roll is processed at home, even
+  /// though its status is then at lab. Null from an older server.
+  final bool? openAtLab;
 
   /// Moves on every change to the roll. Sent back as `If-Match` so an edit
   /// never overwrites a newer change. Null from a server too old to send it.

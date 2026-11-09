@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_stage.dart';
 import '../../../routing/routes.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -93,10 +94,12 @@ class RollCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        StatusChip(roll.status),
+                        StampBadge(_statusLabel(roll), color: tone),
                         if (process != null) ProcessBadge(process!),
                         ?extraBadge,
-                        if (roll.negativesAtLab)
+                        // An at-lab label already says the negatives are away.
+                        if (roll.negativesAtLab &&
+                            roll.status != RollStatus.atLab)
                           StampBadge(
                             'Negatives at lab',
                             color: cs.onPrimaryContainer,
@@ -119,4 +122,26 @@ class RollCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The status with what the jobs add: "At lab · Develop + Scan" while at the
+/// lab, "At home · Develop" while processed at home, "Developed + Scanned"
+/// once back.
+String _statusLabel(RollSummary roll) {
+  final stage = rollStage(roll);
+  if (stage == null) return roll.status.label;
+  if (stage.open) {
+    final steps = [
+      if (stage.develop) 'Develop',
+      if (stage.scan) 'Scan',
+      if (stage.print) 'Print',
+    ];
+    final place = stage.atHome ? 'At home' : roll.status.label;
+    return '$place · ${steps.join(' + ')}';
+  }
+  return [
+    if (stage.develop) 'Developed',
+    if (stage.scan) 'Scanned',
+    if (stage.print) 'Printed',
+  ].join(' + ');
 }

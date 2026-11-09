@@ -137,6 +137,113 @@ void main() {
     expect(await visibleIds(), ['soon', 'year', 'late', 'none', 'none2']);
   });
 
+  test(
+    'a developed and scanned roll is under both chips, once in All',
+    () async {
+      rolls.all = [
+        roll('both', status: 'scanned', developed: true, scanned: true),
+        roll('scanOnly', status: 'scanned', developed: false, scanned: true),
+        roll('dev', status: 'developed', developed: true, scanned: false),
+      ];
+      expect(await visibleIds(), ['both', 'scanOnly', 'dev']);
+      final vm = container.read(rollsViewModelProvider.notifier);
+      vm.selectStatus(RollStatus.developed);
+      expect(await visibleIds(), ['both', 'dev']);
+      vm.selectStatus(RollStatus.scanned);
+      expect(await visibleIds(), ['both', 'scanOnly']);
+      final counts = container.read(rollCountsProvider)!;
+      expect(counts.all, 3);
+      expect(counts.byStatus[RollStatus.developed], 2);
+      expect(counts.byStatus[RollStatus.scanned], 2);
+    },
+  );
+
+  test(
+    'lists newest start date first, rolls not started last in server order',
+    () async {
+      rolls.all = [
+        roll('addedLast'),
+        roll('old', status: 'scanned', startedAt: '2026-01-05'),
+        roll('addedFirst'),
+        roll('new', status: 'in_camera', startedAt: '2026-10-01'),
+        roll(
+          'mid',
+          status: 'at_lab',
+          startedAt: '2026-05-01',
+          negativesAtLab: true,
+        ),
+        roll(
+          'midToo',
+          status: 'scanned',
+          startedAt: '2026-05-01',
+          negativesAtLab: true,
+        ),
+      ];
+      expect(await visibleIds(), [
+        'new',
+        'mid',
+        'midToo',
+        'old',
+        'addedLast',
+        'addedFirst',
+      ]);
+      final vm = container.read(rollsViewModelProvider.notifier);
+      vm.selectStatus(RollStatus.scanned);
+      expect(await visibleIds(), ['midToo', 'old']);
+      vm.selectNegativesAtLab();
+      expect(await visibleIds(), ['mid', 'midToo']);
+    },
+  );
+
+  test('a roll processed at home is only in All', () async {
+    rolls.all = [
+      roll('lab', status: 'at_lab', openJobTypes: ['develop'], openAtLab: true),
+      roll(
+        'home',
+        status: 'at_lab',
+        openJobTypes: ['develop'],
+        openAtLab: false,
+      ),
+    ];
+    expect(await visibleIds(), ['lab', 'home']);
+    container
+        .read(rollsViewModelProvider.notifier)
+        .selectStatus(RollStatus.atLab);
+    expect(await visibleIds(), ['lab']);
+    final counts = container.read(rollCountsProvider)!;
+    expect(counts.all, 2);
+    expect(counts.byStatus[RollStatus.atLab], 1);
+  });
+
+  test('developed at a lab, then scanned at home, is only in All', () async {
+    rolls.all = [
+      roll(
+        'homeScan',
+        status: 'at_lab',
+        developed: true,
+        scanned: false,
+        openJobTypes: ['scan'],
+        openAtLab: false,
+      ),
+      roll('dev', status: 'developed', developed: true, scanned: false),
+    ];
+    expect(await visibleIds(), ['homeScan', 'dev']);
+    final vm = container.read(rollsViewModelProvider.notifier);
+    for (final s in [
+      RollStatus.developed,
+      RollStatus.scanned,
+      RollStatus.atLab,
+    ]) {
+      vm.selectStatus(s);
+      expect(await visibleIds(), isNot(contains('homeScan')), reason: s.wire);
+    }
+    final counts = container.read(rollCountsProvider)!;
+    expect(counts.all, 2);
+    expect(counts.byStatus[RollStatus.developed], 1);
+    expect(counts.byStatus[RollStatus.scanned], 0);
+    expect(counts.byStatus[RollStatus.atLab], 0);
+  });
+
   test('a filter change queries the server', () async {
     await visibleIds();
     container

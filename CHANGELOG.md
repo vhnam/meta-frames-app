@@ -17,11 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging out or switching server with unsent changes asks to keep them on the phone or discard them. Kept changes are sent only when the same account signs in again on the same server.
 - Quick-create forms for cameras, lenses, film stocks, labs and added rolls save a draft before sending. A create that times out or is interrupted is kept, listed in the picker and in Sync status, and sent again under the same id without making a second record.
 - Each saved server can have a dashboard URL. The Dashboard entry in More opens it in the browser (the one of the server in use when tapped); if no browser takes it, the address can be copied.
+- A roll card names the jobs as well as the status: "At lab · Develop + Scan" while a job is open at a lab, "At home · Develop" while the work is at home, and "Developed + Scanned" once both are back. A printed-only roll reads "Printed". Needs a MetaFrames API that sends `developed`, `scanned`, `openJobTypes` and `openAtLab`; an older one shows the plain status.
 - Edit Roll sends the version of the roll it opened with. If the roll changed meanwhile, such as a note saved from the phone, nothing is saved and the form reloads to show what changed. Needs a MetaFrames API that returns `version` on rolls and accepts `If-Match`.
 
 ### Changed
 
 - Settings has Appearance: System, Light or Dark, kept on this phone. Dark mode uses a lighter orange and lighter text so filled buttons, links and secondary text stay readable.
+- The Developed and Scanned chips each count a roll that is both. A roll processed at home is under neither. Rolls other than film in stock list the newest start date first, and rolls not started come last.
 - The tabs are Shooting, Rolls and More. Shooting replaces Home and its counters. Rolls ready for the lab are under the Done shooting chip, negatives at the lab under More and the new Negatives at lab chip, and expiring film in the Rolls list. Links to `/home` open Shooting.
 - Note frame asks only for the frame number and starts empty each time: the app does not guess which frame was just taken. Any whole number from 0 opens, including frames past the exposure count. Frame notes need no scans.
 - In stock, the Rolls list shows film soonest expiry first and marks expired film. Load roll's picker marks expired and expiring rolls, and searching it by format, such as 120, narrows the list.

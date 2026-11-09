@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/expiry.dart';
 import '../../../domain/models/models.dart';
 import '../../../domain/models/roll_filter.dart';
+import '../../../domain/models/roll_stage.dart';
 import '../../../providers.dart';
 
 /// State of the Rolls tab: the server-side filter, the labels shown for the
@@ -129,29 +130,46 @@ final rollFormatsProvider = Provider.autoDispose<List<int>>((ref) {
 
 /// The rolls on screen: the format-narrowed list, narrowed again to the
 /// selected chip. Film in stock is listed soonest expiry first, so film to use
-/// up comes first.
+/// up comes first; every other list is newest start date first, rolls not
+/// started last.
 final visibleRollsProvider =
     Provider.autoDispose<AsyncValue<List<RollSummary>>>((ref) {
       final state = ref.watch(rollsViewModelProvider);
       final status = state.status;
       return ref.watch(_formatRollsProvider).whenData((all) {
-        if (state.negativesAtLab) {
-          return all.where((r) => r.negativesAtLab).toList();
+        final shown = [
+          for (final r in all)
+            if (state.negativesAtLab
+                ? r.negativesAtLab
+                : status == null || inStatusChip(r, status))
+              r,
+        ];
+        if (status == RollStatus.inStock) {
+          return _sortKeepingServerOrder(
+            shown,
+            (a, b) => expiryKey(a.expiry).compareTo(expiryKey(b.expiry)),
+          );
         }
-        if (status == null) return all;
-        final shown = all.where((r) => r.status == status).toList();
-        if (status != RollStatus.inStock) return shown;
-        // List.sort is not stable: the index keeps the server order among
-        // equal expiries.
-        final order = {for (final (i, r) in shown.indexed) r.id: i};
-        return shown..sort((a, b) {
-          final byExpiry = expiryKey(a.expiry).compareTo(expiryKey(b.expiry));
-          return byExpiry != 0
-              ? byExpiry
-              : order[a.id]!.compareTo(order[b.id]!);
+        return _sortKeepingServerOrder(shown, (a, b) {
+          final (x, y) = (a.startedAt, b.startedAt);
+          if (x != null && y != null) return y.compareTo(x);
+          return (x == null ? 1 : 0) - (y == null ? 1 : 0);
         });
       });
     });
+
+/// Sorts [rolls] in place by [compare]. List.sort is not stable: the index
+/// keeps the server order among equal rolls.
+List<RollSummary> _sortKeepingServerOrder(
+  List<RollSummary> rolls,
+  int Function(RollSummary a, RollSummary b) compare,
+) {
+  final order = {for (final (i, r) in rolls.indexed) r.id: i};
+  return rolls..sort((a, b) {
+    final by = compare(a, b);
+    return by != 0 ? by : order[a.id]!.compareTo(order[b.id]!);
+  });
+}
 
 /// How many rolls each chip would show for the current filter and format.
 typedef RollCounts = ({
@@ -168,7 +186,7 @@ final rollCountsProvider = Provider.autoDispose<RollCounts?>((ref) {
     all: all.length,
     byStatus: {
       for (final s in RollStatus.values)
-        s: all.where((r) => r.status == s).length,
+        s: all.where((r) => inStatusChip(r, s)).length,
     },
     negativesAtLab: all.where((r) => r.negativesAtLab).length,
   );
