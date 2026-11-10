@@ -38,7 +38,14 @@ class AuthActions {
       _ref.read(authRepositoryProvider).recover(email.trim());
 
   /// Ends the session on this device even if the server cannot be reached.
-  Future<void> logout() async {
+  /// What this phone keeps for the account (unsynced changes, drafts, saved
+  /// reads) stays, to sync when the same account signs in on the same server,
+  /// unless [discardKept] (the user's explicit choice).
+  Future<void> logout({bool discardKept = false}) async {
+    final kept = _ref.read(localStoreProvider)?.key;
+    if (discardKept && kept != null) {
+      await _ref.read(partitionControllerProvider).discard(kept);
+    }
     try {
       await _ref.read(authRepositoryProvider).logout();
     } on ApiException {

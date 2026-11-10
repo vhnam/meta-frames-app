@@ -12,7 +12,8 @@ import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
-/// M-13 view/edit stock, M-15 stocks sharing a base stock.
+/// A film stock and the stocks that share its base. Read-only: the dashboard
+/// edits stocks.
 class StockDetailScreen extends ConsumerWidget {
   const StockDetailScreen({super.key, required this.stockId});
   final String stockId;
@@ -33,20 +34,6 @@ class StockDetailScreen extends ConsumerWidget {
           v.value?.stock.label ?? 'Film stock',
           style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
         ),
-        actions: [
-          if (v.value != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: TextButton(
-                onPressed: () =>
-                    context.push(Routes.stockEdit(v.value!.stock.id)),
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-        ],
       ),
       body: AsyncBody(
         value: v,

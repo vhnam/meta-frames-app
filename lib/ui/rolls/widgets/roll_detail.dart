@@ -5,7 +5,10 @@ import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
+import '../../sync/view_models/sync_actions.dart';
+import '../../sync/widgets/op_status.dart';
 import 'finish_roll.dart';
+import 'frame_notes.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
@@ -36,8 +39,15 @@ class RollDetailScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: TextButton(
-                onPressed: () =>
-                    context.push(Routes.rollEdit(v.value!.roll.id)),
+                // The edit replaces the whole roll: it waits until this
+                // phone's changes to the roll are on the server, so it never
+                // starts from a state the server does not have.
+                onPressed: () => ref.read(rollOpsProvider(rollId)).isEmpty
+                    ? context.push(Routes.rollEdit(v.value!.roll.id))
+                    : toast(
+                        context,
+                        'This roll has changes waiting to sync. Edit it once they are on the server.',
+                      ),
                 child: const Text(
                   'Edit',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -85,7 +95,7 @@ class _Body extends ConsumerWidget {
           style: FilledButton.styleFrom(padding: pad),
           icon: const Icon(Icons.check),
           label: const Text('Finish roll'),
-          onPressed: () => finishRoll(context, ref, r.id),
+          onPressed: () => finishRoll(context, ref, r.id, cameraId: r.cameraId),
         ),
       if (r.status == RollStatus.doneShooting && detail.processing.isEmpty)
         FilledButton.icon(
@@ -105,11 +115,16 @@ class _Body extends ConsumerWidget {
         ),
     ];
     final notes = r.description?.trim() ?? '';
+    final ops = ref.watch(rollOpsProvider(r.id));
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         WarningBanner(detail.warnings),
+        for (final op in ops) ...[
+          OpStatusCard(op: op),
+          const SizedBox(height: 8),
+        ],
         const DetailLabel('ROLL', top: 0),
         CardList(
           children: [
@@ -125,8 +140,28 @@ class _Body extends ConsumerWidget {
             ),
             DetailInfoRow('Started', fmtDate(r.startedAt)),
             DetailInfoRow('Finished', fmtDate(r.finishedAt)),
-            if (notes.isNotEmpty) DetailInfoRow('Notes', notes),
           ],
+        ),
+        DetailLabel(
+          'NOTES',
+          trailing: TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            onPressed: () => context.push(Routes.rollNotes(r.id)),
+            child: Text(
+              notes.isEmpty ? 'Add notes' : 'Edit',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        Text(
+          notes.isEmpty ? 'Subject, location, conditions, incidents.' : notes,
+          style: TextStyle(
+            fontSize: 14,
+            color: notes.isEmpty ? cs.onSurfaceVariant : cs.onSurface,
+          ),
         ),
         if (r.cameraId != null ||
             detail.lenses.isNotEmpty ||
@@ -223,7 +258,7 @@ class _Body extends ConsumerWidget {
               minimumSize: const Size(0, 32),
               padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            onPressed: () => _openFrame(context),
+            onPressed: () => noteFrame(context, r.id),
             child: const Text(
               'Add notes',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -232,7 +267,7 @@ class _Body extends ConsumerWidget {
         ),
         if (detail.frames.isEmpty)
           Text(
-            'No frames yet. Import scans or add notes.',
+            'No frames yet. Add notes, or import scans in the dashboard.',
             style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
           )
         else
@@ -259,34 +294,6 @@ class _Body extends ConsumerWidget {
         const SizedBox(height: 16),
       ],
     );
-  }
-
-  Future<void> _openFrame(BuildContext context) async {
-    final c = TextEditingController();
-    final n = await showDialog<int>(
-      context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('Frame number'),
-        content: TextField(
-          controller: c,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(d),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(d, int.tryParse(c.text)),
-            child: const Text('Open'),
-          ),
-        ],
-      ),
-    );
-    if (n != null && context.mounted) {
-      context.push(Routes.frame(detail.roll.id, n));
-    }
   }
 }
 

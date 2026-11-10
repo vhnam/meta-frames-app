@@ -13,8 +13,8 @@ import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
-/// M-11 camera details, M-09 entry point.
-/// Read-only summary; activating and deleting are on the edit screen.
+/// Camera details. Read-only (the dashboard edits cameras), with a Load roll
+/// action for an empty one.
 class CameraDetailScreen extends ConsumerWidget {
   const CameraDetailScreen({super.key, required this.cameraId});
   final String cameraId;
@@ -35,19 +35,6 @@ class CameraDetailScreen extends ConsumerWidget {
           cam.value?.name ?? 'Camera',
           style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
         ),
-        actions: [
-          if (cam.value != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: TextButton(
-                onPressed: () => context.push(Routes.cameraEdit(cam.value!.id)),
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-        ],
       ),
       body: AsyncBody(
         value: cam,
@@ -125,13 +112,6 @@ class _Body extends ConsumerWidget {
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text('$e'),
         ),
-        if (!camera.hasFixedLens) ...[
-          const SizedBox(height: 8),
-          DashedButton(
-            label: 'Manage lenses',
-            onTap: () => context.push(Routes.cameraLenses(camera.id)),
-          ),
-        ],
         if (loaded == null && camera.isActive) ...[
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -190,11 +170,8 @@ class _LoadedRollCard extends StatelessWidget {
         ],
       );
     }
-    final iso = r.shotIso ?? stock?.boxIso;
-    final pushed =
-        r.shotIso != null && stock != null && !stock!.isBoxSpeed(r.shotIso!);
     final subtitle = [
-      if (iso != null) 'ISO $iso (${pushed ? 'pushed/pulled' : 'box'})',
+      ?r.isoLabel(stock),
       if (r.startedAt != null)
         'loaded ${r.startedAt!.toIso8601String().substring(0, 10)}',
       '${r.daysLoaded}d',
@@ -209,7 +186,7 @@ class _LoadedRollCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${r.stockBrand} ${r.stockName}',
+                  r.stockLabel,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,

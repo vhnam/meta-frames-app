@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../domain/models/expiry.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 import '../../core/theme.dart';
@@ -14,7 +15,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/cards.dart';
 import 'roll_card.dart';
 
-/// M-22 browse rolls by status with filters.
+/// M-22 browse rolls by status with filters. Film in stock shows its expiry,
+/// so the separate Expiry screen is no longer needed to find film to use up.
 class RollsTab extends ConsumerWidget {
   const RollsTab({super.key});
 
@@ -32,7 +34,9 @@ class RollsTab extends ConsumerWidget {
     final noRolls =
         !state.filtered &&
         (ref.watch(rollsProvider(state.filter)).value?.isEmpty ?? false);
-    final counts = ref.watch(rollStatusCountsProvider);
+    final counts = ref.watch(rollCountsProvider);
+    final formats = ref.watch(rollFormatsProvider);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: SafeArea(
@@ -64,8 +68,16 @@ class RollsTab extends ConsumerWidget {
             if (!noRolls)
               _StatusChips(
                 counts: counts,
-                selected: state.status,
-                onSelected: vm.selectStatus,
+                state: state,
+                onStatus: vm.selectStatus,
+                onNegativesAtLab: vm.selectNegativesAtLab,
+              ),
+            // Only worth a row when there is a choice, or one to undo.
+            if (!noRolls && (formats.length > 1 || state.format != null))
+              _FormatPills(
+                formats: formats,
+                selected: state.format,
+                onSelected: vm.setFormat,
               ),
             Expanded(
               child: AsyncBody(
@@ -83,6 +95,11 @@ class RollsTab extends ConsumerWidget {
                       roll: rs[i],
                       process: processes[rs[i].filmStockId],
                       expiring: expiring.contains(rs[i].id),
+                      extraBadge:
+                          rs[i].status == RollStatus.inStock &&
+                              isExpired(rs[i].expiry)
+                          ? StampBadge('Expired', color: cs.error)
+                          : null,
                     ),
                   );
                 },
@@ -162,17 +179,6 @@ class _FilterSheet extends ConsumerWidget {
             },
             onClear: () => vm.setLens(null),
           ),
-          DropdownButtonFormField<int?>(
-            initialValue: filter.format,
-            decoration: deco('Format'),
-            items: const [
-              DropdownMenuItem(value: null, child: Text('Any')),
-              DropdownMenuItem(value: 135, child: Text('135')),
-              DropdownMenuItem(value: 120, child: Text('120')),
-              DropdownMenuItem(value: 220, child: Text('220')),
-            ],
-            onChanged: vm.setFormat,
-          ),
           Row(
             spacing: 12,
             children: [
@@ -213,26 +219,29 @@ class _FilterSheet extends ConsumerWidget {
   }
 }
 
-/// "All (10)  In stock (3)  In camera (2) ..." selectable chips.
+/// "All 10  In stock 3  In camera 2 ... Negatives at lab 1" selectable chips:
+/// one per business status, plus the rolls whose negatives are at a lab.
 class _StatusChips extends StatelessWidget {
   const _StatusChips({
     required this.counts,
-    required this.selected,
-    required this.onSelected,
+    required this.state,
+    required this.onStatus,
+    required this.onNegativesAtLab,
   });
-  final Map<RollStatus?, int>? counts;
-  final RollStatus? selected;
-  final ValueChanged<RollStatus?> onSelected;
+  final RollCounts? counts;
+  final RollsState state;
+  final ValueChanged<RollStatus?> onStatus;
+  final VoidCallback onNegativesAtLab;
 
   @override
   Widget build(BuildContext context) {
-    Widget chip(String label, RollStatus? value, int? count) => FilterPill(
-      label: '$label${count == null ? '' : ' $count'}',
-      on: selected == value,
-      onTap: () => onSelected(value),
-    );
-
-    int? count(RollStatus? s) => counts?[s];
+    Widget chip(String label, int? count, bool on, VoidCallback onTap) =>
+        FilterPill(
+          label: '$label${count == null ? '' : ' $count'}',
+          on: on,
+          onTap: onTap,
+        );
+    final noChip = state.status == null && !state.negativesAtLab;
 
     return SizedBox(
       height: 60,
@@ -240,15 +249,63 @@ class _StatusChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         children: [
-          chip('All', null, count(null)),
+          chip('All', counts?.all, noChip, () => onStatus(null)),
           for (final s in RollStatus.values) ...[
             const SizedBox(width: 6),
-            chip(s.label, s, count(s)),
+            chip(
+              s.label,
+              counts?.byStatus[s],
+              state.status == s,
+              () => onStatus(s),
+            ),
           ],
+          const SizedBox(width: 6),
+          chip(
+            'Negatives at lab',
+            counts?.negativesAtLab,
+            state.negativesAtLab,
+            onNegativesAtLab,
+          ),
         ],
       ),
     );
   }
+}
+
+/// "Any format  135  120" pills from the formats in the list.
+class _FormatPills extends StatelessWidget {
+  const _FormatPills({
+    required this.formats,
+    required this.selected,
+    required this.onSelected,
+  });
+  final List<int> formats;
+  final int? selected;
+  final ValueChanged<int?> onSelected;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 48,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      children: [
+        FilterPill(
+          label: 'Any format',
+          on: selected == null,
+          onTap: () => onSelected(null),
+        ),
+        for (final f in {...formats, ?selected}) ...[
+          const SizedBox(width: 6),
+          FilterPill(
+            label: '$f',
+            on: selected == f,
+            onTap: () => onSelected(f),
+          ),
+        ],
+      ],
+    ),
+  );
 }
 
 /// Shown on every chip when the user has logged no rolls at all. Same card

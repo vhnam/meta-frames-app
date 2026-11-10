@@ -14,11 +14,6 @@ class LabRepositoryRemote implements LabRepository {
   Future<Lab> lab(String id) async =>
       Lab.fromJson(await _api.send('GET', '/labs/$id'));
   @override
-  Future<Lab> create(LabEdit lab) async =>
-      Lab.fromJson(await _api.send('POST', '/labs', body: lab.toJson()));
-  @override
-  Future<Lab> update(String id, LabEdit lab) async =>
-      Lab.fromJson(await _api.send('PUT', '/labs/$id', body: lab.toJson()));
-  @override
-  Future<void> delete(String id) => _api.send('DELETE', '/labs/$id');
+  Future<Lab> create(LabEdit lab, {String? id}) async =>
+      Lab.fromJson(await _api.create('/labs', lab.toJson(), id: id));
 }

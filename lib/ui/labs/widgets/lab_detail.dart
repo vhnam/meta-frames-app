@@ -3,13 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
-import '../../../routing/navigation.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
-import '../view_models/lab_actions.dart';
-import 'lab_dialog.dart';
 
 /// A lab's name, address and scanners, as the dashboard's lab shows them.
+/// Read-only: the dashboard edits and deletes labs.
 class LabDetailScreen extends ConsumerWidget {
   const LabDetailScreen({super.key, required this.labId});
   final String labId;
@@ -30,19 +28,6 @@ class LabDetailScreen extends ConsumerWidget {
           lab.value?.name ?? 'Lab',
           style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
         ),
-        actions: [
-          if (lab.value != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: TextButton(
-                onPressed: () => editLab(context, lab.value),
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-        ],
       ),
       body: AsyncBody(
         value: lab,
@@ -62,7 +47,6 @@ class _Body extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final scanners = ref.watch(scannersProvider);
 
     return ListView(
@@ -83,16 +67,6 @@ class _Body extends ConsumerWidget {
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('$e'),
           ),
-        const SizedBox(height: 20),
-        CardList(
-          children: [
-            DetailActionRow(
-              label: 'Delete lab',
-              color: cs.error,
-              onTap: () => _delete(context, ref),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
       ],
     );
@@ -129,22 +103,5 @@ class _Body extends ConsumerWidget {
           ),
       ],
     );
-  }
-
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    if (!await confirm(
-      context,
-      'Delete lab?',
-      '${lab.name} will be removed. Refused if it has processing history.',
-      ok: 'Delete',
-    )) {
-      return;
-    }
-    if (!context.mounted) return;
-    final ok = await guard(
-      context,
-      () => ref.read(labActionsProvider).delete(lab.id),
-    );
-    if (ok && context.mounted) context.closeScreen();
   }
 }

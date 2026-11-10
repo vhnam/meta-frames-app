@@ -52,36 +52,40 @@ const _light = ColorScheme(
 
 const _dark = ColorScheme(
   brightness: Brightness.dark,
-  primary: Color(0xFF9F2D00),
-  onPrimary: Color(0xFFFFF7ED),
+  // Light orange fill with dark text: 9.4:1. As text on cards: 8.1:1.
+  primary: Color(0xFFFFAA73),
+  onPrimary: Color(0xFF25160F),
   primaryContainer: Color(0xFF3A1405),
-  // Bright orange: 4.5:1+ on the dark surfaces, for text and icons.
-  onPrimaryContainer: Color(0xFFFF6900),
-  secondary: Color(0xFF27272A),
-  onSecondary: Color(0xFFFAFAFA),
-  secondaryContainer: Color(0xFF27272A),
-  onSecondaryContainer: Color(0xFFFAFAFA),
+  // Same light orange for text, icons and selected-chip borders.
+  onPrimaryContainer: Color(0xFFFFAA73),
+  secondary: Color(0xFF30323A),
+  onSecondary: Color(0xFFF1F1F3),
+  secondaryContainer: Color(0xFF30323A),
+  onSecondaryContainer: Color(0xFFF1F1F3),
   tertiary: Color(0xFFD4D4D8),
-  onTertiary: Color(0xFF09090B),
+  onTertiary: Color(0xFF17181C),
   tertiaryContainer: Color(0xFF3F3F46),
   onTertiaryContainer: Color(0xFFE4E4E7),
   error: Color(0xFFFF6467),
-  onError: Color(0xFF09090B),
+  onError: Color(0xFF17181C),
   errorContainer: Color(0xFF4A1416),
   onErrorContainer: Color(0xFFFFB3B5),
-  surface: Color(0xFF09090B),
-  onSurface: Color(0xFFFAFAFA),
-  onSurfaceVariant: Color(0xFF9F9FA9),
+  // Screen background; primary text 15.7:1.
+  surface: Color(0xFF17181C),
+  onSurface: Color(0xFFF1F1F3),
+  // Secondary text: 8.8:1 on cards.
+  onSurfaceVariant: Color(0xFFC4C5CF),
   outline: Color(0xFF71717B),
   // Stronger than oklch(1 0 0 / 10%) so card borders read on dark surfaces.
-  outlineVariant: Color(0xFF3A3A40),
-  surfaceContainerLowest: Color(0xFF09090B),
-  surfaceContainerLow: Color(0xFF18181B),
-  surfaceContainer: Color(0xFF1F1F22),
-  surfaceContainerHigh: Color(0xFF27272A),
-  surfaceContainerHighest: Color(0xFF27272A),
-  inverseSurface: Color(0xFFFAFAFA),
-  onInverseSurface: Color(0xFF18181B),
+  outlineVariant: Color(0xFF3A3C45),
+  surfaceContainerLowest: Color(0xFF17181C),
+  // Card, dialog and menu background.
+  surfaceContainerLow: Color(0xFF24262D),
+  surfaceContainer: Color(0xFF2A2C33),
+  surfaceContainerHigh: Color(0xFF30323A),
+  surfaceContainerHighest: Color(0xFF30323A),
+  inverseSurface: Color(0xFFF1F1F3),
+  onInverseSurface: Color(0xFF24262D),
   inversePrimary: Color(0xFFCA3500),
   shadow: Color(0xFF000000),
   scrim: Color(0xFF000000),
@@ -172,7 +176,7 @@ ThemeData buildTheme(Brightness brightness) {
     borderRadius: BorderRadius.circular(kStampRadius),
   );
   final dark = brightness == Brightness.dark;
-  final navBg = dark ? const Color(0xFF27272A) : const Color(0xFF18181B);
+  final navBg = dark ? cs.surfaceContainerLow : const Color(0xFF18181B);
   const navFg = Color(0xFFFAFAFA);
   const navFgMuted = Color(0xFFA1A1AA);
   final buttonText = monoStyle(
@@ -266,9 +270,8 @@ ThemeData buildTheme(Brightness brightness) {
       style: TextButton.styleFrom(
         shape: shape,
         textStyle: buttonText,
-        // In dark mode the primary orange is too dark to read as text.
-        foregroundColor: dark ? cs.onPrimaryContainer : cs.primary,
-        iconColor: dark ? cs.onPrimaryContainer : cs.primary,
+        foregroundColor: cs.primary,
+        iconColor: cs.primary,
         disabledForegroundColor: cs.onSurface.withValues(alpha: 0.38),
         disabledIconColor: cs.onSurface.withValues(alpha: 0.38),
       ),
@@ -325,7 +328,7 @@ ThemeData buildTheme(Brightness brightness) {
         letterSpacing: 1.2,
       ),
       unselectedLabelStyle: monoStyle(fontSize: 11.5, letterSpacing: 1.2),
-      indicatorColor: dark ? cs.onPrimaryContainer : cs.primary,
+      indicatorColor: cs.primary,
       indicatorSize: TabBarIndicatorSize.label,
       dividerColor: cs.outlineVariant,
       dividerHeight: kHairline,

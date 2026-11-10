@@ -6,6 +6,7 @@ import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/ui/rolls/widgets/add_rolls.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../testing/fakes.dart';
 
@@ -14,9 +15,12 @@ class _RecordingRolls extends FakeRollRepository {
   NewRolls? added;
 
   @override
-  Future<List<RollSummary>> addRolls(NewRolls rolls) async {
+  Future<List<RollSummary>> addRolls(
+    NewRolls rolls, {
+    String? idempotencyKey,
+  }) async {
     added = rolls;
-    return const [];
+    return super.addRolls(rolls, idempotencyKey: idempotencyKey);
   }
 }
 
@@ -25,6 +29,8 @@ Future<_RecordingRolls> _pump(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final rolls = _RecordingRolls();
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   final router = GoRouter(
     initialLocation: '/',
     routes: [
@@ -43,7 +49,10 @@ Future<_RecordingRolls> _pump(WidgetTester tester) async {
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [rollRepositoryProvider.overrideWithValue(rolls)],
+      overrides: [
+        prefsProvider.overrideWithValue(prefs),
+        rollRepositoryProvider.overrideWithValue(rolls),
+      ],
       child: MaterialApp.router(routerConfig: router),
     ),
   );

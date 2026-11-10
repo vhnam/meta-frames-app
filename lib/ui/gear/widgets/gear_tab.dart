@@ -135,7 +135,7 @@ class _State extends ConsumerState<GearTab> {
       groups: groups,
       emptyIcon: Icons.adjust,
       emptyTitle: 'No lenses yet',
-      emptyText: 'Tap the button below to add interchangeable lenses and link them to your cameras.',
+      emptyText: 'Tap the button below to add a lens.',
       noneActiveText: 'Your inactive lenses are kept below for your roll history. Add a new lens with + Lens.',
       onRefresh: () async => ref.refresh(lensesProvider.future),
       tile: (l, inactive) => _LensTile(lens: l, inactive: inactive),

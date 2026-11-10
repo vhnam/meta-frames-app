@@ -6,6 +6,21 @@ import '../../../domain/models/roll_requests.dart';
 import '../../../providers.dart';
 import 'roll_actions.dart';
 
+/// Reads the Shot ISO field. Empty means the roll is shot at its box speed
+/// (null). Anything else must be a whole number from 1, as the server requires;
+/// otherwise throws a [FormatException], so a typo is never loaded as box speed.
+int? parseShotIso(String text) {
+  final t = text.trim();
+  if (t.isEmpty) return null;
+  final iso = int.tryParse(t);
+  if (iso == null || iso < 1) {
+    throw const FormatException(
+      'Enter a whole number, or leave empty for box speed',
+    );
+  }
+  return iso;
+}
+
 /// Camera and roll the screen was opened with; either may be null.
 typedef LoadRollArgs = ({Camera? camera, RollSummary? roll});
 
@@ -91,13 +106,21 @@ class LoadRollViewModel extends Notifier<LoadRollState> {
     }
   }
 
-  /// In-stock rolls, soonest expiry first.
+  /// In-stock rolls, soonest expiry first. Rolls loaded on this phone but not
+  /// synced yet are left out (the device read shows them in their camera).
   Future<List<RollSummary>> inStockRolls() async {
     final rolls = await ref
         .read(rollRepositoryProvider)
         .rolls(status: 'in_stock');
     return rolls
       ..sort((a, b) => expiryKey(a.expiry).compareTo(expiryKey(b.expiry)));
+  }
+
+  /// Ids of in-stock rolls the server reports as expired or expiring soon.
+  /// The horizon is the server's, so the picker and the Rolls list agree.
+  Future<Set<String>> expiringRollIds() async {
+    final report = await ref.read(expiryProvider.future);
+    return {for (final e in report.expiring) e.roll.id};
   }
 
   /// Active cameras with nothing loaded.
@@ -152,7 +175,8 @@ class LoadRollViewModel extends Notifier<LoadRollState> {
     return ref
         .read(rollActionsProvider)
         .load(
-          s.roll!.id,
+          s.roll!,
+          s.camera!,
           LoadRollRequest(
             cameraId: s.camera!.id,
             startedAt: s.started,

@@ -16,14 +16,9 @@ class FilmStockRepositoryRemote implements FilmStockRepository {
   Future<FilmStockDetail> stock(String id) async =>
       FilmStockDetail.fromJson(await _api.send('GET', '/film-stocks/$id'));
   @override
-  Future<FilmStockDetail> create(FilmStockEdit stock) async =>
+  Future<FilmStockDetail> create(FilmStockEdit stock, {String? id}) async =>
       FilmStockDetail.fromJson(
-        await _api.send('POST', '/film-stocks', body: stock.toJson()),
-      );
-  @override
-  Future<FilmStockDetail> update(String id, FilmStockEdit stock) async =>
-      FilmStockDetail.fromJson(
-        await _api.send('PUT', '/film-stocks/$id', body: stock.toJson()),
+        await _api.create('/film-stocks', stock.toJson(), id: id),
       );
   @override
   Future<List<InventoryItem>> inventory({

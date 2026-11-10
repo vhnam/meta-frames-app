@@ -46,52 +46,68 @@ final _rollLensOptionsProvider = FutureProvider.autoDispose
 
 class _State extends ConsumerState<RollLensesScreen> {
   late final Set<String> selected = widget.current.map((l) => l.id).toSet();
+  bool busy = false;
+
+  late final _provider = _rollLensOptionsProvider((
+    cameraId: widget.cameraId,
+    current: widget.current,
+  ));
+
+  void _toggle(String id) => setState(
+    () => selected.contains(id) ? selected.remove(id) : selected.add(id),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final options = ref.watch(
-      _rollLensOptionsProvider((
-        cameraId: widget.cameraId,
-        current: widget.current,
-      )),
-    );
-    ref.listen(
-      _rollLensOptionsProvider((
-        cameraId: widget.cameraId,
-        current: widget.current,
-      )),
-      (_, v) {
-        if (v.hasError) toast(context, v.error.toString());
-      },
-    );
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: cs.surfaceContainerLow,
       appBar: formAppBar(context, 'Lenses used'),
-      body: options.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const Center(child: CircularProgressIndicator()),
-        data: (options) => ListView(
+      body: AsyncBody(
+        value: ref.watch(_provider),
+        onRefresh: () async => ref.refresh(_provider.future),
+        builder: (options) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            CardList(
-              children: [
-                for (final l in options)
-                  CheckboxListTile(
-                    value: selected.contains(l.id),
-                    title: Text(
-                      l.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                'Tick every lens used on this roll, such as after a lens swap mid-roll',
+                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+              ),
+            ),
+            FormSectionHeader(
+              number: '01',
+              title: 'Lenses',
+              note: '${selected.length} selected',
+            ),
+            if (options.isEmpty)
+              const EmptyCard(
+                icon: Icons.adjust,
+                title: 'No lenses',
+                text: 'There are no active lenses to pick from.',
+              )
+            else
+              CardList(
+                children: [
+                  for (final l in options)
+                    MergeSemantics(
+                      child: CardTile(
+                        compact: true,
+                        leading: Checkbox(
+                          value: selected.contains(l.id),
+                          onChanged: (_) => _toggle(l.id),
+                        ),
+                        title: l.name,
+                        subtitle: 'Mount ${l.mount ?? '—'}',
+                        padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+                        onTap: () => _toggle(l.id),
                       ),
                     ),
-                    onChanged: (v) => setState(
-                      () => v! ? selected.add(l.id) : selected.remove(l.id),
-                    ),
-                  ),
-              ],
-            ),
+                ],
+              ),
             const SizedBox(height: 24),
-            FormSaveBar(label: 'Save', busy: false, onPressed: _save),
+            FormSaveBar(label: 'Save', busy: busy, onPressed: _save),
           ],
         ),
       ),
@@ -99,13 +115,16 @@ class _State extends ConsumerState<RollLensesScreen> {
   }
 
   Future<void> _save() async {
+    setState(() => busy = true);
     final ok = await guard(
       context,
       () => ref
           .read(rollActionsProvider)
           .setLenses(widget.rollId, selected.toList()),
     );
-    if (!mounted || !ok) return;
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (!ok) return;
     context.closeScreen();
   }
 }

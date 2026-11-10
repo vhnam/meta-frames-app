@@ -70,4 +70,28 @@ void main() {
       });
     });
   }
+
+  test(
+    'dark scheme: text, borders and fills are readable on their backgrounds',
+    () {
+      final cs = buildTheme(Brightness.dark).colorScheme;
+      final card = cs.surfaceContainerLow;
+      for (final (fg, bg, min) in [
+        (cs.onPrimary, cs.primary, 4.5), // filled button
+        (cs.primary, card, 4.5), // outlined button, link
+        (cs.onSurface, cs.surface, 4.5),
+        (cs.onSurfaceVariant, card, 4.5), // secondary text
+        (cs.onPrimaryContainer, cs.primaryContainer, 4.5), // selected chip
+        (cs.primary, cs.surface, 3.0), // focus border
+        (cs.primary, card, 3.0),
+        (cs.outline, card, 3.0), // idle border
+      ]) {
+        expect(
+          _contrast(fg, bg),
+          greaterThanOrEqualTo(min),
+          reason: '$fg on $bg',
+        );
+      }
+    },
+  );
 }

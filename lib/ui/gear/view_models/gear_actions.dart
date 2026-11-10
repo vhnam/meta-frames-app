@@ -4,144 +4,73 @@ import '../../../domain/models/gear_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 
-/// Writes that change cameras. Each refreshes only the data it can affect.
+/// Quick add of cameras. The dashboard edits them.
 class CameraActions {
   CameraActions(this._ref);
   final Ref _ref;
 
-  /// Creates a camera, or updates [existing]. For a camera with interchangeable
-  /// lenses, [lensIds] replaces its linked lenses; pass null to leave them.
-  Future<Camera> save(
-    CameraEdit camera, {
-    Camera? existing,
-    Set<String>? lensIds,
-  }) async {
-    final repo = _ref.read(cameraRepositoryProvider);
-    final saved = existing == null
-        ? await repo.create(camera)
-        : await repo.update(existing.id, camera);
-    if (!camera.hasFixedLens && lensIds != null) {
-      await repo.setLenses(saved.id, lensIds.toList());
-    }
+  /// Creates a camera (at client id [id] when given).
+  Future<Camera> save(CameraEdit camera, {String? id}) async {
+    final saved = await _ref
+        .read(cameraRepositoryProvider)
+        .create(camera, id: id);
+    return _saved(saved);
+  }
+
+  /// After a create at [id] was refused because the id is taken: the camera
+  /// at [id] if it is this create's (the earlier attempt landed), else null.
+  Future<Camera?> landed(String id, CameraEdit camera) async {
+    final c = await _ref.read(cameraRepositoryProvider).camera(id);
+    final same =
+        c.brand == camera.brand &&
+        c.model == camera.model &&
+        c.hasFixedLens == camera.hasFixedLens &&
+        (c.mount ?? '') == (camera.mount ?? '') &&
+        (c.description ?? '') == (camera.description ?? '');
+    return same ? _saved(c) : null;
+  }
+
+  Camera _saved(Camera saved) {
     _ref
       ..invalidate(camerasProvider)
       ..invalidate(cameraProvider(saved.id))
-      ..invalidate(cameraLensesProvider)
-      ..invalidate(lensCamerasProvider)
       // A fixed-lens camera owns a built-in lens.
-      ..invalidate(lensesProvider)
-      // Roll cards and details show the camera name.
-      ..invalidate(rollsProvider)
-      ..invalidate(expiryProvider)
-      ..invalidate(rollDetailProvider);
+      ..invalidate(lensesProvider);
     return saved;
-  }
-
-  Future<void> setActive(Camera camera, bool active) async {
-    await _ref.read(cameraRepositoryProvider).setActive(camera.id, active);
-    _ref
-      ..invalidate(camerasProvider)
-      ..invalidate(cameraProvider(camera.id))
-      // A built-in lens follows its camera.
-      ..invalidate(lensesProvider)
-      ..invalidate(lensProvider);
-  }
-
-  Future<void> delete(String cameraId) async {
-    await _ref.read(cameraRepositoryProvider).delete(cameraId);
-    _ref
-      ..invalidate(camerasProvider)
-      ..invalidate(cameraProvider(cameraId))
-      ..invalidate(lensesProvider)
-      ..invalidate(lensCamerasProvider)
-      // Roll cards show the camera name.
-      ..invalidate(rollsProvider)
-      ..invalidate(expiryProvider);
-  }
-
-  Future<void> setLenses(String cameraId, List<String> lensIds) async {
-    await _ref.read(cameraRepositoryProvider).setLenses(cameraId, lensIds);
-    _ref
-      ..invalidate(cameraLensesProvider(cameraId))
-      ..invalidate(lensCamerasProvider);
   }
 }
 
 final cameraActionsProvider = Provider<CameraActions>(CameraActions.new);
 
-/// Which cameras a lens should be linked to when it is saved.
-class LensLinks {
-  const LensLinks({
-    required this.cameras,
-    required this.wanted,
-    required this.initial,
-  });
-
-  /// Cameras the user could see and change.
-  final List<Camera> cameras;
-
-  /// Camera ids ticked now, and ticked when the form opened.
-  final Set<String> wanted, initial;
-}
-
-/// Writes that change lenses.
+/// Quick add of lenses. The dashboard edits and links them.
 class LensActions {
   LensActions(this._ref);
   final Ref _ref;
 
-  /// Creates a lens, or updates [existing], then adds or removes it from the
-  /// cameras in [links] whose tick changed.
-  Future<Lens> save(LensEdit lens, {Lens? existing, LensLinks? links}) async {
-    final saved = existing == null
-        ? await _ref.read(lensRepositoryProvider).create(lens)
-        : await _ref.read(lensRepositoryProvider).update(existing.id, lens);
-    if (links != null) {
-      await _syncLinks(saved, links, editing: existing != null);
-    }
+  /// Creates a lens (at client id [id] when given).
+  Future<Lens> save(LensEdit lens, {String? id}) async {
+    final saved = await _ref.read(lensRepositoryProvider).create(lens, id: id);
+    return _saved(saved);
+  }
+
+  /// After a create at [id] was refused because the id is taken: the lens at
+  /// [id] if it is this create's, else null.
+  Future<Lens?> landed(String id, LensEdit lens) async {
+    final l = await _ref.read(lensRepositoryProvider).lens(id);
+    final same =
+        l.focalLength == lens.focalLength &&
+        l.maxAperture == lens.maxAperture &&
+        (l.brand ?? '') == (lens.brand ?? '') &&
+        (l.model ?? '') == (lens.model ?? '') &&
+        (l.mount ?? '') == (lens.mount ?? '');
+    return same ? _saved(l) : null;
+  }
+
+  Lens _saved(Lens saved) {
     _ref
       ..invalidate(lensesProvider)
-      ..invalidate(lensProvider(saved.id))
-      ..invalidate(lensCamerasProvider)
-      ..invalidate(cameraLensesProvider)
-      // Roll details list the lenses used.
-      ..invalidate(rollDetailProvider);
+      ..invalidate(lensProvider(saved.id));
     return saved;
-  }
-
-  Future<void> _syncLinks(
-    Lens lens,
-    LensLinks links, {
-    required bool editing,
-  }) async {
-    final cameras = _ref.read(cameraRepositoryProvider);
-    for (final c in links.cameras) {
-      final want = links.wanted.contains(c.id);
-      final had = links.initial.contains(c.id);
-      if (want == had && editing) continue;
-      if (!want && !had) continue;
-      final current = (await cameras.lenses(c.id)).map((l) => l.id).toSet();
-      want ? current.add(lens.id) : current.remove(lens.id);
-      await cameras.setLenses(c.id, current.toList());
-    }
-  }
-
-  Future<void> setActive(String lensId, bool active) async {
-    await _ref.read(lensRepositoryProvider).setActive(lensId, active);
-    _ref
-      ..invalidate(lensesProvider)
-      ..invalidate(lensProvider(lensId))
-      ..invalidate(cameraLensesProvider);
-  }
-
-  Future<void> delete(String lensId) async {
-    await _ref.read(lensRepositoryProvider).delete(lensId);
-    _ref
-      ..invalidate(lensesProvider)
-      ..invalidate(lensProvider(lensId))
-      ..invalidate(lensCamerasProvider)
-      ..invalidate(cameraLensesProvider)
-      // The Rolls filter finds rolls by lens.
-      ..invalidate(rollsProvider);
   }
 }
 

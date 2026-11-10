@@ -19,12 +19,10 @@ class ScanViewerScreen extends ConsumerStatefulWidget {
     super.key,
     required this.scans,
     required this.index,
-    required this.processing,
     required this.rollId,
   });
   final List<Scan> scans;
   final int index;
-  final Processing processing;
   final String rollId;
   @override
   ConsumerState<ScanViewerScreen> createState() => _State();
@@ -45,14 +43,6 @@ class _State extends ConsumerState<ScanViewerScreen> {
         foregroundColor: Colors.white,
         title: Text('#${scan.frameNumber} · ${scan.scanner.label}'),
         actions: [
-          if (widget.processing.scannedWith.length > 1)
-            IconButton(
-              tooltip: 'Compare scanners',
-              icon: const Icon(Icons.compare),
-              onPressed: () => context.push(
-                Routes.compare(widget.processing.id, scan.frameNumber),
-              ),
-            ),
           IconButton(
             tooltip: 'Frame notes',
             icon: const Icon(Icons.notes),

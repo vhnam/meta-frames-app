@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/local/local_store.dart';
 import '../data/services/session_store.dart';
 import '../domain/models/models.dart';
 import '../providers.dart';
@@ -16,8 +17,6 @@ import '../ui/gear/widgets/camera_form.dart';
 import '../ui/gear/widgets/gear_tab.dart';
 import '../ui/gear/widgets/lens_detail.dart';
 import '../ui/gear/widgets/lens_form.dart';
-import '../ui/gear/widgets/manage_lenses.dart';
-import '../ui/home/widgets/home_tab.dart';
 import '../ui/labs/widgets/lab_detail.dart';
 import '../ui/labs/widgets/labs_screen.dart';
 import '../ui/labs/widgets/negatives_at_lab.dart';
@@ -27,21 +26,16 @@ import '../ui/more/widgets/more_tab.dart';
 import '../ui/more/widgets/settings_screen.dart';
 import '../ui/rolls/widgets/add_rolls.dart';
 import '../ui/rolls/widgets/expiry_screen.dart';
+import '../ui/rolls/widgets/frame_notes.dart';
 import '../ui/rolls/widgets/load_roll.dart';
 import '../ui/rolls/widgets/roll_detail.dart';
 import '../ui/rolls/widgets/roll_form.dart';
 import '../ui/rolls/widgets/roll_lenses.dart';
 import '../ui/rolls/widgets/rolls_tab.dart';
-import '../ui/orders/widgets/add_roll_to_order.dart';
-import '../ui/orders/widgets/order_detail.dart';
-import '../ui/orders/widgets/order_form.dart';
-import '../ui/orders/widgets/orders_screen.dart';
-import '../ui/scanners/widgets/scanner_form.dart';
-import '../ui/scanners/widgets/scanners_screen.dart';
-import '../ui/scans/widgets/compare_screen.dart';
-import '../ui/scans/widgets/frame_screen.dart';
-import '../ui/scans/widgets/import_scans.dart';
 import '../ui/scans/widgets/scan_viewer.dart';
+import '../ui/shooting/widgets/shooting_tab.dart';
+import '../ui/sync/view_models/drafts.dart';
+import '../ui/sync/widgets/sync_screen.dart';
 import 'loaded.dart';
 import 'routes.dart';
 import 'shell.dart';
@@ -58,7 +52,7 @@ String? authRedirect({required bool signedIn, required String location}) {
       location == Routes.register ||
       location == Routes.recover;
   if (!signedIn && !signedOutScreen) return Routes.login;
-  if (signedIn && signedOutScreen) return Routes.home;
+  if (signedIn && signedOutScreen) return Routes.shooting;
   return null;
 }
 
@@ -67,7 +61,7 @@ String? authRedirect({required bool signedIn, required String location}) {
 /// location can be opened directly. With a [session], every route follows
 /// [authRedirect].
 GoRouter buildRouter({
-  String initialLocation = Routes.home,
+  String initialLocation = Routes.shooting,
   SessionStore? session,
 }) => GoRouter(
   navigatorKey: _rootKey,
@@ -80,7 +74,8 @@ GoRouter buildRouter({
           location: state.matchedLocation,
         ),
   routes: [
-    GoRoute(path: '/', redirect: (_, _) => Routes.home),
+    GoRoute(path: '/', redirect: (_, _) => Routes.shooting),
+    GoRoute(path: Routes.home, redirect: (_, _) => Routes.shooting),
     _route(Routes.login, (_) => const LoginScreen()),
     _route(Routes.register, (_) => const RegisterScreen()),
     _route(Routes.recover, (_) => const RecoverScreen()),
@@ -89,12 +84,15 @@ GoRouter buildRouter({
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: Routes.rolls, builder: (_, _) => const RollsTab()),
+            GoRoute(
+              path: Routes.shooting,
+              builder: (_, _) => const ShootingTab(),
+            ),
           ],
         ),
         StatefulShellBranch(
           routes: [
-            GoRoute(path: Routes.home, builder: (_, _) => const HomeTab()),
+            GoRoute(path: Routes.rolls, builder: (_, _) => const RollsTab()),
           ],
         ),
         StatefulShellBranch(
@@ -113,62 +111,16 @@ GoRouter buildRouter({
     _route('/labs/:id', (s) => LabDetailScreen(labId: s.pathParameters['id']!)),
     _route(Routes.negativesAtLab, (_) => const NegativesAtLabScreen()),
     _route(Routes.settings, (_) => const SettingsScreen()),
-
-    // Orders. `new` is declared before `:id` so it is not read as an id.
-    _route(Routes.orders, (_) => const OrdersScreen()),
-    _route(Routes.orderNew, (_) => const OrderFormScreen()),
-    _route(
-      '/orders/:id',
-      (s) => OrderDetailScreen(orderId: s.pathParameters['id']!),
-    ),
-    _route(
-      '/orders/:id/edit',
-      (s) => routeData(
-        labOrderProvider(s.pathParameters['id']!),
-        (o) => OrderFormScreen(order: o),
-      ),
-    ),
-    _route(
-      '/orders/:id/add-roll',
-      (s) => routeData(
-        labOrderProvider(s.pathParameters['id']!),
-        (o) => AddRollToOrderScreen(
-          order: o,
-          lineId: s.uri.queryParameters['lineId'],
-        ),
-      ),
-    ),
-
-    // Scanners. `new` is declared before `:id` so it is not read as an id.
-    _route(Routes.scanners, (_) => const ScannersScreen()),
-    _route(Routes.scannerNew, (_) => const ScannerFormScreen()),
-    _route(
-      '/scanners/:id',
-      (s) => routeData(
-        scannerProvider(s.pathParameters['id']!),
-        (d) => ScannerFormScreen(scanner: d),
-      ),
-    ),
+    _route(Routes.sync, (_) => const SyncScreen()),
 
     // Cameras. `new` is declared before `:id` so it is not read as an id.
-    _route(Routes.cameraNew, (_) => const CameraFormScreen()),
+    _route(
+      Routes.cameraNew,
+      (s) => _create(s, (d, _) => CameraFormScreen(draft: d)),
+    ),
     _route(
       '/cameras/:id',
       (s) => CameraDetailScreen(cameraId: s.pathParameters['id']!),
-    ),
-    _route(
-      '/cameras/:id/edit',
-      (s) => routeData(
-        cameraProvider(s.pathParameters['id']!),
-        (c) => CameraFormScreen(camera: c),
-      ),
-    ),
-    _route(
-      '/cameras/:id/lenses',
-      (s) => routeData(
-        cameraProvider(s.pathParameters['id']!),
-        (c) => ManageLensesScreen(camera: c),
-      ),
     ),
     _route(
       '/cameras/:id/load',
@@ -179,40 +131,40 @@ GoRouter buildRouter({
     ),
 
     // Lenses.
-    _route(Routes.lensNew, (_) => const LensFormScreen()),
+    _route(
+      Routes.lensNew,
+      (s) => _create(
+        s,
+        (d, _) =>
+            LensFormScreen(draft: d, mount: s.uri.queryParameters['mount']),
+      ),
+    ),
     _route(
       '/lenses/:id',
       (s) => LensDetailScreen(lensId: s.pathParameters['id']!),
     ),
-    _route(
-      '/lenses/:id/edit',
-      (s) => routeData(
-        lensProvider(s.pathParameters['id']!),
-        (l) => LensFormScreen(lens: l),
-      ),
-    ),
-
     // Film stocks.
-    _route(Routes.stockNew, (_) => const StockFormScreen()),
+    _route(
+      Routes.stockNew,
+      (s) => _create(s, (d, _) => StockFormScreen(draft: d)),
+    ),
     _route(
       '/stocks/:id',
       (s) => StockDetailScreen(stockId: s.pathParameters['id']!),
     ),
-    _route(
-      '/stocks/:id/edit',
-      (s) => routeData(
-        stockDetailProvider(s.pathParameters['id']!),
-        (d) => StockFormScreen(stock: d.stock, baseStock: d.baseStock),
-      ),
-    ),
-
     // Rolls.
+    _route(Routes.load, (_) => const LoadRollScreen()),
     _route('/rolls/new', (s) {
       final stockId = s.uri.queryParameters['stockId'];
-      if (stockId == null) return const AddRollsScreen();
+      if (stockId == null) {
+        return _create(s, (d, q) => AddRollsScreen(draft: d, quick: q));
+      }
       return routeData(
         stockDetailProvider(stockId),
-        (d) => AddRollsScreen(stock: d.stock),
+        (d) => AddRollsScreen(
+          stock: d.stock,
+          quick: s.uri.queryParameters['quick'] == '1',
+        ),
       );
     }),
     _route(
@@ -261,6 +213,10 @@ GoRouter buildRouter({
       }),
     ),
     _route(
+      '/rolls/:id/notes',
+      (s) => RollNotesScreen(rollId: s.pathParameters['id']!),
+    ),
+    _route(
       '/rolls/:id/frames/:n',
       (s) => FrameScreen(
         rollId: s.pathParameters['id']!,
@@ -273,25 +229,6 @@ GoRouter buildRouter({
       '/processing/:id',
       (s) => ProcessingDetailScreen(processingId: s.pathParameters['id']!),
     ),
-    _route(
-      '/processing/:id/edit',
-      (s) => routeData(
-        processingProvider(s.pathParameters['id']!),
-        (job) => routeData(
-          rollDetailProvider(job.rollId),
-          (d) => SendRollScreen(
-            roll: d.roll,
-            stock: d.stock,
-            job: job,
-            types: [job.type],
-          ),
-        ),
-      ),
-    ),
-    _route(
-      '/processing/:id/import',
-      (s) => ImportScansScreen(processingId: s.pathParameters['id']!),
-    ),
     _route('/processing/:id/scans/:scanner/:index', (s) {
       final id = s.pathParameters['id']!;
       final scanner = Scanner.values.byName(s.pathParameters['scanner']!);
@@ -302,21 +239,25 @@ GoRouter buildRouter({
           (scans) => ScanViewerScreen(
             scans: scans,
             index: int.parse(s.pathParameters['index']!),
-            processing: p,
             rollId: p.rollId,
           ),
         ),
       );
     }),
-    _route(
-      '/processing/:id/frames/:n/compare',
-      (s) => CompareScreen(
-        processingId: s.pathParameters['id']!,
-        frameNumber: int.parse(s.pathParameters['n']!),
-      ),
-    ),
   ],
 );
+
+/// A create form: `quick=1` asks only what the server needs, and `draft=<id>`
+/// reopens an unsent draft (a draft sent or discarded meanwhile opens empty).
+Widget _create(
+  GoRouterState s,
+  Widget Function(Draft? draft, bool quick) build,
+) {
+  final quick = s.uri.queryParameters['quick'] == '1';
+  final id = s.uri.queryParameters['draft'];
+  if (id == null) return build(null, quick);
+  return routeData(draftProvider(id), (d) => build(d, quick));
+}
 
 /// A screen over the tab bar. It has no bottom bar to hold it above the system
 /// navigation bar, so the route keeps it clear.

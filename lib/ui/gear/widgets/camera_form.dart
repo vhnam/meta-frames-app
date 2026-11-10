@@ -4,73 +4,65 @@ import '../../core/theme.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/local/local_store.dart';
 import '../../../domain/models/gear_requests.dart';
+import '../../../domain/utils.dart';
+import '../../sync/view_models/drafts.dart';
 import '../../../domain/models/models.dart';
-import '../../../domain/models/roll_filter.dart';
 import '../../../providers.dart';
-import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/gear_actions.dart';
 import '../../core/widgets/form_kit.dart';
-import 'lens_form.dart';
-import '../../../routing/routes.dart';
-
-import 'package:go_router/go_router.dart';
-
+import 'lens_form.dart' show validAperture, validFocal;
 import '../../../routing/navigation.dart';
 
-/// M-02 add camera, M-03 fixed-lens camera, M-04 edit camera,
-/// M-05 activate/deactivate.
-/// Linked lenses are picked inline instead of on a follow-up screen.
+/// Quick add of a camera (a borrowed body, or one added from Gear or the load
+/// screen). It asks only what the server needs: brand, model, and a mount,
+/// typed freely, or a fixed lens's focal length and aperture. Notes and linked
+/// lenses are set on the dashboard. A new camera is kept as a draft until the
+/// server confirms it; [draft] reopens one.
 class CameraFormScreen extends ConsumerStatefulWidget {
-  const CameraFormScreen({super.key, this.camera});
-  final Camera? camera;
+  const CameraFormScreen({super.key, this.draft});
+  final Draft? draft;
   @override
   ConsumerState<CameraFormScreen> createState() => _State();
 }
 
 class _State extends ConsumerState<CameraFormScreen> {
   final _key = GlobalKey<FormState>();
-  late final brand = TextEditingController(text: widget.camera?.brand);
-  late final model = TextEditingController(text: widget.camera?.model);
-  late final mount = TextEditingController(text: widget.camera?.mount);
-  late final desc = TextEditingController(text: widget.camera?.description);
-  final lensFocal = TextEditingController();
-  final lensAperture = TextEditingController();
-  final lensName = TextEditingController();
-  late bool fixed = widget.camera?.hasFixedLens ?? false;
+  late final CameraEdit? _restored = widget.draft == null
+      ? null
+      : CameraEdit.fromJson(widget.draft!.json['request']);
+  late final brand = TextEditingController(text: _restored?.brand);
+  late final model = TextEditingController(text: _restored?.model);
+  late final mount = TextEditingController(text: _restored?.mount);
+  late final lensFocal = TextEditingController(
+    text: _restored?.fixedLens?.focalLength.toString(),
+  );
+  late final lensAperture = TextEditingController(
+    text: _restored?.fixedLens?.maxAperture.toString(),
+  );
+  late final lensName = TextEditingController(
+    text: _restored?.fixedLens?.model,
+  );
+  late bool fixed = _restored?.hasFixedLens ?? false;
   bool busy = false;
-  Set<String>? selected;
 
-  @override
-  void initState() {
-    super.initState();
-    mount.addListener(() => setState(() {}));
-  }
-
-  bool get editing => widget.camera != null;
+  /// The new camera's client id, kept with its draft.
+  late String _draftId = widget.draft?.id ?? newId();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // M-04: fixed-lens flag locked once the camera has rolls.
-    final hasRolls = editing
-        ? ref
-                  .watch(rollsProvider(RollFilter(cameraId: widget.camera!.id)))
-                  .value
-                  ?.isNotEmpty ??
-              true
-        : false;
-    final typeLocked = editing || hasRolls;
-    final saveLabel = editing ? 'Save changes' : 'Add camera';
     return Scaffold(
       backgroundColor: cs.surfaceContainerLow,
-      appBar: formAppBar(context, editing ? 'Edit Camera' : 'New Camera'),
+      appBar: formAppBar(context, 'New Camera'),
       body: Form(
         key: _key,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.draft?.error case final e?) WarningBanner([e]),
             LabeledField(
               label: 'Brand',
               child: TextFormField(
@@ -97,9 +89,7 @@ class _State extends ConsumerState<CameraFormScreen> {
                     child: _TypeButton(
                       label: 'Interchangeable',
                       selected: !fixed,
-                      onTap: typeLocked
-                          ? null
-                          : () => setState(() => fixed = false),
+                      onTap: () => setState(() => fixed = false),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -107,23 +97,13 @@ class _State extends ConsumerState<CameraFormScreen> {
                     child: _TypeButton(
                       label: 'Fixed lens',
                       selected: fixed,
-                      onTap: typeLocked
-                          ? null
-                          : () => setState(() => fixed = true),
+                      onTap: () => setState(() => fixed = true),
                     ),
                   ),
                 ],
               ),
             ),
-            if (hasRolls && editing)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  'Lens type is locked: this camera already has rolls.',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                ),
-              ),
-            if (fixed && !editing)
+            if (fixed)
               LabeledField(
                 label: 'Lens name (optional)',
                 child: TextFormField(
@@ -131,7 +111,7 @@ class _State extends ConsumerState<CameraFormScreen> {
                   decoration: formInputDecoration('e.g. Zuiko 35mm f/2.8', cs),
                 ),
               ),
-            if (fixed && !editing)
+            if (fixed)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
@@ -167,20 +147,8 @@ class _State extends ConsumerState<CameraFormScreen> {
                   ],
                 ),
               ),
-            if (!fixed) _mountField(cs),
-            LabeledField(
-              label: 'Notes (optional)',
-              child: TextFormField(
-                controller: desc,
-                decoration: formInputDecoration(
-                  'Serial number, condition, where you got it…',
-                  cs,
-                ),
-                minLines: 4,
-                maxLines: 4,
-              ),
-            ),
-            if (!fixed) _linkedLenses(cs) else const _FixedLensNote(),
+            if (!fixed) _freeMountField(cs),
+            const FormNote('Notes and linked lenses can be added later.'),
             const SizedBox(height: 16),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -197,196 +165,46 @@ class _State extends ConsumerState<CameraFormScreen> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(saveLabel),
+                  : const Text('Add camera'),
             ),
-            if (editing) ...[
-              const SizedBox(height: 20),
-              CardList(
-                children: [
-                  DetailActionRow(
-                    label: widget.camera!.isActive
-                        ? 'Deactivate camera'
-                        : 'Activate camera',
-                    color: cs.onPrimaryContainer,
-                    onTap: _toggleActive,
-                  ),
-                  DetailActionRow(
-                    label: 'Delete camera',
-                    color: cs.error,
-                    onTap: _delete,
-                  ),
-                ],
-              ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  /// Mounts come from the lens inventory; with no lenses, guide to add one first.
-  List<String>? _mountOptions() {
-    final lenses = ref.watch(lensesProvider);
-    if (!lenses.hasValue) return null;
-    final mounts = <String>{
-      for (final l in lenses.requireValue)
+  /// A borrowed body's mount may match no lens on file: typed freely, with
+  /// the mounts already known offered as quick picks.
+  Widget _freeMountField(ColorScheme cs) {
+    final known = <String>{
+      for (final l in ref.watch(lensesProvider).value ?? const <Lens>[])
         if (l.isActive && !l.isBuiltIn && (l.mount ?? '').trim().isNotEmpty)
           l.mount!.trim(),
-      // Keep the saved mount selectable even if its lenses are gone or inactive.
-      if (mount.text.trim().isNotEmpty) mount.text.trim(),
     }.toList()..sort();
-    return mounts;
-  }
-
-  Widget _mountField(ColorScheme cs) {
-    final options = _mountOptions();
-    if (options == null) {
-      return const Padding(
-        padding: EdgeInsets.only(bottom: 16),
-        child: LinearProgressIndicator(),
-      );
-    }
-    if (options.isEmpty) {
-      return LabeledField(
-        label: 'Lens mount',
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cs.primaryContainer,
-            borderRadius: kCorners,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Camera mounts come from your lens inventory, and you don’t have any lenses yet. Add a lens first, then come back to add this camera.',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.45,
-                  color: cs.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(height: 10),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  minimumSize: Size.zero,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 8,
-                  ),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onPressed: () => context.push(Routes.lensNew),
-                child: const Text('Add a lens first'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    final current = mount.text.trim();
     return LabeledField(
       label: 'Lens mount',
-      child: DropdownButtonFormField<String>(
-        initialValue: options.contains(current) ? current : null,
-        decoration: formInputDecoration('Select a mount', cs),
-        borderRadius: kCorners,
-        items: [
-          for (final m in options) DropdownMenuItem(value: m, child: Text(m)),
-        ],
-        onChanged: (v) => setState(() {
-          mount.text = v ?? '';
-          // Linked lenses depend on the mount.
-          selected = editing ? selected : {};
-        }),
-        validator: (v) =>
-            v == null ? 'Required for interchangeable lens' : null,
-      ),
-    );
-  }
-
-  Widget _linkedLenses(ColorScheme cs) {
-    final m = mount.text.trim().toLowerCase();
-    final label = Text(
-      'LINKED LENSES',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.96,
-        color: cs.onSurfaceVariant,
-      ),
-    );
-    if (editing) {
-      selected ??= ref
-          .watch(cameraLensesProvider(widget.camera!.id))
-          .value
-          ?.map((l) => l.id)
-          .toSet();
-    } else {
-      selected ??= {};
-    }
-    final sel = selected;
-    final lenses =
-        (ref.watch(lensesProvider).value ?? const <Lens>[])
-            .where(
-              (l) =>
-                  l.isActive &&
-                  !l.isBuiltIn &&
-                  m.isNotEmpty &&
-                  (l.mount ?? '').trim().toLowerCase() == m,
-            )
-            .toList()
-          ..sort((a, b) => a.focalLength - b.focalLength);
-    Widget body;
-    if (m.isEmpty) {
-      body = const _Hint('Enter a mount to see compatible lenses.');
-    } else if (lenses.isEmpty) {
-      body = const _Hint('No lenses with this mount yet.');
-    } else if (sel == null) {
-      body = const LinearProgressIndicator();
-    } else {
-      body = CardList(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final l in lenses)
-            CardTile(
-              compact: true,
-              leading: Checkbox(
-                value: sel.contains(l.id),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(kStampRadius),
-                ),
-                onChanged: (v) => _toggle(l.id, v ?? false),
-              ),
-              title:
-                  [
-                    l.brand,
-                    l.model,
-                  ].where((e) => e != null && e.isNotEmpty).join(' ').isEmpty
-                  ? l.name
-                  : [
-                      l.brand,
-                      l.model,
-                    ].where((e) => e != null && e.isNotEmpty).join(' '),
-              subtitle:
-                  '${l.focalLength}mm · f/${l.maxAperture.toStringAsFixed(l.maxAperture % 1 == 0 ? 0 : 1)}',
-              onTap: () => _toggle(l.id, !sel.contains(l.id)),
+          TextFormField(
+            controller: mount,
+            decoration: formInputDecoration('e.g. Nikon F', cs),
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Required for interchangeable lens'
+                : null,
+          ),
+          if (known.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              children: [
+                for (final m in known)
+                  ActionChip(label: Text(m), onPressed: () => mount.text = m),
+              ],
             ),
         ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [label, const SizedBox(height: 8), body],
+      ),
     );
   }
-
-  void _toggle(String id, bool on) =>
-      setState(() => on ? selected!.add(id) : selected!.remove(id));
 
   static String? _required(String? v) =>
       v == null || v.trim().isEmpty ? 'Required' : null;
@@ -395,10 +213,6 @@ class _State extends ConsumerState<CameraFormScreen> {
       c.text.trim().isEmpty ? null : c.text.trim();
 
   Future<void> _save() async {
-    if (!fixed && (_mountOptions()?.isEmpty ?? true)) {
-      toast(context, 'Add a lens first, then pick its mount.');
-      return;
-    }
     if (!_key.currentState!.validate()) return;
     setState(() => busy = true);
     final camera = CameraEdit(
@@ -406,8 +220,7 @@ class _State extends ConsumerState<CameraFormScreen> {
       model: model.text.trim(),
       hasFixedLens: fixed,
       mount: fixed ? null : _t(mount),
-      description: _t(desc),
-      fixedLens: fixed && !editing
+      fixedLens: fixed
           ? FixedLensSpec(
               focalLength: int.parse(lensFocal.text),
               maxAperture: double.parse(lensAperture.text),
@@ -418,48 +231,29 @@ class _State extends ConsumerState<CameraFormScreen> {
           : null,
     );
     Camera? saved;
+    final actions = ref.read(cameraActionsProvider);
+    final id = _draftId;
     final ok = await guard(context, () async {
-      saved = await ref
-          .read(cameraActionsProvider)
-          // Only touch links when the user could see and change them.
-          .save(camera, existing: widget.camera, lensIds: selected);
+      try {
+        saved = await ref
+            .read(draftActionsProvider)
+            .submit(
+              id: id,
+              kind: DraftKind.camera,
+              label: '${camera.brand} ${camera.model}',
+              form: {'request': camera.toJson()},
+              send: () => actions.save(camera, id: id),
+              readBack: () => actions.landed(id, camera),
+            );
+      } on DraftIdTaken catch (e) {
+        _draftId = e.newId;
+        throw draftError(e);
+      }
     });
     if (!mounted) return;
     setState(() => busy = false);
     if (!ok) return;
     context.closeScreen(saved);
-  }
-
-  Future<void> _toggleActive() async {
-    if (busy) return;
-    final camera = widget.camera!;
-    if (camera.isActive && camera.loadedRoll != null) {
-      toast(context, 'Camera is loaded. Finish the roll first.');
-      return;
-    }
-    await guard(
-      context,
-      () => ref.read(cameraActionsProvider).setActive(camera, !camera.isActive),
-    );
-  }
-
-  Future<void> _delete() async {
-    if (busy) return;
-    final camera = widget.camera!;
-    if (!await confirm(
-      context,
-      'Delete camera?',
-      '${camera.name} will be removed. Refused if it has rolls; deactivate instead.',
-      ok: 'Delete',
-    )) {
-      return;
-    }
-    if (!mounted) return;
-    final ok = await guard(
-      context,
-      () => ref.read(cameraActionsProvider).delete(camera.id),
-    );
-    if (ok && mounted) context.closeDeleted();
   }
 }
 
@@ -471,75 +265,34 @@ class _TypeButton extends StatelessWidget {
   });
   final String label;
   final bool selected;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Opacity(
-      opacity: onTap == null && !selected ? 0.5 : 1,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: kCorners,
-        child: Container(
-          height: 47,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? cs.primaryContainer : null,
-            borderRadius: kCorners,
-            border: Border.all(
-              color: selected ? cs.primary : cs.outline,
-              width: selected ? 1.95 : 0.65,
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: kCorners,
+      child: Container(
+        height: 47,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? cs.primaryContainer : null,
+          borderRadius: kCorners,
+          border: Border.all(
+            color: selected ? cs.primary : cs.outline,
+            width: selected ? 1.95 : 0.65,
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: selected ? cs.onPrimaryContainer : cs.onSurface,
-            ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: selected ? cs.onPrimaryContainer : cs.onSurface,
           ),
         ),
       ),
     );
   }
-}
-
-class _FixedLensNote extends StatelessWidget {
-  const _FixedLensNote();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Icon(Icons.info, size: 16, color: cs.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            'A built-in lens is created and kept in sync with this camera.',
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Hint extends StatelessWidget {
-  const _Hint(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 2),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-    ),
-  );
 }

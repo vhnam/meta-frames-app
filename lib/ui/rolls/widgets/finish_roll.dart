@@ -8,8 +8,9 @@ import '../view_models/roll_actions.dart';
 Future<void> finishRoll(
   BuildContext context,
   WidgetRef ref,
-  String rollId,
-) async {
+  String rollId, {
+  String? cameraId,
+}) async {
   DateTime date = DateTime.now();
   final ok = await showDialog<bool>(
     context: context,
@@ -37,7 +38,8 @@ Future<void> finishRoll(
   if (ok != true || !context.mounted) return;
   final done = await guard(
     context,
-    () => ref.read(rollActionsProvider).finish(rollId, date),
+    () =>
+        ref.read(rollActionsProvider).finish(rollId, date, cameraId: cameraId),
   );
   if (done && context.mounted) toast(context, 'Roll finished. Camera is free.');
 }

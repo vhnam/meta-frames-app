@@ -33,7 +33,7 @@ class _State extends ConsumerState<ScanGrid> {
           children: [
             const DetailLabel('SCANS'),
             Text(
-              'No scans imported yet',
+              'No scans yet',
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,

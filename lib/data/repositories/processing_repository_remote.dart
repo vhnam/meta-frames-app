@@ -50,13 +50,4 @@ class ProcessingRepositoryRemote implements ProcessingRepository {
     await _api.send('GET', '/negatives-at-lab'),
     NegativesAtLabItem.fromJson,
   );
-  @override
-  Future<Processing> setOrderLines(String id, List<String> lineIds) async =>
-      Processing.fromJson(
-        await _api.send(
-          'PUT',
-          '/processing/$id/order-items',
-          body: {'orderItemIds': lineIds},
-        ),
-      );
 }

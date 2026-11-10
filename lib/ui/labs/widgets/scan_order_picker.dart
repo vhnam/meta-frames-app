@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../domain/models/lab_requests.dart';
 import '../../../domain/models/models.dart';
-import '../../../routing/routes.dart';
 import '../../core/theme.dart';
 import '../../scanners/widgets/scan_settings_fields.dart';
 
@@ -17,8 +15,6 @@ class ScanOrderPicker extends StatefulWidget {
     required this.scanners,
     required this.kinds,
     required this.offered,
-    this.locked = const {},
-    this.names = const {},
     this.error,
   });
   final List<ScanOrder> orders;
@@ -29,11 +25,6 @@ class ScanOrderPicker extends StatefulWidget {
   /// Scanners the chosen lab runs; empty offers every scanner.
   final List<String> offered;
 
-  /// Scanners that already have imported scans: they cannot be unticked.
-  final Set<String> locked;
-
-  /// Names of scanners on the job, for one missing from [scanners].
-  final Map<String, String> names;
   final String? error;
 
   @override
@@ -71,7 +62,7 @@ class _ScanOrderPickerState extends State<ScanOrderPicker> {
   ScannerDevice _missing(String id) => ScannerDevice.fromJson({
     'id': id,
     'brand': '',
-    'name': widget.names[id] ?? 'Scanner',
+    'name': 'Scanner',
     'builtIn': true,
   });
 
@@ -93,12 +84,6 @@ class _ScanOrderPickerState extends State<ScanOrderPicker> {
           o.scannerId == id ? ScanOrder(scannerId: id, settings: settings) : o,
       ]);
 
-  /// A scanner added from here is ordered straight away.
-  Future<void> _addOwn() async {
-    final s = await context.push<ScannerDevice>(Routes.scannerNew);
-    if (s != null && mounted && _order(s.id) == null) _toggle(s, true);
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -117,18 +102,8 @@ class _ScanOrderPickerState extends State<ScanOrderPicker> {
                   _showAll ? 'Only this lab\'s scanners' : 'Show all scanners',
                 ),
               ),
-            TextButton.icon(
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add a scanner of your own'),
-              onPressed: _addOwn,
-            ),
           ],
         ),
-        if (widget.locked.isNotEmpty)
-          Text(
-            'A scanner with imported scans cannot be removed.',
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-          ),
         if (widget.error != null)
           Text(widget.error!, style: TextStyle(fontSize: 12, color: cs.error)),
       ],
@@ -139,7 +114,6 @@ class _ScanOrderPickerState extends State<ScanOrderPicker> {
     final order = _order(s.id);
     final options = optionsForKind(widget.kinds, s.kind);
     final open = order != null && _expanded.contains(s.id);
-    final locked = widget.locked.contains(s.id);
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
@@ -150,12 +124,12 @@ class _ScanOrderPickerState extends State<ScanOrderPicker> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            onTap: locked ? null : () => _toggle(s, order == null),
+            onTap: () => _toggle(s, order == null),
             child: Row(
               children: [
                 Checkbox(
                   value: order != null,
-                  onChanged: locked ? null : (v) => _toggle(s, v ?? false),
+                  onChanged: (v) => _toggle(s, v ?? false),
                 ),
                 Expanded(child: Text(s.name, overflow: TextOverflow.ellipsis)),
                 if (!s.builtIn)

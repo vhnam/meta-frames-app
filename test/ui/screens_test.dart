@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/ui/gear/widgets/gear_tab.dart';
-import 'package:meta_frames/ui/home/widgets/home_tab.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/ui/rolls/widgets/expiry_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/load_roll.dart';
@@ -148,25 +147,6 @@ void main() {
 
     expect(find.text('+ Camera'), findsOneWidget);
     expect(find.text('No cameras yet'), findsOneWidget);
-  });
-
-  testWidgets('home shows counters from the data', (tester) async {
-    final cameras = FakeCameraRepository(
-      cameraList: [camera('c1', loaded: true)],
-    );
-    final rolls = FakeRollRepository([roll('a', status: 'done_shooting')]);
-    await tester.pumpWidget(
-      app(const HomeTab(), rolls: rolls, cameras: cameras),
-    );
-    await tester.pumpAndSettle();
-
-    // The counter strip uses 26pt numbers; section numbers are smaller.
-    Finder counter(String n) => find.byWidgetPredicate(
-      (w) => w is Text && w.data == n && w.style?.fontSize == 26,
-    );
-    expect(find.text('LOADED'), findsOneWidget);
-    expect(counter('01'), findsNWidgets(2)); // Loaded and Ready
-    expect(counter('00'), findsNWidgets(2)); // At lab and Expiring
   });
 
   testWidgets('expiry screen lists expiring rolls and rolls without expiry', (

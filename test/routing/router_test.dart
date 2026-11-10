@@ -9,6 +9,9 @@ import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/ui/labs/widgets/lab_detail.dart';
 import 'package:meta_frames/routing/routes.dart';
+import 'package:meta_frames/ui/rolls/widgets/expiry_screen.dart';
+import 'package:meta_frames/ui/rolls/widgets/load_roll.dart';
+import 'package:meta_frames/ui/shooting/widgets/shooting_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../testing/fakes.dart';
@@ -16,7 +19,9 @@ import '../testing/fakes.dart';
 /// Pumps the real router against fake repositories, starting at [location].
 Future<GoRouter> pumpRouter(
   WidgetTester tester, {
-  String location = Routes.home,
+  String location = Routes.shooting,
+  FakeProcessingRepository? processing,
+  FakeScannerRepository? scanners,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -45,12 +50,14 @@ Future<GoRouter> pumpRouter(
           FakeFilmStockRepository([stock('s1')]),
         ),
         processingRepositoryProvider.overrideWithValue(
-          FakeProcessingRepository(),
+          processing ?? FakeProcessingRepository(),
         ),
         labRepositoryProvider.overrideWithValue(
           FakeLabRepository([lab('b1', 'Foto Lab')]),
         ),
-        scannerRepositoryProvider.overrideWithValue(FakeScannerRepository()),
+        scannerRepositoryProvider.overrideWithValue(
+          scanners ?? FakeScannerRepository(),
+        ),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -67,10 +74,7 @@ void main() {
     test('builds paths with their ids', () {
       expect(Routes.camera('c1'), '/cameras/c1');
       expect(Routes.lab('b1'), '/labs/b1');
-      expect(Routes.cameraEdit('c1'), '/cameras/c1/edit');
-      expect(Routes.scanner('s1'), '/scanners/s1');
       expect(Routes.frame('r1', 3), '/rolls/r1/frames/3');
-      expect(Routes.compare('p1', 4), '/processing/p1/frames/4/compare');
       expect(
         Routes.scanViewer('p1', Scanner.frontier, 2),
         '/processing/p1/scans/frontier/2',
@@ -95,27 +99,70 @@ void main() {
     });
   });
 
+  group('removed import and compare screens', () {
+    // The jobs exist, so these paths would have opened a screen before M-13.
+    for (final path in [
+      '/processing/j1/import',
+      '/processing/j1/frames/4/compare',
+    ]) {
+      testWidgets('$path opens the error page', (tester) async {
+        final processing = FakeProcessingRepository()
+          ..jobs['j1'] = Processing.fromJson({
+            'id': 'j1',
+            'rollId': 'r1',
+            'type': 'develop_scan',
+            'process': 'C-41',
+            'sentAt': '2026-01-01',
+            'isOpen': true,
+          });
+        final router = await pumpRouter(
+          tester,
+          location: path,
+          processing: processing,
+        );
+        expect(router.routerDelegate.currentConfiguration.isError, isTrue);
+      });
+    }
+  });
+
+  group('removed gear, stock and lab admin screens', () {
+    // The camera, lens and stock exist, so these paths opened a form before
+    // M-14.
+    for (final path in [
+      '/cameras/c1/edit',
+      '/cameras/c1/lenses',
+      '/lenses/l1/edit',
+      '/stocks/s1/edit',
+    ]) {
+      testWidgets('$path opens the error page, not a form', (tester) async {
+        final router = await pumpRouter(tester, location: path);
+        expect(router.routerDelegate.currentConfiguration.isError, isTrue);
+        expect(find.byType(TextFormField), findsNothing);
+      });
+    }
+
+    testWidgets('the camera itself still opens, read-only', (tester) async {
+      await pumpRouter(tester, location: Routes.camera('c1'));
+      expect(find.text('Nikon c1'), findsWidgets);
+    });
+  });
+
   group('tabs', () {
-    testWidgets('opens on Home with the tab bar', (tester) async {
+    testWidgets('opens on Shooting with the tab bar', (tester) async {
       await pumpRouter(tester);
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.byType(ShootingTab), findsOneWidget);
       expect(find.byType(NavigationBar), findsOneWidget);
     });
 
-    testWidgets('/ redirects to Home', (tester) async {
+    testWidgets('/ redirects to Shooting', (tester) async {
       final router = await pumpRouter(tester, location: '/');
-      expect(_location(router), Routes.home);
+      expect(_location(router), Routes.shooting);
     });
 
-    testWidgets('the tabs are Rolls, Home and More, in that order', (
-      tester,
-    ) async {
-      await pumpRouter(tester);
-      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-      expect(
-        [for (final d in bar.destinations) (d as NavigationDestination).label],
-        ['Rolls', 'Home', 'More'],
-      );
+    testWidgets('the old Home location redirects to Shooting', (tester) async {
+      final router = await pumpRouter(tester, location: Routes.home);
+      expect(_location(router), Routes.shooting);
+      expect(find.byType(ShootingTab), findsOneWidget);
     });
 
     testWidgets('switching tabs changes the location and keeps each tab', (
@@ -135,7 +182,77 @@ void main() {
     });
   });
 
+  group('retired routes', () {
+    testWidgets(
+      'the old processing edit link opens no form and writes nothing',
+      (tester) async {
+        // A job that exists, so only the missing route keeps the form closed.
+        final processing = FakeProcessingRepository()
+          ..jobs['p1'] = Processing.fromJson({
+            'id': 'p1',
+            'rollId': 'r1',
+            'type': ProcessingType.develop.wire,
+            'process': Process.c41.wire,
+            'sentAt': '2026-01-01',
+            'isOpen': true,
+          });
+        final router = await pumpRouter(
+          tester,
+          location: '/processing/p1/edit',
+          processing: processing,
+        );
+        expect(router.routerDelegate.currentConfiguration.isError, isTrue);
+        expect(find.byType(TextField), findsNothing);
+        expect(processing.sent, isEmpty);
+        expect(processing.deleted, isEmpty);
+      },
+    );
+
+    testWidgets('old scanner and order links open no form and write nothing', (
+      tester,
+    ) async {
+      // A scanner that exists, so only the missing routes keep the forms closed.
+      final scanners = FakeScannerRepository([scanner('s1', 'Noritsu')]);
+      for (final link in [
+        '/scanners',
+        '/scanners/new',
+        '/scanners/s1',
+        '/orders',
+        '/orders/new',
+        '/orders/o1',
+        '/orders/o1/edit',
+        '/orders/o1/add-roll',
+      ]) {
+        final router = await pumpRouter(
+          tester,
+          location: link,
+          scanners: scanners,
+        );
+        expect(
+          router.routerDelegate.currentConfiguration.isError,
+          isTrue,
+          reason: link,
+        );
+        expect(find.byType(TextField), findsNothing, reason: link);
+      }
+    });
+  });
+
   group('screens over the tab bar', () {
+    testWidgets('the Expiry screen stays reachable by link', (tester) async {
+      await pumpRouter(tester, location: Routes.expiry);
+      expect(find.byType(ExpiryScreen), findsOneWidget);
+    });
+
+    testWidgets('load opens with neither camera nor roll picked', (
+      tester,
+    ) async {
+      await pumpRouter(tester, location: Routes.load);
+      final screen = tester.widget<LoadRollScreen>(find.byType(LoadRollScreen));
+      expect(screen.camera, isNull);
+      expect(screen.roll, isNull);
+    });
+
     testWidgets('a detail screen can be opened directly', (tester) async {
       final router = await pumpRouter(tester, location: Routes.camera('c1'));
 
@@ -151,13 +268,6 @@ void main() {
       expect(find.text('New Camera'), findsOneWidget);
     });
 
-    testWidgets('an edit route loads the object by id', (tester) async {
-      await pumpRouter(tester, location: Routes.cameraEdit('c1'));
-
-      expect(find.text('Edit Camera'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, 'Nikon'), findsOneWidget);
-    });
-
     testWidgets('a load route waits for the data, then shows the screen', (
       tester,
     ) async {
@@ -169,7 +279,7 @@ void main() {
     testWidgets(
       'a route with a failing load shows the error with a back button',
       (tester) async {
-        await pumpRouter(tester, location: Routes.cameraEdit('missing'));
+        await pumpRouter(tester, location: Routes.cameraLoadRoll('missing'));
         expect(find.byType(AppBar), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsNothing);
         expect(find.textContaining('No element'), findsOneWidget);
@@ -218,7 +328,7 @@ void main() {
   });
 
   group('closing screens', () {
-    testWidgets('a screen opened from a link goes Home when closed', (
+    testWidgets('a screen opened from a link goes to Shooting when closed', (
       tester,
     ) async {
       final router = await pumpRouter(tester, location: Routes.settings);
@@ -227,8 +337,8 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
-      expect(_location(router), Routes.home);
-      expect(find.text('Overview'), findsOneWidget);
+      expect(_location(router), Routes.shooting);
+      expect(find.byType(ShootingTab), findsOneWidget);
     });
 
     testWidgets('a screen pushed from a tab returns to it when closed', (
@@ -255,11 +365,8 @@ void main() {
       for (final label in [
         'Gear',
         'Film stocks',
-        'Expiry',
         'Negatives at lab',
         'Labs',
-        'Orders',
-        'Scanners',
         'Settings',
       ]) {
         await tester.scrollUntilVisible(find.text(label), 200);
@@ -272,11 +379,8 @@ void main() {
       final entries = {
         'Gear': Routes.gear,
         'Film stocks': Routes.film,
-        'Expiry': Routes.expiry,
         'Negatives at lab': Routes.negativesAtLab,
         'Labs': Routes.labs,
-        'Orders': Routes.orders,
-        'Scanners': Routes.scanners,
         'Settings': Routes.settings,
       };
 
@@ -308,60 +412,11 @@ void main() {
       expect(find.byType(NavigationBar), findsOneWidget);
     });
 
-    testWidgets('opened from a link, Back goes Home', (tester) async {
+    testWidgets('opened from a link, Back goes to Shooting', (tester) async {
       final router = await pumpRouter(tester, location: Routes.gear);
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
-      expect(_location(router), Routes.home);
-    });
-  });
-
-  group('deleting a camera', () {
-    Future<void> delete(WidgetTester tester) async {
-      await tester.tap(find.text('Delete camera'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-      await tester.pumpAndSettle();
-    }
-
-    void tallView(WidgetTester tester) {
-      tester.view
-        ..physicalSize = const Size(800, 3000)
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-    }
-
-    testWidgets('returns to Gear when opened from Gear, then Back to More', (
-      tester,
-    ) async {
-      tallView(tester);
-      final router = await pumpRouter(tester, location: Routes.more);
-      await tester.tap(find.text('Gear'));
-      await tester.pumpAndSettle();
-      router.push(Routes.camera('c1'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
-
-      await delete(tester);
-      expect(_location(router), Routes.gear);
-
-      await tester.tap(find.byTooltip('Back'));
-      await tester.pumpAndSettle();
-      expect(_location(router), Routes.more);
-    });
-
-    testWidgets('goes Home when Edit Camera was opened from a link', (
-      tester,
-    ) async {
-      tallView(tester);
-      final router = await pumpRouter(
-        tester,
-        location: Routes.cameraEdit('c1'),
-      );
-      await delete(tester);
-      expect(_location(router), Routes.home);
-      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(_location(router), Routes.shooting);
     });
   });
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -13,6 +14,80 @@ class ApiException implements Exception {
   bool get isNetwork => status == 0;
   @override
   String toString() => message;
+}
+
+/// Thrown when work begun under one session or server finds, before its next
+/// request, that another is current. It is not a network failure: nothing is
+/// retried, and nothing after it is sent.
+class SessionChanged extends ApiException {
+  SessionChanged()
+    : super(401, 'session_changed', 'The session changed. Nothing was sent.');
+}
+
+/// The session and server that were current when a multi-step piece of work
+/// began (see [ApiClient.pin]). Inside [run], every request through the same
+/// session first checks it still is: a later step is never sent as another
+/// account or to another server.
+class SessionPin {
+  SessionPin._(this._session, this._baseUrl)
+    : _generation = _session.generation,
+      _server = _baseUrl();
+
+  final SessionStore _session;
+  final String Function() _baseUrl;
+  final int _generation;
+  final String _server;
+
+  bool get current =>
+      _session.generation == _generation && _baseUrl() == _server;
+
+  /// Throws [SessionChanged] unless the pinned session and server are current.
+  void check() {
+    if (!current) throw SessionChanged();
+  }
+
+  static final _zoneKey = Object();
+
+  /// Runs [body] with this pin active for every request it starts.
+  Future<T> run<T>(Future<T> Function() body) =>
+      runZoned(body, zoneValues: {_zoneKey: this});
+}
+
+/// What a [ReadCache] makes of a read: the JSON to decode, or "read again".
+class ReadResult {
+  const ReadResult(this.json) : retry = false;
+  const ReadResult.retry() : json = null, retry = true;
+  final dynamic json;
+  final bool retry;
+}
+
+/// One read seen by a [ReadCache], from start to answer.
+abstract class ReadTicket {
+  /// The server answered 2xx with [json]. With [last] the answer is not asked
+  /// to be read again. An answer a change has overtaken is never returned,
+  /// last or not: the device's latest state is, or a retriable failure when it
+  /// has none.
+  Future<ReadResult> fresh(dynamic json, {bool last = false});
+
+  /// The server answered 404. Rethrows [error] unless the cache knows better.
+  /// [last] as in [fresh].
+  Future<ReadResult> notFound(ApiException error, {bool last = false});
+
+  /// The server could not be reached. Serves what is kept, or throws.
+  Future<ReadResult> offline(ApiException error);
+
+  /// A ticket for reading again after [ReadResult.retry]: same session and
+  /// server as this one, with the device's state as it is now. Throws when
+  /// the session or [baseUrl] is no longer the one this read started under,
+  /// so a retry is never made as, or for, anyone else. Call it right before
+  /// the request is made.
+  ReadTicket again(String baseUrl);
+}
+
+/// Keeps reads on the device. [begin] is called as a GET starts, with the
+/// server it goes to; null means the read is not kept.
+abstract class ReadCache {
+  ReadTicket? begin(String baseUrl, String path, Map<String, String?>? query);
 }
 
 /// Transport only: builds requests against the configured server, maps
@@ -31,6 +106,9 @@ class ApiClient {
   final http.Client _http;
   final SessionStore _session;
 
+  /// Kept reads, when the device keeps data for the current account.
+  ReadCache? readCache;
+
   static const _sessionCookie = 'metaframes_session';
 
   /// Matches the session cookie in a Set-Cookie header. The HTTP client joins
@@ -40,6 +118,9 @@ class ApiClient {
   );
 
   String get baseUrl => _baseUrl();
+
+  /// The session and server current now, to hold a multi-step piece of work to.
+  SessionPin pin() => SessionPin._(_session, _baseUrl);
 
   static const _headers = {
     'Content-Type': 'application/json',
@@ -73,34 +154,87 @@ class ApiClient {
     Object? body,
     Map<String, String>? extraHeaders,
   }) async {
+    final ticket = method == 'GET'
+        ? readCache?.begin(baseUrl, path, query)
+        : null;
+    if (ticket == null) {
+      return _send(method, path, query, body, extraHeaders, _timeout);
+    }
+    return _sendKept(ticket, path, query, extraHeaders);
+  }
+
+  /// Reads that make no change can be read again at no cost: a read that was
+  /// out while one of the phone's own changes reached the server may hold the
+  /// old state, so it is asked again, each time under a fresh ticket of the
+  /// same session. An answer proven stale is never published: once the reads
+  /// are used up the device's latest state is served, or the read fails and
+  /// can be tried again.
+  Future<dynamic> _sendKept(
+    ReadTicket first,
+    String path,
+    Map<String, String?>? query,
+    Map<String, String>? extraHeaders,
+  ) async {
+    var ticket = first;
+    for (var attempt = 0; ; attempt++) {
+      final last = attempt >= _keptRetries;
+      final result = await _answer(ticket, path, query, extraHeaders, last);
+      if (!result.retry) return result.json;
+      ticket = ticket.again(baseUrl);
+    }
+  }
+
+  /// One request, and what [ticket] makes of its outcome.
+  Future<ReadResult> _answer(
+    ReadTicket ticket,
+    String path,
+    Map<String, String?>? query,
+    Map<String, String>? extraHeaders,
+    bool last,
+  ) async {
+    final dynamic json;
+    try {
+      // A kept read falls back to the device sooner.
+      json = await _send('GET', path, query, null, extraHeaders, _keptTimeout);
+    } on ApiException catch (e) {
+      if (e.isNetwork) return ticket.offline(e);
+      if (e.status == 404) return ticket.notFound(e, last: last);
+      rethrow;
+    }
+    return ticket.fresh(json, last: last);
+  }
+
+  /// How many times a kept read is asked again before its last answer is used.
+  static const _keptRetries = 3;
+
+  static const _timeout = Duration(seconds: 20);
+  static const _keptTimeout = Duration(seconds: 10);
+
+  Future<dynamic> _send(
+    String method,
+    String path,
+    Map<String, String?>? query,
+    Object? body,
+    Map<String, String>? extraHeaders,
+    Duration timeout,
+  ) async {
     final req = http.Request(method, uri(path, query))
       ..headers.addAll({..._headers, ...?extraHeaders});
     if (body != null) req.body = jsonEncode(body);
-    return _decode(await _sendLogged(req, const Duration(seconds: 20)));
+    return _decode(await _sendLogged(req, timeout));
   }
 
-  /// POST a single file as multipart form data.
-  Future<dynamic> upload(
-    String path, {
-    required Map<String, String> fields,
-    required String fileField,
-    required String filePath,
-    required String fileName,
-  }) async {
-    final req = http.MultipartRequest('POST', uri(path))
-      ..headers['X-Actor'] = 'mobile'
-      ..fields.addAll(fields)
-      ..files.add(
-        await http.MultipartFile.fromPath(
-          fileField,
-          filePath,
-          filename: fileName,
-        ),
-      );
-    return _decode(
-      await _sendLogged(req, const Duration(minutes: 2), ' Upload failed.'),
-    );
-  }
+  /// Creates a record. With a client [id] the create is a `PUT` at that id
+  /// with `If-None-Match: *`: a retry of a create that already landed gets
+  /// `412 already_exists` instead of a second record or an overwrite.
+  Future<dynamic> create(String path, Object body, {String? id}) => id == null
+      ? send('POST', path, body: body)
+      : send(
+          'PUT',
+          '$path/$id',
+          body: body,
+          extraHeaders: const {'If-None-Match': '*'},
+        );
 
   /// Streams a server-relative [path] to [dest] without buffering it in memory.
   Future<void> download(String path, File dest) async {
@@ -127,6 +261,9 @@ class ApiClient {
     Duration timeout, [
     String suffix = '',
   ]) async {
+    // Work pinned to a session sends nothing once that session has moved on.
+    final pin = Zone.current[SessionPin._zoneKey] as SessionPin?;
+    if (pin != null && identical(pin._session, _session)) pin.check();
     final sent = _session.token;
     req.headers.addAll(sessionHeaders);
     try {
@@ -175,13 +312,6 @@ class ApiClient {
     if (req is http.Request && req.body.isNotEmpty) {
       final body = req.url.path.contains('/auth/') ? _redacted : req.body;
       parts.add("-d '${_shell(body)}'");
-    } else if (req is http.MultipartRequest) {
-      for (final e in req.fields.entries) {
-        parts.add("-F '${_shell(e.key)}=${_shell(e.value)}'");
-      }
-      for (final f in req.files) {
-        parts.add("-F '${_shell(f.field)}=@${_shell(f.filename ?? 'file')}'");
-      }
     }
     parts.add("'${_shell(req.url.toString())}'");
     return parts.join(' ');

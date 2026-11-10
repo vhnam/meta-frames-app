@@ -15,6 +15,17 @@ class FilmStockEdit {
     this.description,
     this.baseStockId,
   });
+  FilmStockEdit.fromJson(Map<String, dynamic> j)
+    : brand = j['brand'],
+      name = j['name'],
+      type = StockType.values.byName(j['type']),
+      boxIso = j['boxIso'],
+      process = Process.parse(j['process']),
+      packaging = Packaging.values.byName(j['packaging']),
+      stockOrigin = j['stockOrigin'],
+      packOrigin = j['packOrigin'],
+      description = j['description'],
+      baseStockId = j['baseStockId'];
   final String brand, name;
   final StockType type;
   final String boxIso;

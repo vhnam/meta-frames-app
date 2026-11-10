@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/providers.dart';
+import 'data/services/api_client.dart';
 import 'domain/models/models.dart';
 import 'domain/models/roll_filter.dart';
 
@@ -61,6 +62,15 @@ final lensCamerasProvider = FutureProvider.autoDispose
 final stocksProvider = FutureProvider.autoDispose<List<FilmStock>>(
   (ref) => ref.cached(ref.watch(filmStockRepositoryProvider).stocks()),
 );
+
+/// Every stock by id, for screens that show a roll's box speed or process.
+/// Empty while the stocks load.
+final stocksByIdProvider = Provider.autoDispose<Map<String, FilmStock>>(
+  (ref) => {
+    for (final s in ref.watch(stocksProvider).value ?? const <FilmStock>[])
+      s.id: s,
+  },
+);
 final stockDetailProvider = FutureProvider.autoDispose
     .family<FilmStockDetail, String>(
       (ref, id) => ref.watch(filmStockRepositoryProvider).stock(id),
@@ -83,10 +93,6 @@ final labProvider = FutureProvider.autoDispose.family<Lab, String>(
 final scannersProvider = FutureProvider.autoDispose<List<ScannerDevice>>(
   (ref) => ref.cached(ref.watch(scannerRepositoryProvider).scanners()),
 );
-final scannerProvider = FutureProvider.autoDispose
-    .family<ScannerDevice, String>(
-      (ref, id) => ref.watch(scannerRepositoryProvider).scanner(id),
-    );
 final scannerKindsProvider =
     FutureProvider.autoDispose<List<ScannerKindOptions>>(
       (ref) => ref.cached(ref.watch(scannerRepositoryProvider).kinds()),
@@ -111,16 +117,6 @@ final rollDetailProvider = FutureProvider.autoDispose
     .family<RollDetail, String>(
       (ref, id) => ref.watch(rollRepositoryProvider).roll(id),
     );
-final labOrdersProvider = FutureProvider.autoDispose<List<LabOrder>>(
-  (ref) => ref.cached(ref.watch(labOrderRepositoryProvider).orders()),
-);
-final labOrderProvider = FutureProvider.autoDispose.family<LabOrder, String>(
-  (ref, id) => ref.watch(labOrderRepositoryProvider).order(id),
-);
-final linkableJobsProvider = FutureProvider.autoDispose
-    .family<List<LabOrderJob>, String>(
-      (ref, id) => ref.watch(labOrderRepositoryProvider).linkableJobs(id),
-    );
 final expiryProvider = FutureProvider.autoDispose<ExpiryView>(
   (ref) => ref.cached(ref.watch(rollRepositoryProvider).expiry()),
 );
@@ -142,14 +138,21 @@ final scansProvider = FutureProvider.autoDispose
         ),
       ]..sort((a, b) => a.frameNumber - b.frameNumber),
     );
-final compareProvider = FutureProvider.autoDispose
-    .family<FrameComparison, (String, int)>(
-      (ref, k) =>
-          ref.cached(ref.watch(scanRepositoryProvider).compare(k.$1, k.$2)),
-    );
-final frameProvider = FutureProvider.autoDispose.family<Frame, (String, int)>(
-  (ref, k) => ref.watch(scanRepositoryProvider).frame(k.$1, k.$2),
-);
+
+/// One frame of a roll, or null when the frame has no notes or scans yet: it
+/// is created on first save, so a 404 is an empty frame rather than an error.
+/// Answering null, rather than failing, also keeps the provider from retrying.
+final frameProvider = FutureProvider.autoDispose.family<Frame?, (String, int)>((
+  ref,
+  k,
+) async {
+  try {
+    return await ref.watch(rollRepositoryProvider).frame(k.$1, k.$2);
+  } on ApiException catch (e) {
+    if (e.status == 404) return null;
+    rethrow;
+  }
+});
 
 /// Drops every cached list and detail. For changes that affect all data, such
 /// as pointing the app at another server. Mutations invalidate only what they
@@ -168,11 +171,7 @@ void invalidateAllData(Ref ref) {
     ..invalidate(inventoryProvider)
     ..invalidate(labsProvider)
     ..invalidate(labProvider)
-    ..invalidate(labOrdersProvider)
-    ..invalidate(labOrderProvider)
-    ..invalidate(linkableJobsProvider)
     ..invalidate(scannersProvider)
-    ..invalidate(scannerProvider)
     ..invalidate(scannerKindsProvider)
     ..invalidate(rollsProvider)
     ..invalidate(rollDetailProvider)
@@ -180,6 +179,5 @@ void invalidateAllData(Ref ref) {
     ..invalidate(negativesAtLabProvider)
     ..invalidate(processingProvider)
     ..invalidate(scansProvider)
-    ..invalidate(compareProvider)
     ..invalidate(frameProvider);
 }

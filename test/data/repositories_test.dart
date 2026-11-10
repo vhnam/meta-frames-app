@@ -5,10 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:meta_frames/data/repositories/camera_repository_remote.dart';
 import 'package:meta_frames/data/repositories/film_stock_repository_remote.dart';
-import 'package:meta_frames/data/repositories/lab_order_repository_remote.dart';
 import 'package:meta_frames/data/repositories/lab_repository_remote.dart';
 import 'package:meta_frames/data/repositories/scanner_repository_remote.dart';
-import 'package:meta_frames/domain/models/scanner_requests.dart';
 import 'package:meta_frames/data/repositories/lens_repository_remote.dart';
 import 'package:meta_frames/data/repositories/processing_repository_remote.dart';
 import 'package:meta_frames/data/repositories/roll_repository_remote.dart';
@@ -18,7 +16,6 @@ import 'package:meta_frames/data/repositories/settings_repository_prefs.dart';
 import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/film_requests.dart';
 import 'package:meta_frames/domain/models/gear_requests.dart';
-import 'package:meta_frames/domain/models/lab_order_requests.dart';
 import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_requests.dart';
@@ -131,22 +128,12 @@ void main() {
       expect(rec.call, 'POST /cameras');
       expect(rec.body, edit.toJson());
 
-      await repo.update('c1', edit);
-      expect(rec.call, 'PUT /cameras/c1');
-
-      await repo.setActive('c1', false);
-      expect(rec.call, 'PUT /cameras/c1/active');
-      expect(rec.body, {'isActive': false});
-
       rec.reply = null;
       await repo.setLenses('c1', ['l1', 'l2']);
       expect(rec.call, 'PUT /cameras/c1/lenses');
       expect(rec.body, {
         'lensIds': ['l1', 'l2'],
       });
-
-      await repo.delete('c1');
-      expect(rec.call, 'DELETE /cameras/c1');
     });
   });
 
@@ -170,13 +157,6 @@ void main() {
       await repo.create(edit);
       expect(rec.call, 'POST /lenses');
       expect(rec.body, {'focalLength': 50, 'maxAperture': 1.8});
-
-      await repo.update('l1', edit);
-      expect(rec.call, 'PUT /lenses/l1');
-
-      await repo.setActive('l1', true);
-      expect(rec.call, 'PUT /lenses/l1/active');
-      expect(rec.body, {'isActive': true});
     });
   });
 
@@ -209,13 +189,6 @@ void main() {
       await repo.create(edit);
       expect(rec.call, 'POST /film-stocks');
       expect(rec.body['process'], 'C-41');
-      expect(rec.body.containsKey('stockOrigin'), isFalse);
-      expect(rec.body.containsKey('description'), isFalse);
-      expect(rec.body.containsKey('baseStockId'), isFalse);
-      expect(rec.body.containsKey('packOrigin'), isFalse);
-
-      await repo.update('s1', edit);
-      expect(rec.call, 'PUT /film-stocks/s1');
       expect(rec.body.containsKey('stockOrigin'), isFalse);
       expect(rec.body.containsKey('description'), isFalse);
       expect(rec.body.containsKey('baseStockId'), isFalse);
@@ -293,46 +266,6 @@ void main() {
       expect(kinds.first.options.last.max, 200);
       expect(kinds.last.kind, isNull);
     });
-
-    test(
-      'an update sends every field, so a cleared one stays cleared',
-      () async {
-        final rec = Recorder({'id': 's1', 'brand': 'Epson', 'name': 'Epson'});
-        await ScannerRepositoryRemote(rec.client).update(
-          's1',
-          const ScannerEdit(brand: 'Epson', defaultSettings: {'dpi': 3200}),
-        );
-        expect(rec.call, 'PUT /scanners/s1');
-        expect(rec.body, {
-          'brand': 'Epson',
-          'defaultSettings': {'dpi': 3200},
-        });
-      },
-    );
-
-    test('create and delete use the scanner paths', () async {
-      final rec = Recorder({'id': 'n', 'brand': 'Epson', 'name': 'Epson'});
-      final repo = ScannerRepositoryRemote(rec.client);
-      await repo.create(
-        const ScannerEdit(
-          brand: 'Epson',
-          model: 'V850',
-          kind: ScannerKind.flatbed,
-          notes: 'Holder',
-          defaultSettings: {},
-        ),
-      );
-      expect(rec.call, 'POST /scanners');
-      expect(rec.body, {
-        'brand': 'Epson',
-        'model': 'V850',
-        'kind': 'flatbed',
-        'notes': 'Holder',
-        'defaultSettings': <String, Object?>{},
-      });
-      await repo.delete('n');
-      expect(rec.call, 'DELETE /scanners/n');
-    });
   });
 
   group('LabRepositoryRemote', () {
@@ -363,36 +296,27 @@ void main() {
       await repo.create(const LabEdit(name: 'Lab'));
       expect(rec.call, 'POST /labs');
       expect(rec.body, {'name': 'Lab'});
-
-      await repo.update('b1', const LabEdit(name: 'Lab', address: 'Hanoi'));
-      expect(rec.call, 'PUT /labs/b1');
-      expect(rec.body['address'], 'Hanoi');
-      // Left out, the server keeps the lab's scanners.
-      expect(rec.body.containsKey('scannerIds'), isFalse);
-
-      await repo.update(
-        'b1',
-        const LabEdit(
-          name: 'Lab',
-          scannerIds: ['s1', 's2'],
-          defaultScannerId: 's2',
-        ),
-      );
-      expect(rec.body['scannerIds'], ['s1', 's2']);
-      expect(rec.body['defaultScannerId'], 's2');
-
-      // An empty list clears them, so it is sent.
-      await repo.update('b1', const LabEdit(name: 'Lab', scannerIds: []));
-      expect(rec.body['scannerIds'], isEmpty);
-      expect(rec.body.containsKey('defaultScannerId'), isFalse);
-
-      rec.reply = null;
-      await repo.delete('b1');
-      expect(rec.call, 'DELETE /labs/b1');
     });
   });
 
   group('RollRepositoryRemote', () {
+    test('frame notes', () async {
+      final rec = Recorder({
+        'id': 'f1',
+        'number': 3,
+        'notes': 'hi',
+        'scans': [],
+      });
+      final repo = RollRepositoryRemote(rec.client);
+
+      expect((await repo.frame('r1', 3)).notes, 'hi');
+      expect(rec.call, 'GET /rolls/r1/frames/3');
+
+      await repo.saveFrameNotes('r1', 3, null);
+      expect(rec.call, 'PUT /rolls/r1/frames/3');
+      expect(rec.body, {'notes': null});
+    });
+
     test('filters by every field and formats dates', () async {
       final rec = Recorder([_roll]);
       final repo = RollRepositoryRemote(rec.client);
@@ -566,160 +490,14 @@ void main() {
     });
   });
 
-  group('LabOrderRepositoryRemote', () {
-    const order = {
-      'id': 'o1',
-      'labId': 'b1',
-      'labName': 'Lab A',
-      'code': '0510006',
-      'orderedAt': '2026-10-05T03:03:00Z',
-      'dueDate': '2026-10-20',
-      'vat': 44800,
-      'discount': 0,
-      'subtotal': 560000,
-      'total': 604800,
-      'items': [
-        {
-          'id': 'l1',
-          'product': '35mm Colour',
-          'options': 'Dev + Scan',
-          'quantity': 3,
-          'unitPrice': 145000,
-          'lineTotal': 435000,
-          'unitCost': 156600,
-          'jobs': [],
-        },
-      ],
-    };
-
-    test('saves an order and its lines at a chosen id', () async {
-      final rec = Recorder(order);
-      final saved = await LabOrderRepositoryRemote(rec.client).save(
-        'o1',
-        LabOrderEdit(
-          labId: 'b1',
-          code: '0510006',
-          orderedAt: DateTime.utc(2026, 10, 5, 3, 3),
-          dueDate: DateTime(2026, 10, 20),
-          vat: 44800,
-          lines: const [
-            LabOrderLineEdit(
-              id: 'l1',
-              product: '35mm Colour',
-              quantity: 3,
-              unitPrice: 145000,
-            ),
-          ],
-        ),
-      );
-      expect(rec.call, 'PUT /lab-orders/o1');
-      expect(rec.body, {
-        'labId': 'b1',
-        'code': '0510006',
-        'orderedAt': '2026-10-05T03:03:00.000Z',
-        'dueDate': '2026-10-20',
-        'vat': 44800,
-        'discount': 0,
-        'items': [
-          {
-            'id': 'l1',
-            'product': '35mm Colour',
-            'quantity': 3,
-            'unitPrice': 145000,
-          },
-        ],
-      });
-      expect(saved.total, 604800);
-      expect(saved.lines.single.unitCost, 156600);
-      expect(saved.lines.single.room, 3);
-    });
-
-    test('lists orders and the jobs that can join one', () async {
-      final rec = Recorder([order]);
-      final repo = LabOrderRepositoryRemote(rec.client);
-      expect((await repo.orders()).single.code, '0510006');
-      expect(rec.call, 'GET /lab-orders');
-
-      rec.reply = [
-        {
-          'id': 'j1',
-          'rollId': 'r1',
-          'type': 'develop_scan',
-          'sentAt': '2026-10-05',
-          'stockName': 'Kodak Gold',
-          'format': 135,
-          'exposures': 36,
-          'orderItemIds': ['l1'],
-        },
-      ];
-      final jobs = await repo.linkableJobs('o1');
-      expect(rec.call, 'GET /lab-orders/o1/linkable-jobs');
-      expect(jobs.single.lineIds, ['l1']);
-    });
-
-    test('sets a job\'s order lines', () async {
-      final rec = Recorder({
-        ..._processing,
-        'price': 110000,
-        'order': {
-          'id': 'o1',
-          'code': '0510006',
-          'items': [
-            {'id': 'l1', 'product': 'Develop'},
-            {'id': 'l2', 'product': 'Scan'},
-          ],
-        },
-      });
-      final job = await ProcessingRepositoryRemote(rec.client)
-          .setOrderLines('j1', ['l1', 'l2']);
-      expect(rec.call, 'PUT /processing/j1/order-items');
-      expect(rec.body, {
-        'orderItemIds': ['l1', 'l2'],
-      });
-      expect(job.order!.products, 'Develop + Scan');
-    });
-  });
-
   group('ScanRepositoryRemote', () {
-    test('frame notes', () async {
-      final rec = Recorder({
-        'id': 'f1',
-        'number': 3,
-        'notes': 'hi',
-        'scans': [],
-      });
-      final repo = ScanRepositoryRemote(rec.client);
-
-      expect((await repo.frame('r1', 3)).notes, 'hi');
-      expect(rec.call, 'GET /rolls/r1/frames/3');
-
-      await repo.saveFrameNotes('r1', 3, null);
-      expect(rec.call, 'PUT /rolls/r1/frames/3');
-      expect(rec.body, {'notes': null});
-    });
-
-    test('scan listing and import preview', () async {
+    test('scan listing', () async {
       final rec = Recorder([]);
       final repo = ScanRepositoryRemote(rec.client);
 
       await repo.scans('p1', scanner: Scanner.frontier);
       expect(rec.call, 'GET /processing/p1/scans');
       expect(rec.last.url.queryParameters, {'scanner': 'frontier'});
-
-      await repo.previewImport('p1', ['a.jpg'], startFrame: 3);
-      expect(rec.call, 'POST /processing/p1/scans/preview');
-      expect(rec.body, {
-        'fileNames': ['a.jpg'],
-        'startFrame': 3,
-      });
-    });
-
-    test('comparison', () async {
-      final rec = Recorder({'frameNumber': 4});
-      final repo = ScanRepositoryRemote(rec.client);
-
-      expect((await repo.compare('p1', 4)).frameNumber, 4);
-      expect(rec.call, 'GET /processing/p1/frames/4/compare');
     });
 
     test('builds scan URLs from the configured server', () {

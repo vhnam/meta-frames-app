@@ -93,6 +93,20 @@ class LoadedRoll {
   final int? shotIso;
   final DateTime? startedAt;
   final int daysLoaded;
+  String get stockLabel => '$stockBrand $stockName';
+
+  /// The speed the roll is shot at, against its [stock]'s box speed: "ISO 400
+  /// (box)" or "ISO 800 (box 400)". This is the exposure index only; how the
+  /// lab develops the roll is asked for separately when it is sent. Null when
+  /// neither speed is known.
+  String? isoLabel(FilmStock? stock) {
+    final shot = shotIso;
+    if (shot == null) return stock == null ? null : 'ISO ${stock.boxIso} (box)';
+    if (stock == null) return 'ISO $shot';
+    return stock.isBoxSpeed(shot)
+        ? 'ISO $shot (box)'
+        : 'ISO $shot (box ${stock.boxIso})';
+  }
 }
 
 class User {
@@ -438,7 +452,14 @@ class RollSummary {
       description = j['description'],
       startedAt = _date(j['startedAt']),
       finishedAt = _date(j['finishedAt']),
-      negativesAtLab = j['negativesAtLab'] ?? false;
+      negativesAtLab = j['negativesAtLab'] ?? false,
+      developed = j['developed'],
+      scanned = j['scanned'],
+      openJobTypes = (j['openJobTypes'] as List?)
+          ?.map((t) => ProcessingType.parse(t))
+          .toList(),
+      openAtLab = j['openAtLab'],
+      version = j['version'];
   final String id, filmStockId, stockBrand, stockName;
   final String? cameraId, cameraName, description;
   final int format, exposures;
@@ -447,6 +468,22 @@ class RollSummary {
   final ExpiryMonth? expiry;
   final DateTime? startedAt, finishedAt;
   final bool negativesAtLab;
+
+  /// Job summary from the server. Null in a summary cached from an older
+  /// server: the roll then falls back to its plain status.
+  /// [developed]: a develop job has a result back. [scanned]: scans arrived.
+  final bool? developed, scanned;
+
+  /// Types of the jobs still waiting for scans or negatives.
+  final List<ProcessingType>? openJobTypes;
+
+  /// A job is open at a lab. False while the roll is processed at home, even
+  /// though its status is then at lab. Null from an older server.
+  final bool? openAtLab;
+
+  /// Moves on every change to the roll. Sent back as `If-Match` so an edit
+  /// never overwrites a newer change. Null from a server too old to send it.
+  final int? version;
   String get stockLabel => '$stockBrand $stockName';
 }
 
@@ -474,7 +511,8 @@ class ScanRef {
 
 class Frame {
   Frame.fromJson(Map<String, dynamic> j)
-    : id = j['id'],
+    : json = j,
+      id = j['id'],
       number = j['number'],
       notes = j['notes'],
       scans = _list(j['scans'], ScanRef.fromJson);
@@ -482,6 +520,9 @@ class Frame {
   final int number;
   final String? notes;
   final List<ScanRef> scans;
+
+  /// As the server sent it, so it can be kept on the device.
+  final Map<String, dynamic> json;
 }
 
 /// A scanner ordered on a job. [scanCount] counts the scans imported for it.
@@ -567,94 +608,10 @@ class JobOrderLine {
   final String id, product;
 }
 
-/// A processing job and the roll it works on.
-class LabOrderJob {
-  LabOrderJob.fromJson(Map<String, dynamic> j)
-    : id = j['id'],
-      rollId = j['rollId'],
-      type = ProcessingType.parse(j['type']),
-      sentAt = DateTime.parse(j['sentAt']),
-      stockName = j['stockName'],
-      format = j['format'],
-      exposures = j['exposures'],
-      lineIds = List<String>.from(j['orderItemIds'] ?? const []);
-  final String id, rollId, stockName;
-  final ProcessingType type;
-  final DateTime sentAt;
-  final int format, exposures;
-
-  /// Only from the linkable jobs: the lines of this order the job is on.
-  final List<String> lineIds;
-}
-
-class LabOrderLine {
-  LabOrderLine.fromJson(Map<String, dynamic> j)
-    : id = j['id'],
-      product = j['product'],
-      options = j['options'],
-      quantity = j['quantity'],
-      unitPrice = j['unitPrice'],
-      lineTotal = j['lineTotal'],
-      unitCost = j['unitCost'],
-      jobs = _list(j['jobs'], LabOrderJob.fromJson);
-  final String id, product;
-
-  /// The services the lab lists under the product, as Markdown.
-  final String? options;
-  final int quantity, unitPrice, lineTotal;
-
-  /// What a roll on this line costs, with the order's VAT and discount shared out.
-  final int unitCost;
-  final List<LabOrderJob> jobs;
-
-  /// Rolls still to come on the line.
-  int get room => quantity - jobs.length;
-}
-
-/// What a lab billed.
-class LabOrder {
-  LabOrder.fromJson(Map<String, dynamic> j)
-    : id = j['id'],
-      labId = j['labId'],
-      labName = j['labName'],
-      code = j['code'],
-      orderedAt = DateTime.parse(j['orderedAt']).toLocal(),
-      dueDate = _date(j['dueDate']),
-      vat = j['vat'],
-      discount = j['discount'],
-      notes = j['notes'],
-      subtotal = j['subtotal'],
-      total = j['total'],
-      lines = _list(j['items'], LabOrderLine.fromJson);
-  final String id, labId, labName, code;
-  final DateTime orderedAt;
-  final DateTime? dueDate;
-  final int vat, discount, subtotal, total;
-  final String? notes;
-  final List<LabOrderLine> lines;
-
-  /// Every job on the order once, with the lines that bill it.
-  List<({LabOrderJob job, List<LabOrderLine> lines})> get jobs {
-    final byJob = <String, ({LabOrderJob job, List<LabOrderLine> lines})>{};
-    for (final line in lines) {
-      for (final job in line.jobs) {
-        byJob.putIfAbsent(job.id, () => (job: job, lines: [])).lines.add(line);
-      }
-    }
-    return byJob.values.toList();
-  }
-
-  /// Rolls on the order: one roll on two lines counts once.
-  int get rolls => {for (final j in jobs) j.job.rollId}.length;
-
-  /// How many of the places its lines bill are taken.
-  int get takenPlaces => lines.fold(0, (sum, l) => sum + l.jobs.length);
-  int get billedPlaces => lines.fold(0, (sum, l) => sum + l.quantity);
-}
-
 class RollDetail {
   RollDetail.fromJson(Map<String, dynamic> j)
-    : roll = RollSummary.fromJson(j['roll']),
+    : json = j,
+      roll = RollSummary.fromJson(j['roll']),
       stock = FilmStock.fromJson(j['stock']),
       baseStock = j['baseStock'] == null
           ? null
@@ -672,6 +629,9 @@ class RollDetail {
   final List<Frame> frames;
   final RollTotals totals;
   final List<String> warnings;
+
+  /// As the server sent it, so it can be kept on the device.
+  final Map<String, dynamic> json;
 }
 
 class ExpiryRoll {
@@ -720,42 +680,4 @@ class Scan {
   final String id, processingId, frameId, fileName, fileUrl;
   final int frameNumber, sizeBytes;
   final Scanner scanner;
-}
-
-class ImportPreviewItem {
-  ImportPreviewItem.fromJson(Map<String, dynamic> j)
-    : fileName = j['fileName'],
-      frameNumber = j['frameNumber'],
-      error = j['error'];
-  final String fileName;
-  final int? frameNumber;
-  final String? error;
-}
-
-class ImportFailure {
-  ImportFailure.fromJson(Map<String, dynamic> j)
-    : fileName = j['fileName'],
-      reason = j['reason'];
-  final String fileName, reason;
-}
-
-class ImportResult {
-  ImportResult.fromJson(Map<String, dynamic> j)
-    : imported = _list(j['imported'], Scan.fromJson),
-      skipped = _list(j['skipped'], ImportFailure.fromJson),
-      failed = _list(j['failed'], ImportFailure.fromJson);
-  final List<Scan> imported;
-  final List<ImportFailure> skipped, failed;
-}
-
-class FrameComparison {
-  FrameComparison.fromJson(Map<String, dynamic> j)
-    : frameNumber = j['frameNumber'],
-      noritsu = j['noritsu'] == null ? null : Scan.fromJson(j['noritsu']),
-      frontier = j['frontier'] == null ? null : Scan.fromJson(j['frontier']),
-      previousFrameNumber = j['previousFrameNumber'],
-      nextFrameNumber = j['nextFrameNumber'];
-  final int frameNumber;
-  final Scan? noritsu, frontier;
-  final int? previousFrameNumber, nextFrameNumber;
 }

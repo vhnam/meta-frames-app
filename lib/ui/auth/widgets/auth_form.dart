@@ -21,6 +21,7 @@ class AuthForm extends StatefulWidget {
     this.onGoogle,
     this.bottom,
     this.footer = const [],
+    this.showLogo = false,
   });
 
   final String title, description, submitLabel;
@@ -28,6 +29,9 @@ class AuthForm extends StatefulWidget {
 
   /// Stays at the bottom of the screen, under the scrolling form.
   final Widget? bottom;
+
+  /// Shows the app logo next to [title].
+  final bool showLogo;
 
   /// Runs when every field is valid. An `ApiException` shows above the fields.
   final Future<void> Function() onSubmit;
@@ -98,7 +102,28 @@ class _AuthFormState extends State<AuthForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.title, style: theme.textTheme.headlineSmall),
+                  Row(
+                    children: [
+                      if (widget.showLogo) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 40,
+                            height: 40,
+                            excludeFromSemantics: true,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          style: theme.textTheme.headlineSmall,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     widget.description,

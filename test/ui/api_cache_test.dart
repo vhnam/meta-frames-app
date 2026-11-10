@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meta_frames/data/services/session_store.dart';
+import 'package:meta_frames/domain/models/gear_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_filter.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/routing/routes.dart';
 import 'package:meta_frames/ui/gear/view_models/gear_actions.dart';
-import 'package:meta_frames/ui/scans/view_models/scan_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../testing/fakes.dart';
@@ -24,16 +24,6 @@ class _FlakyCameras extends FakeCameraRepository {
       return Future.error(StateError('offline'));
     }
     return super.cameras();
-  }
-}
-
-class _CountingScans extends FakeScanRepository {
-  int compareCalls = 0;
-
-  @override
-  Future<FrameComparison> compare(String processingId, int n) async {
-    compareCalls++;
-    return FrameComparison.fromJson({'frameNumber': n});
   }
 }
 
@@ -70,7 +60,7 @@ Future<_App> _pumpApp(WidgetTester tester) async {
     ],
   );
   addTearDown(container.dispose);
-  final router = buildRouter(initialLocation: Routes.home);
+  final router = buildRouter(initialLocation: Routes.shooting);
   addTearDown(router.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -97,9 +87,9 @@ void main() {
     final rollCalls = app.rolls.listCalls;
     final cameraCalls = app.cameras.listCalls;
 
-    await _tap(tester, 'Home');
+    await _tap(tester, 'Shooting');
     await _tap(tester, 'Rolls');
-    await _tap(tester, 'Home');
+    await _tap(tester, 'Shooting');
 
     expect(app.rolls.listCalls, rollCalls);
     expect(app.cameras.listCalls, cameraCalls);
@@ -133,7 +123,14 @@ void main() {
 
     await app.container
         .read(cameraActionsProvider)
-        .setActive(camera('c1'), false);
+        .save(
+          const CameraEdit(
+            brand: 'Leica',
+            model: 'M6',
+            hasFixedLens: false,
+            mount: 'M',
+          ),
+        );
     await tester.pumpAndSettle();
 
     expect(app.cameras.listCalls, before + 1);
@@ -209,32 +206,6 @@ void main() {
 
       expect(linked.map((c) => c.id), ['c1']);
       expect(cameras.listCalls, 1);
-    });
-
-    test('returning to a frame reuses it until scans are imported', () async {
-      final scans = _CountingScans();
-      final container = ProviderContainer(
-        overrides: [scanRepositoryProvider.overrideWithValue(scans)],
-      );
-      addTearDown(container.dispose);
-      Future<void> view(int frame) async {
-        final sub = container.listen(compareProvider(('p1', frame)), (_, _) {});
-        await container.read(compareProvider(('p1', frame)).future);
-        sub.close();
-        await settle();
-      }
-
-      await view(1);
-      await view(2);
-      await view(1);
-      expect(scans.compareCalls, 2);
-
-      container.read(scanActionsProvider).importsFinished('p1');
-      await settle();
-      expect(scans.compareCalls, 2);
-
-      await view(1);
-      expect(scans.compareCalls, 3);
     });
 
     test('a failed call is not kept', () async {

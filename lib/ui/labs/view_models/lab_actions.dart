@@ -4,34 +4,27 @@ import '../../../domain/models/lab_requests.dart';
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
 
-/// Writes that change labs.
+/// Quick add of labs. The dashboard edits and deletes them.
 class LabActions {
   LabActions(this._ref);
   final Ref _ref;
 
-  /// Creates a lab, or updates [existing] when given.
-  Future<Lab> save(LabEdit lab, {Lab? existing}) async {
-    final repo = _ref.read(labRepositoryProvider);
-    final saved = existing == null
-        ? await repo.create(lab)
-        : await repo.update(existing.id, lab);
+  /// Creates a lab (at client id [id] when given).
+  Future<Lab> save(LabEdit lab, {String? id}) async {
+    final saved = await _ref.read(labRepositoryProvider).create(lab, id: id);
     _ref.invalidate(labsProvider);
-    if (existing != null) {
-      // A renamed lab shows up wherever a job names it.
-      _ref
-        ..invalidate(labProvider(existing.id))
-        ..invalidate(negativesAtLabProvider)
-        ..invalidate(processingProvider)
-        ..invalidate(rollDetailProvider);
-    }
     return saved;
   }
 
-  Future<void> delete(String labId) async {
-    await _ref.read(labRepositoryProvider).delete(labId);
-    _ref
-      ..invalidate(labsProvider)
-      ..invalidate(negativesAtLabProvider);
+  /// After a create at [id] was refused because the id is taken: the lab at
+  /// [id] if it is this create's, else null.
+  Future<Lab?> landed(String id, LabEdit lab) async {
+    final l = await _ref.read(labRepositoryProvider).lab(id);
+    if (l.name != lab.name || (l.address ?? '') != (lab.address ?? '')) {
+      return null;
+    }
+    _ref.invalidate(labsProvider);
+    return l;
   }
 }
 

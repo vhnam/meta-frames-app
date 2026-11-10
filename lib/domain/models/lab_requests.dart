@@ -8,6 +8,11 @@ class LabEdit {
     this.scannerIds,
     this.defaultScannerId,
   });
+  LabEdit.fromJson(Map<String, dynamic> j)
+    : name = j['name'],
+      address = j['address'],
+      scannerIds = (j['scannerIds'] as List?)?.cast<String>(),
+      defaultScannerId = j['defaultScannerId'];
   final String name;
   final String? address;
 
