@@ -31,6 +31,7 @@ class _State extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) => AuthForm(
     title: 'Sign in to MetaFrames',
+    showLogo: true,
     description: 'Access your roll logs, gear stash and darkroom archives.',
     submitLabel: 'Log in',
     onGoogle: ref.read(authActionsProvider).googleAvailable

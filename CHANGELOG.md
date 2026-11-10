@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load roll's ISO field shows the box speed it defaults to, and refuses text that is not a whole number instead of loading the roll at box speed. Lenses are marked optional.
 - A camera's page shows the shot ISO with the box speed it differs from, instead of calling it pushed or pulled: the development request is asked for separately when the roll is sent to a lab.
 - A job done at home shows a stored expected date for negatives or scans.
+- New app icon and logo: a film canister, on the home screen and next to the title on the sign-in screen.
 
 ### Removed
 
