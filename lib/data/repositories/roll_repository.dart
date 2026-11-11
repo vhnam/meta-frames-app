@@ -27,6 +27,10 @@ abstract class RollRepository {
   Future<void> setLenses(String id, List<String> lensIds);
   Future<RollDetail> finish(String id, DateTime date);
 
+  /// Replaces the roll's plan. Changes no job and works in every status.
+  /// `scanBy` with target developed is `422 scan_not_planned`.
+  Future<RollDetail> setPlan(String id, RollPlan plan);
+
   /// One frame of a roll. Frames are numbered by the photographer and exist
   /// once they have notes or scans, so an unknown number is a 404.
   Future<Frame> frame(String rollId, int n);

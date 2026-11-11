@@ -157,6 +157,19 @@ class FakeRollRepository implements RollRepository {
   @override
   Future<void> delete(String id) async => calls.add('delete:$id');
 
+  /// The plans sent through [setPlan]; [planError], when set, is thrown
+  /// instead, as the server or the network would.
+  final plans = <RollPlan>[];
+  Object? planError;
+
+  @override
+  Future<RollDetail> setPlan(String id, RollPlan plan) async {
+    if (planError case final error?) throw error;
+    calls.add('setPlan:$id');
+    plans.add(plan);
+    return _unusedDetail();
+  }
+
   /// The `If-Match` version sent with each [update].
   final versions = <int?>[];
 
@@ -197,15 +210,21 @@ class FakeRollRepository implements RollRepository {
   @override
   Future<ExpiryView> expiry() async => expiryView;
 
+  /// How many times a roll's details were read.
+  int detailCalls = 0;
+
   /// The roll with the frames noted through [saveFrameNotes].
   @override
-  Future<RollDetail> roll(String id) async => rollDetail(
-    id,
-    frames: [
-      for (final k in frameNotes.keys)
-        if (k.$1 == id) _frameJson(id, k.$2),
-    ],
-  );
+  Future<RollDetail> roll(String id) async {
+    detailCalls++;
+    return rollDetail(
+      id,
+      frames: [
+        for (final k in frameNotes.keys)
+          if (k.$1 == id) _frameJson(id, k.$2),
+      ],
+    );
+  }
 
   /// Frame notes by roll id and number, as the server keeps them.
   final frameNotes = <(String, int), String?>{};

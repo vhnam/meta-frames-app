@@ -141,6 +141,16 @@ class RollActions {
     return null;
   }
 
+  /// Sends the plan straight to the server (never queued on the phone) and
+  /// refreshes only after the server took it, so a failed save shows nothing
+  /// new. The plan can move the roll's stage, so the lists refresh too.
+  Future<void> setPlan(String rollId, RollPlan plan) async {
+    await _ref.read(rollRepositoryProvider).setPlan(rollId, plan);
+    _ref
+      ..invalidate(rollDetailProvider(rollId))
+      ..invalidate(rollsProvider);
+  }
+
   Future<void> setLenses(String rollId, List<String> lensIds) async {
     await _ref.read(rollRepositoryProvider).setLenses(rollId, lensIds);
     _ref

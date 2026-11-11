@@ -1,4 +1,15 @@
 import '../utils.dart';
+import 'models.dart';
+
+/// Body for `PUT /rolls/{id}/plan`. It replaces the whole plan: a field left
+/// out is cleared, so an empty plan clears it.
+extension RollPlanBody on RollPlan {
+  Map<String, dynamic> toJson() => {
+    'target': ?target?.name,
+    'developBy': ?developBy?.name,
+    'scanBy': ?scanBy?.name,
+  };
+}
 
 /// Body for adding [quantity] identical rolls to stock.
 class NewRolls {
