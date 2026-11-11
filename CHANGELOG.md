@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The app reads each roll's stage, stage detail, Needs scan mark, plan and open lab handoff from the MetaFrames API, and the developed date of each job. Nothing on screen changes yet. A roll kept on the phone from an older API gets its stage only while it is in stock, in a camera or done shooting; its plan and Needs scan mark stay unknown until the next refresh.
 - A job on an order shows the order's code and products in the roll's processing history. The order is read-only.
 - A Shooting tab, where the app now opens, shows every camera holding a roll: the stock, the shot ISO against the box speed, and the start date. Each camera has Finish. Frame notes are on the roll's page. Empty cameras each have Load, and + Load picks both a camera and a roll.
 - The Rolls list has a Negatives at lab chip that finds rolls whose negatives are still at a lab, whatever their status, and format pills built from the formats in the list.

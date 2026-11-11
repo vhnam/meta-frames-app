@@ -28,6 +28,70 @@ enum RollStatus {
   static RollStatus parse(String s) => values.firstWhere((e) => e.wire == s);
 }
 
+/// The Rolls tab a roll is in, as the server decides it from status, jobs and
+/// plan. Named apart from the older derived `RollStage` record.
+enum RollLifecycleStage {
+  inStock('in_stock'),
+  inCamera('in_camera'),
+  doneShooting('done_shooting'),
+  processing('processing'),
+  completed('completed');
+
+  const RollLifecycleStage(this.wire);
+  final String wire;
+
+  /// Null for a value this app does not know.
+  static RollLifecycleStage? tryParse(Object? wire) =>
+      values.where((stage) => stage.wire == wire).firstOrNull;
+}
+
+/// What a processing roll waits for. Absent in every other stage.
+enum StageDetail {
+  labDeveloping('lab_developing'),
+  labScanning('lab_scanning'),
+  homeDeveloping('home_developing'),
+  homeScanning('home_scanning'),
+  rescanning('rescanning'),
+  waitingScan('waiting_scan'),
+  waitingHomeScan('waiting_home_scan'),
+  waitingLabScan('waiting_lab_scan'),
+  printing('printing');
+
+  const StageDetail(this.wire);
+  final String wire;
+
+  /// Null for a value this app does not know.
+  static StageDetail? tryParse(Object? wire) =>
+      values.where((detail) => detail.wire == wire).firstOrNull;
+}
+
+/// Who does a step: the owner at home, or a lab.
+enum StepActor {
+  self,
+  lab;
+
+  static StepActor? tryParse(Object? name) => values.asNameMap()[name];
+}
+
+/// Where a roll ends: developed only, or developed and scanned.
+enum PlanTarget {
+  developed,
+  scanned;
+
+  static PlanTarget? tryParse(Object? name) => values.asNameMap()[name];
+}
+
+/// What the owner plans for a roll. A null field is not decided yet.
+class RollPlan {
+  const RollPlan({this.target, this.developBy, this.scanBy});
+  RollPlan.fromJson(Map<String, dynamic> json)
+    : target = PlanTarget.tryParse(json['target']),
+      developBy = StepActor.tryParse(json['developBy']),
+      scanBy = StepActor.tryParse(json['scanBy']);
+  final PlanTarget? target;
+  final StepActor? developBy, scanBy;
+}
+
 enum ProcessingType {
   develop('develop', 'Develop'),
   developScan('develop_scan', 'Develop + scan'),
@@ -459,6 +523,11 @@ class RollSummary {
           ?.map((t) => ProcessingType.parse(t))
           .toList(),
       openAtLab = j['openAtLab'],
+      openHandoffId = j['openHandoffId'],
+      plan = j['plan'] == null ? null : RollPlan.fromJson(j['plan']),
+      stage = _lifecycleStage(j),
+      stageDetail = StageDetail.tryParse(j['stageDetail']),
+      needsScan = j['needsScan'],
       version = j['version'];
   final String id, filmStockId, stockBrand, stockName;
   final String? cameraId, cameraName, description;
@@ -481,11 +550,43 @@ class RollSummary {
   /// though its status is then at lab. Null from an older server.
   final bool? openAtLab;
 
+  /// The roll's open stay at a lab, for recording its return. Null when no
+  /// handoff is open, or an older lab job holds the roll without one.
+  final String? openHandoffId;
+
+  /// Null in a summary cached from an older server: the plan is unknown, not
+  /// empty.
+  final RollPlan? plan;
+
+  /// The server's stage. In a summary cached from an older server it comes
+  /// from a status that settles it (in stock, in camera, done shooting); null
+  /// otherwise, until a refresh.
+  final RollLifecycleStage? stage;
+
+  /// Set only while [stage] is processing.
+  final StageDetail? stageDetail;
+
+  /// Marked for a scan that has not started. Null from an older server: not
+  /// known, which is not the same as unmarked.
+  final bool? needsScan;
+
   /// Moves on every change to the roll. Sent back as `If-Match` so an edit
   /// never overwrites a newer change. Null from a server too old to send it.
   final int? version;
   String get stockLabel => '$stockBrand $stockName';
 }
+
+/// The stage the server sent, else the one a pre-processing status settles.
+/// at_lab, developed and scanned depend on jobs and plan, so they stay null.
+RollLifecycleStage? _lifecycleStage(Map<String, dynamic> json) =>
+    json.containsKey('stage')
+    ? RollLifecycleStage.tryParse(json['stage'])
+    : switch (json['status']) {
+        'in_stock' => RollLifecycleStage.inStock,
+        'in_camera' => RollLifecycleStage.inCamera,
+        'done_shooting' => RollLifecycleStage.doneShooting,
+        _ => null,
+      };
 
 class RollTotals {
   RollTotals.fromJson(Map<String, dynamic> j)
@@ -550,6 +651,7 @@ class Processing {
       sentAt = DateTime.parse(j['sentAt']),
       scansExpectedAt = _date(j['scansExpectedAt']),
       negativesExpectedAt = _date(j['negativesExpectedAt']),
+      developedAt = _date(j['developedAt']),
       scansReceivedAt = _date(j['scansReceivedAt']),
       negativesReturnedAt = _date(j['negativesReturnedAt']),
       price = j['price'],
@@ -563,6 +665,9 @@ class Processing {
   final Process process;
   final DateTime sentAt;
   final DateTime? scansExpectedAt, negativesExpectedAt;
+
+  /// The day a develop or develop_scan job's film was developed.
+  final DateTime? developedAt;
   final DateTime? scansReceivedAt, negativesReturnedAt;
 
   /// From its order lines when the job is on an order, otherwise the job's own.
