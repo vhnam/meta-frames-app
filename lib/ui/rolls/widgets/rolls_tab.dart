@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/expiry.dart';
 import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_stage.dart';
 import '../../../providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -86,6 +87,7 @@ class RollsTab extends ConsumerWidget {
                 builder: (rs) {
                   if (noRolls) return const _NoRolls();
                   if (rs.isEmpty) return const EmptyState('No rolls here.');
+                  final idHints = rollIdHints(rs);
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                     itemCount: rs.length,
@@ -94,6 +96,7 @@ class RollsTab extends ConsumerWidget {
                       roll: rs[i],
                       process: processes[rs[i].filmStockId],
                       expiring: expiring.contains(rs[i].id),
+                      idHint: idHints[rs[i].id],
                       extraBadge:
                           rs[i].status == RollStatus.inStock &&
                               isExpired(rs[i].expiry)
@@ -235,14 +238,6 @@ class _FilterSheet extends ConsumerWidget {
   }
 }
 
-const _stageLabels = {
-  RollLifecycleStage.inStock: 'In stock',
-  RollLifecycleStage.inCamera: 'In camera',
-  RollLifecycleStage.doneShooting: 'Done shooting',
-  RollLifecycleStage.processing: 'Processing',
-  RollLifecycleStage.completed: 'Completed',
-};
-
 /// "All 10  In stock 3  In camera 2 ... Completed 4" selectable chips: one per
 /// stage. A roll cached without a stage is only under All.
 class _StageChips extends StatelessWidget {
@@ -274,7 +269,7 @@ class _StageChips extends StatelessWidget {
           for (final stage in RollLifecycleStage.values) ...[
             const SizedBox(width: 6),
             chip(
-              _stageLabels[stage]!,
+              stageLabel(stage),
               counts?.byStage[stage],
               selected == stage,
               () => onStage(stage),

@@ -2,131 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_stage.dart';
 
-import '../testing/fakes.dart';
-
 void main() {
-  RollStage? stage(
-    String status, {
-    bool? developed,
-    bool? scanned,
-    List<String>? open,
-    bool? openAtLab,
-  }) => rollStage(
-    roll(
-      'r',
-      status: status,
-      developed: developed,
-      scanned: scanned,
-      openJobTypes: open,
-      openAtLab: openAtLab,
-    ),
-  );
-
-  group('at the lab, the open jobs give the steps', () {
-    test('develop only', () {
-      expect(
-        stage('at_lab', developed: false, scanned: false, open: ['develop']),
-        (open: true, atHome: false, develop: true, scan: false, print: false),
-      );
-    });
-    test('develop + scan in one job', () {
-      expect(stage('at_lab', open: ['develop_scan']), (
-        open: true,
-        atHome: false,
-        develop: true,
-        scan: true,
-        print: false,
-      ));
-    });
-    test('scan only: rescan after developing, or old negatives', () {
-      expect(stage('at_lab', developed: true, open: ['scan']), (
-        open: true,
-        atHome: false,
-        develop: false,
-        scan: true,
-        print: false,
-      ));
-    });
-    test('print', () {
-      expect(stage('at_lab', open: ['print']), (
-        open: true,
-        atHome: false,
-        develop: false,
-        scan: false,
-        print: true,
-      ));
-    });
-  });
-
-  group('processed at home', () {
-    test('no open job at a lab: at home, with the open steps', () {
-      expect(stage('at_lab', open: ['develop'], openAtLab: false), (
-        open: true,
-        atHome: true,
-        develop: true,
-        scan: false,
-        print: false,
-      ));
-    });
-    test('an open lab job too: at the lab', () {
-      expect(stage('at_lab', open: ['develop', 'print'], openAtLab: true), (
-        open: true,
-        atHome: false,
-        develop: true,
-        scan: false,
-        print: true,
-      ));
-    });
-    test('without openAtLab (older server): at the lab', () {
-      expect(stage('at_lab', open: ['develop'])?.atHome, isFalse);
-    });
-  });
-
-  group('back from the lab, the recorded results give the steps', () {
-    test('develop only', () {
-      expect(stage('developed', developed: true, scanned: false), (
-        open: false,
-        atHome: false,
-        develop: true,
-        scan: false,
-        print: false,
-      ));
-    });
-    test('develop + scan, in one job or a later scan job', () {
-      expect(stage('scanned', developed: true, scanned: true), (
-        open: false,
-        atHome: false,
-        develop: true,
-        scan: true,
-        print: false,
-      ));
-    });
-    test('scan only, for old negatives', () {
-      expect(stage('scanned', developed: false, scanned: true), (
-        open: false,
-        atHome: false,
-        develop: false,
-        scan: true,
-        print: false,
-      ));
-    });
-    test('print only', () {
-      expect(stage('developed', developed: false, scanned: false), (
-        open: false,
-        atHome: false,
-        develop: false,
-        scan: false,
-        print: true,
-      ));
-    });
-  });
-
-  test('without the job fields every roll falls back to its status', () {
-    for (final s in RollStatus.values) {
-      expect(stage(s.wire), isNull, reason: s.wire);
-    }
-  });
-
   group('server stage fields', () {
     RollSummary summary(String status, [Map<String, dynamic>? more]) =>
         RollSummary.fromJson({
@@ -239,6 +115,68 @@ void main() {
         'isOpen': true,
       });
       expect(job.developedAt, DateTime(2026, 11, 3));
+    });
+  });
+
+  group('stage label', () {
+    RollSummary summary(String status, [Map<String, dynamic>? more]) =>
+        RollSummary.fromJson({
+          'id': 'roll',
+          'filmStockId': 's1',
+          'stockBrand': 'Kodak',
+          'stockName': 'Gold',
+          'format': 135,
+          'exposures': 36,
+          'status': status,
+          ...?more,
+        });
+
+    test('the processing detail wins over the stage', () {
+      final roll = summary('at_lab', {
+        'stage': 'processing',
+        'stageDetail': 'waiting_lab_scan',
+      });
+      expect(
+        rollStageLabel(roll),
+        stageDetailLabel(StageDetail.waitingLabScan),
+      );
+      expect(
+        rollStageLabel(summary('scanned', {'stage': 'completed'})),
+        stageLabel(RollLifecycleStage.completed),
+      );
+    });
+
+    test('a roll cached without a stage shows its plain status', () {
+      expect(rollStageLabel(summary('developed')), RollStatus.developed.label);
+    });
+
+    test('only a lab step or an old at-lab status says the lab has it', () {
+      expect(
+        stageLabelSaysLab(
+          summary('at_lab', {
+            'stage': 'processing',
+            'stageDetail': 'lab_developing',
+          }),
+        ),
+        isTrue,
+      );
+      expect(stageLabelSaysLab(summary('at_lab')), isTrue);
+      // Completed while the lab still holds the negatives: say it apart.
+      expect(
+        stageLabelSaysLab(
+          summary('developed', {'stage': 'completed', 'negativesAtLab': true}),
+        ),
+        isFalse,
+      );
+      expect(
+        stageLabelSaysLab(
+          summary('at_lab', {
+            'stage': 'processing',
+            'stageDetail': 'home_scanning',
+          }),
+        ),
+        isFalse,
+      );
     });
   });
 }

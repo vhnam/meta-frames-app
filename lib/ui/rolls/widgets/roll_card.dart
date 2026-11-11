@@ -7,7 +7,7 @@ import '../../../routing/routes.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 
-/// One roll: status-tinted icon, name, meta line, status and process stamps.
+/// One roll: status-tinted icon, name, meta line, stage and process stamps.
 /// Opens the roll. Used by every list of rolls that is not inside a detail.
 class RollCard extends StatelessWidget {
   const RollCard({
@@ -16,6 +16,7 @@ class RollCard extends StatelessWidget {
     this.process,
     this.expiring = false,
     this.extraBadge,
+    this.idHint,
   });
   final RollSummary roll;
   final Process? process;
@@ -26,18 +27,14 @@ class RollCard extends StatelessWidget {
   /// Shown after the status stamps, e.g. "Expired".
   final Widget? extraBadge;
 
+  /// The start of the roll's id, when another roll in the list looks the same.
+  final String? idHint;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tone = statusTone(context, roll.status);
-    final meta = [
-      '${roll.format} · ${roll.exposures} exp',
-      if (roll.cameraName != null) roll.cameraName!,
-      if (roll.shotIso != null) 'ISO ${roll.shotIso}',
-      if (roll.startedAt != null) fmtDate(roll.startedAt),
-      if (roll.expiry != null && roll.status == RollStatus.inStock)
-        'exp ${roll.expiry}',
-    ].join(' · ');
+    final meta = [_meta(roll), if (idHint != null) '#$idHint'].join(' · ');
     return Material(
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(
@@ -94,12 +91,10 @@ class RollCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        StampBadge(_statusLabel(roll), color: tone),
+                        StampBadge(rollStageLabel(roll), color: tone),
                         if (process != null) ProcessBadge(process!),
                         ?extraBadge,
-                        // An at-lab label already says the negatives are away.
-                        if (roll.negativesAtLab &&
-                            roll.status != RollStatus.atLab)
+                        if (_showsLabStamp(roll))
                           StampBadge(
                             'Negatives at lab',
                             color: cs.onPrimaryContainer,
@@ -124,24 +119,46 @@ class RollCard extends StatelessWidget {
   }
 }
 
-/// The status with what the jobs add: "At lab · Develop + Scan" while at the
-/// lab, "At home · Develop" while processed at home, "Developed + Scanned"
-/// once back.
-String _statusLabel(RollSummary roll) {
-  final stage = rollStage(roll);
-  if (stage == null) return roll.status.label;
-  if (stage.open) {
-    final steps = [
-      if (stage.develop) 'Develop',
-      if (stage.scan) 'Scan',
-      if (stage.print) 'Print',
-    ];
-    final place = stage.atHome ? 'At home' : roll.status.label;
-    return '$place · ${steps.join(' + ')}';
+String _meta(RollSummary roll) => [
+  '${roll.format} · ${roll.exposures} exp',
+  if (roll.cameraName != null) roll.cameraName!,
+  if (roll.shotIso != null) 'ISO ${roll.shotIso}',
+  if (roll.startedAt != null) fmtDate(roll.startedAt),
+  if (roll.expiry != null && roll.status == RollStatus.inStock)
+    'exp ${roll.expiry}',
+].join(' · ');
+
+/// The stage label does not already say a lab has the roll.
+bool _showsLabStamp(RollSummary roll) =>
+    roll.negativesAtLab && !stageLabelSaysLab(roll);
+
+/// For rolls whose cards would read the same (stock, meta line, stage label
+/// and Negatives at lab stamp), the shortest start of the id, from 4 characters, that tells them
+/// apart. Rolls that already differ get none.
+Map<String, String> rollIdHints(List<RollSummary> rolls) {
+  final groups = <String, Set<String>>{};
+  for (final roll in rolls) {
+    final look = [
+      roll.stockLabel,
+      _meta(roll),
+      rollStageLabel(roll),
+      _showsLabStamp(roll),
+    ].join('|');
+    (groups[look] ??= {}).add(roll.id);
   }
-  return [
-    if (stage.develop) 'Developed',
-    if (stage.scan) 'Scanned',
-    if (stage.print) 'Printed',
-  ].join(' + ');
+  final hints = <String, String>{};
+  for (final ids in groups.values.where((ids) => ids.length > 1)) {
+    // A set holds each id once, so at full length the prefixes differ.
+    var length = 4;
+    while ({for (final id in ids) _prefix(id, length)}.length < ids.length) {
+      length++;
+    }
+    for (final id in ids) {
+      hints[id] = _prefix(id, length);
+    }
+  }
+  return hints;
 }
+
+String _prefix(String id, int length) =>
+    id.length <= length ? id : id.substring(0, length);

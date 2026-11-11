@@ -1,57 +1,39 @@
 import 'models.dart';
 
-/// What a roll's jobs add to its status: the steps still open ([open]; at
-/// home when [atHome], else at a lab), or the steps done once it is back.
-typedef RollStage = ({
-  bool open,
-  bool atHome,
-  bool develop,
-  bool scan,
-  bool print,
-});
+/// The dashboard's labels (RollStageBadge.vue), so a roll reads the same on
+/// both.
+String stageLabel(RollLifecycleStage stage) => switch (stage) {
+  RollLifecycleStage.inStock => 'In stock',
+  RollLifecycleStage.inCamera => 'In camera',
+  RollLifecycleStage.doneShooting => 'Done shooting',
+  RollLifecycleStage.processing => 'Processing',
+  RollLifecycleStage.completed => 'Completed',
+};
 
-/// The stage of [roll], or null when its plain status says it all (not
-/// processed yet, or a summary without the job fields).
-RollStage? rollStage(RollSummary roll) {
-  switch (roll.status) {
-    case RollStatus.atLab:
-      final open = roll.openJobTypes;
-      if (open == null || open.isEmpty) return null;
-      return (
-        open: true,
-        atHome: _atHome(roll),
-        develop: open.any((t) => t.developsFilm),
-        scan: open.any((t) => t.hasScans),
-        print: open.contains(ProcessingType.print),
-      );
-    case RollStatus.developed || RollStatus.scanned:
-      final (developed, scanned) = (roll.developed, roll.scanned);
-      if (developed == null || scanned == null) return null;
-      if (!developed && !scanned) {
-        // Every closed job was a print job; the server still says developed.
-        return roll.status == RollStatus.developed
-            ? (
-                open: false,
-                atHome: false,
-                develop: false,
-                scan: false,
-                print: true,
-              )
-            : null;
-      }
-      return (
-        open: false,
-        atHome: false,
-        develop: developed,
-        scan: scanned,
-        print: false,
-      );
-    default:
-      return null;
-  }
-}
+String stageDetailLabel(StageDetail detail) => switch (detail) {
+  StageDetail.labDeveloping => 'Lab developing',
+  StageDetail.labScanning => 'Lab scanning',
+  StageDetail.homeDeveloping => 'Developing at home',
+  StageDetail.homeScanning => 'Scanning at home',
+  StageDetail.rescanning => 'Rescanning',
+  StageDetail.waitingScan => 'Waiting for scan',
+  StageDetail.waitingHomeScan => 'Waiting to scan at home',
+  StageDetail.waitingLabScan => 'Waiting for lab scan',
+  StageDetail.printing => 'Printing',
+};
 
-/// Status at_lab with no open job at a lab: processed at home. Null
-/// [RollSummary.openAtLab] (older server) counts as at a lab.
-bool _atHome(RollSummary roll) =>
-    roll.status == RollStatus.atLab && roll.openAtLab == false;
+/// One label per roll: what a processing roll is waiting for, else its stage.
+/// A roll cached without a stage shows its plain status until a refresh.
+String rollStageLabel(RollSummary roll) =>
+    switch ((roll.stage, roll.stageDetail)) {
+      (_, final detail?) => stageDetailLabel(detail),
+      (final stage?, null) => stageLabel(stage),
+      (null, null) => roll.status.label,
+    };
+
+/// Whether [rollStageLabel] already says a lab has the roll, so a separate
+/// "Negatives at lab" stamp would repeat it.
+bool stageLabelSaysLab(RollSummary roll) =>
+    roll.stageDetail == StageDetail.labDeveloping ||
+    roll.stageDetail == StageDetail.labScanning ||
+    (roll.stage == null && roll.status == RollStatus.atLab);
