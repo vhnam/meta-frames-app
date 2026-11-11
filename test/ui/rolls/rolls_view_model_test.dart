@@ -7,6 +7,30 @@ import 'package:meta_frames/ui/rolls/view_models/rolls_view_model.dart';
 
 import '../../testing/fakes.dart';
 
+/// A roll with a server stage. The shared `roll` fixture has no stage field,
+/// so it stands for a summary cached by an older server.
+RollSummary staged(
+  String id,
+  String status,
+  String stage, {
+  bool negativesAtLab = false,
+  bool? needsScan,
+  int format = 135,
+  String? startedAt,
+}) => RollSummary.fromJson({
+  'id': id,
+  'filmStockId': 's1',
+  'stockBrand': 'Kodak',
+  'stockName': 'Gold',
+  'format': format,
+  'exposures': 36,
+  'status': status,
+  'negativesAtLab': negativesAtLab,
+  'stage': stage,
+  'needsScan': ?needsScan,
+  'startedAt': ?startedAt,
+});
+
 void main() {
   late FakeRollRepository rolls;
   late ProviderContainer container;
@@ -35,73 +59,105 @@ void main() {
         .toList();
   }
 
-  test('status chip narrows the list client-side without refetching', () async {
+  test('stage chip narrows the list client-side without refetching', () async {
     expect(await visibleIds(), ['a', 'b', 'c']);
     final before = rolls.listCalls;
 
     container
         .read(rollsViewModelProvider.notifier)
-        .selectStatus(RollStatus.inCamera);
+        .selectStage(RollLifecycleStage.inCamera);
     expect(await visibleIds(), ['b', 'c']);
     expect(rolls.listCalls, before);
   });
 
-  test('status counts cover every chip', () async {
+  test('stage counts cover every chip', () async {
     await visibleIds();
     final counts = container.read(rollCountsProvider)!;
     expect(counts.all, 3);
-    expect(counts.byStatus[RollStatus.inCamera], 2);
-    expect(counts.byStatus[RollStatus.scanned], 0);
-    expect(counts.byStatus.keys, RollStatus.values);
+    expect(counts.byStage[RollLifecycleStage.inCamera], 2);
+    expect(counts.byStage[RollLifecycleStage.completed], 0);
+    expect(counts.byStage.keys, RollLifecycleStage.values);
   });
 
-  group('with rolls in every status', () {
+  group('with rolls in every stage', () {
     setUp(() {
       rolls.all = [
         roll('stock', format: 120),
         roll('camera', status: 'in_camera'),
         roll('done', status: 'done_shooting'),
-        roll('lab', status: 'at_lab', negativesAtLab: true),
-        roll('dev', status: 'developed', negativesAtLab: true),
-        roll('scan', status: 'scanned', negativesAtLab: true, format: 120),
-        roll('home', status: 'scanned'),
+        staged('lab', 'at_lab', 'processing', negativesAtLab: true),
+        staged(
+          'heldDone',
+          'developed',
+          'completed',
+          negativesAtLab: true,
+          format: 120,
+        ),
+        staged('marked', 'scanned', 'completed', needsScan: true),
+        staged('back', 'scanned', 'completed', needsScan: false),
+        // Cached by an older server: no stage, no needsScan.
+        roll('old', status: 'scanned', negativesAtLab: true),
       ];
     });
 
-    test('every status keeps its own chip, in camera included', () async {
+    test(
+      'each roll is under one stage chip; an old roll only in All',
+      () async {
+        await visibleIds();
+        final vm = container.read(rollsViewModelProvider.notifier);
+        final shown = <String>[];
+        for (final stage in RollLifecycleStage.values) {
+          vm.selectStage(stage);
+          shown.addAll(await visibleIds());
+        }
+        expect(shown..sort(), [
+          'back',
+          'camera',
+          'done',
+          'heldDone',
+          'lab',
+          'marked',
+          'stock',
+        ]);
+        final counts = container.read(rollCountsProvider)!;
+        expect(counts.all, 8);
+        expect(counts.byStage.values.fold<int>(0, (sum, count) => sum + count), 7);
+      },
+    );
+
+    test('At lab combines with Completed and the counts follow', () async {
       await visibleIds();
-      final vm = container.read(rollsViewModelProvider.notifier);
-      final shown = <String>[];
-      for (final s in RollStatus.values) {
-        vm.selectStatus(s);
-        shown.addAll(await visibleIds());
-      }
-      // Each roll is in exactly one status chip.
-      expect(shown..sort(), [
-        'camera',
-        'dev',
-        'done',
-        'home',
-        'lab',
-        'scan',
-        'stock',
-      ]);
-      vm.selectStatus(RollStatus.inCamera);
-      expect(await visibleIds(), ['camera']);
+      final before = rolls.listCalls;
+      container.read(rollsViewModelProvider.notifier)
+        ..setAtLab(true)
+        ..selectStage(RollLifecycleStage.completed);
+      expect(await visibleIds(), ['heldDone']);
+      final counts = container.read(rollCountsProvider)!;
+      expect(counts.all, 3, reason: 'lab, heldDone and the old roll');
+      expect(counts.byStage[RollLifecycleStage.processing], 1);
+      expect(counts.byStage[RollLifecycleStage.completed], 1);
+      expect(rolls.listCalls, before);
     });
 
-    test('negatives at lab finds developed and scanned rolls too', () async {
+    test('Needs scan counts only rolls marked by the server', () async {
       await visibleIds();
-      container.read(rollsViewModelProvider.notifier).selectNegativesAtLab();
-      expect(await visibleIds(), ['lab', 'dev', 'scan']);
-      expect(container.read(rollCountsProvider)!.negativesAtLab, 3);
-      expect(container.read(rollsViewModelProvider).status, isNull);
+      container.read(rollsViewModelProvider.notifier).setNeedsScan(true);
+      expect(await visibleIds(), ['marked']);
+      expect(container.read(rollCountsProvider)!.all, 1);
+    });
 
-      container
-          .read(rollsViewModelProvider.notifier)
-          .selectStatus(RollStatus.scanned);
-      expect(container.read(rollsViewModelProvider).negativesAtLab, isFalse);
-      expect(await visibleIds(), ['scan', 'home']);
+    test('changing the stage keeps the filters', () async {
+      await visibleIds();
+      final vm = container.read(rollsViewModelProvider.notifier)
+        ..setAtLab(true)
+        ..setFormat(120)
+        ..selectStage(RollLifecycleStage.processing);
+      expect(await visibleIds(), isEmpty);
+      vm.selectStage(null);
+      expect(await visibleIds(), ['heldDone']);
+      final state = container.read(rollsViewModelProvider);
+      expect(state.atLab, isTrue);
+      expect(state.format, 120);
     });
 
     test('format narrows on the client and the counts follow', () async {
@@ -110,11 +166,10 @@ void main() {
       expect(container.read(rollFormatsProvider), [120, 135]);
 
       container.read(rollsViewModelProvider.notifier).setFormat(120);
-      expect(await visibleIds(), ['stock', 'scan']);
+      expect(await visibleIds(), ['stock', 'heldDone']);
       final counts = container.read(rollCountsProvider)!;
       expect(counts.all, 2);
-      expect(counts.byStatus[RollStatus.scanned], 1);
-      expect(counts.negativesAtLab, 1);
+      expect(counts.byStage[RollLifecycleStage.completed], 1);
       // The formats to pick from do not shrink to the picked one.
       expect(container.read(rollFormatsProvider), [120, 135]);
       expect(rolls.listCalls, before);
@@ -132,38 +187,17 @@ void main() {
     ];
     container
         .read(rollsViewModelProvider.notifier)
-        .selectStatus(RollStatus.inStock);
+        .selectStage(RollLifecycleStage.inStock);
     // A year without a month expires at the end of that year.
     expect(await visibleIds(), ['soon', 'year', 'late', 'none', 'none2']);
   });
-
-  test(
-    'a developed and scanned roll is under both chips, once in All',
-    () async {
-      rolls.all = [
-        roll('both', status: 'scanned', developed: true, scanned: true),
-        roll('scanOnly', status: 'scanned', developed: false, scanned: true),
-        roll('dev', status: 'developed', developed: true, scanned: false),
-      ];
-      expect(await visibleIds(), ['both', 'scanOnly', 'dev']);
-      final vm = container.read(rollsViewModelProvider.notifier);
-      vm.selectStatus(RollStatus.developed);
-      expect(await visibleIds(), ['both', 'dev']);
-      vm.selectStatus(RollStatus.scanned);
-      expect(await visibleIds(), ['both', 'scanOnly']);
-      final counts = container.read(rollCountsProvider)!;
-      expect(counts.all, 3);
-      expect(counts.byStatus[RollStatus.developed], 2);
-      expect(counts.byStatus[RollStatus.scanned], 2);
-    },
-  );
 
   test(
     'lists newest start date first, rolls not started last in server order',
     () async {
       rolls.all = [
         roll('addedLast'),
-        roll('old', status: 'scanned', startedAt: '2026-01-05'),
+        staged('old', 'scanned', 'completed', startedAt: '2026-01-05'),
         roll('addedFirst'),
         roll('new', status: 'in_camera', startedAt: '2026-10-01'),
         roll(
@@ -172,9 +206,10 @@ void main() {
           startedAt: '2026-05-01',
           negativesAtLab: true,
         ),
-        roll(
+        staged(
           'midToo',
-          status: 'scanned',
+          'scanned',
+          'completed',
           startedAt: '2026-05-01',
           negativesAtLab: true,
         ),
@@ -188,61 +223,14 @@ void main() {
         'addedFirst',
       ]);
       final vm = container.read(rollsViewModelProvider.notifier);
-      vm.selectStatus(RollStatus.scanned);
+      vm.selectStage(RollLifecycleStage.completed);
       expect(await visibleIds(), ['midToo', 'old']);
-      vm.selectNegativesAtLab();
+      vm
+        ..selectStage(null)
+        ..setAtLab(true);
       expect(await visibleIds(), ['mid', 'midToo']);
     },
   );
-
-  test('a roll processed at home is only in All', () async {
-    rolls.all = [
-      roll('lab', status: 'at_lab', openJobTypes: ['develop'], openAtLab: true),
-      roll(
-        'home',
-        status: 'at_lab',
-        openJobTypes: ['develop'],
-        openAtLab: false,
-      ),
-    ];
-    expect(await visibleIds(), ['lab', 'home']);
-    container
-        .read(rollsViewModelProvider.notifier)
-        .selectStatus(RollStatus.atLab);
-    expect(await visibleIds(), ['lab']);
-    final counts = container.read(rollCountsProvider)!;
-    expect(counts.all, 2);
-    expect(counts.byStatus[RollStatus.atLab], 1);
-  });
-
-  test('developed at a lab, then scanned at home, is only in All', () async {
-    rolls.all = [
-      roll(
-        'homeScan',
-        status: 'at_lab',
-        developed: true,
-        scanned: false,
-        openJobTypes: ['scan'],
-        openAtLab: false,
-      ),
-      roll('dev', status: 'developed', developed: true, scanned: false),
-    ];
-    expect(await visibleIds(), ['homeScan', 'dev']);
-    final vm = container.read(rollsViewModelProvider.notifier);
-    for (final s in [
-      RollStatus.developed,
-      RollStatus.scanned,
-      RollStatus.atLab,
-    ]) {
-      vm.selectStatus(s);
-      expect(await visibleIds(), isNot(contains('homeScan')), reason: s.wire);
-    }
-    final counts = container.read(rollCountsProvider)!;
-    expect(counts.all, 2);
-    expect(counts.byStatus[RollStatus.developed], 1);
-    expect(counts.byStatus[RollStatus.scanned], 0);
-    expect(counts.byStatus[RollStatus.atLab], 0);
-  });
 
   test('a filter change queries the server', () async {
     await visibleIds();
@@ -266,20 +254,21 @@ void main() {
     expect(await visibleIds(), ['c']);
   });
 
-  test('clearing filters keeps the selected chip', () {
+  test('clearing filters keeps the selected stage', () {
     container.read(rollsViewModelProvider.notifier)
-      ..selectStatus(RollStatus.scanned)
+      ..selectStage(RollLifecycleStage.completed)
       ..setFormat(120)
-      ..clearFilters();
+      ..setAtLab(true)
+      ..setNeedsScan(true);
+    expect(container.read(rollsViewModelProvider).filtered, isTrue);
+
+    container.read(rollsViewModelProvider.notifier).clearFilters();
     final state = container.read(rollsViewModelProvider);
     expect(state.filtered, isFalse);
     expect(state.format, isNull);
-    expect(state.status, RollStatus.scanned);
-
-    container.read(rollsViewModelProvider.notifier)
-      ..selectNegativesAtLab()
-      ..clearFilters();
-    expect(container.read(rollsViewModelProvider).negativesAtLab, isTrue);
+    expect(state.atLab, isFalse);
+    expect(state.needsScan, isFalse);
+    expect(state.stage, RollLifecycleStage.completed);
   });
 
   test('RollFilter has value equality', () {

@@ -3,55 +3,60 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/expiry.dart';
 import '../../../domain/models/models.dart';
 import '../../../domain/models/roll_filter.dart';
-import '../../../domain/models/roll_stage.dart';
 import '../../../providers.dart';
 
 /// State of the Rolls tab: the server-side filter, the labels shown for the
-/// picked filter values, and the client-side narrowing: a status chip or the
-/// Negatives at lab chip, and a format.
+/// picked filter values, and the client-side narrowing: a stage chip, and the
+/// At lab, Needs scan and format filters shared by every chip.
 class RollsState {
   const RollsState({
     this.filter = RollFilter.empty,
     this.stockLabel,
     this.cameraLabel,
     this.lensLabel,
-    this.status,
-    this.negativesAtLab = false,
+    this.stage,
+    this.atLab = false,
+    this.needsScan = false,
     this.format,
   });
   final RollFilter filter;
   final String? stockLabel, cameraLabel, lensLabel;
 
-  /// One of the six business statuses. Null with [negativesAtLab] false is the
-  /// "All" chip.
-  final RollStatus? status;
+  /// The stage chip. Null is "All", the only chip that lists a roll cached
+  /// without a stage.
+  final RollLifecycleStage? stage;
 
-  /// Rolls whose negatives are still at a lab, whatever their status: a roll
-  /// already developed or scanned can still have its negatives at the lab.
-  final bool negativesAtLab;
+  /// Rolls a lab still holds, whatever their stage: a completed roll can still
+  /// have its negatives at the lab.
+  final bool atLab;
+
+  /// Rolls marked for a scan that has not started.
+  final bool needsScan;
 
   /// Film format, picked from the formats of the listed rolls. Null is any.
   final int? format;
 
-  /// Whether the server-side filter is set. The status, negatives and format
+  /// Whether a filter in the filter sheet is set. The stage chips and format
   /// pills show their own selection.
-  bool get filtered => !filter.isEmpty;
+  bool get filtered => !filter.isEmpty || atLab || needsScan;
 
   RollsState _with({
     RollFilter? filter,
     (String?,)? stockLabel,
     (String?,)? cameraLabel,
     (String?,)? lensLabel,
-    (RollStatus?,)? status,
-    bool? negativesAtLab,
+    (RollLifecycleStage?,)? stage,
+    bool? atLab,
+    bool? needsScan,
     (int?,)? format,
   }) => RollsState(
     filter: filter ?? this.filter,
     stockLabel: stockLabel == null ? this.stockLabel : stockLabel.$1,
     cameraLabel: cameraLabel == null ? this.cameraLabel : cameraLabel.$1,
     lensLabel: lensLabel == null ? this.lensLabel : lensLabel.$1,
-    status: status == null ? this.status : status.$1,
-    negativesAtLab: negativesAtLab ?? this.negativesAtLab,
+    stage: stage == null ? this.stage : stage.$1,
+    atLab: atLab ?? this.atLab,
+    needsScan: needsScan ?? this.needsScan,
     format: format == null ? this.format : format.$1,
   );
 }
@@ -60,12 +65,12 @@ class RollsViewModel extends Notifier<RollsState> {
   @override
   RollsState build() => const RollsState();
 
-  /// A status chip, or "All" for null.
-  void selectStatus(RollStatus? s) =>
-      state = state._with(status: (s,), negativesAtLab: false);
+  /// A stage chip, or "All" for null. The filters stay.
+  void selectStage(RollLifecycleStage? stage) =>
+      state = state._with(stage: (stage,));
 
-  void selectNegativesAtLab() =>
-      state = state._with(status: (null,), negativesAtLab: true);
+  void setAtLab(bool on) => state = state._with(atLab: on);
+  void setNeedsScan(bool on) => state = state._with(needsScan: on);
 
   void setStock(FilmStock? s) => state = state._with(
     filter: state.filter.withStock(s?.id),
@@ -87,30 +92,29 @@ class RollsViewModel extends Notifier<RollsState> {
   void setTo(DateTime? d) =>
       state = state._with(filter: state.filter.withTo(d));
 
-  /// Clears every filter but keeps the selected chip.
-  void clearFilters() => state = RollsState(
-    status: state.status,
-    negativesAtLab: state.negativesAtLab,
-  );
+  /// Clears every filter but keeps the selected stage chip.
+  void clearFilters() => state = RollsState(stage: state.stage);
 }
 
 final rollsViewModelProvider = NotifierProvider<RollsViewModel, RollsState>(
   RollsViewModel.new,
 );
 
-/// Rolls matching the server-side filter and the picked format: what the chips
-/// count and narrow.
-final _formatRollsProvider =
+/// Rolls matching the server-side filter and the shared client filters
+/// (format, At lab, Needs scan): what the stage chips count and narrow.
+final _filteredRollsProvider =
     Provider.autoDispose<AsyncValue<List<RollSummary>>>((ref) {
-      final format = ref.watch(rollsViewModelProvider.select((s) => s.format));
-      final rolls = ref.watch(
-        rollsProvider(
-          ref.watch(rollsViewModelProvider.select((s) => s.filter)),
-        ),
-      );
-      if (format == null) return rolls;
+      final state = ref.watch(rollsViewModelProvider);
+      final rolls = ref.watch(rollsProvider(state.filter));
       return rolls.whenData(
-        (all) => all.where((r) => r.format == format).toList(),
+        (all) => [
+          for (final roll in all)
+            if ((state.format == null || roll.format == state.format) &&
+                (!state.atLab || roll.negativesAtLab) &&
+                // An older cache without needsScan does not count as marked.
+                (!state.needsScan || roll.needsScan == true))
+              roll,
+        ],
       );
     });
 
@@ -128,32 +132,33 @@ final rollFormatsProvider = Provider.autoDispose<List<int>>((ref) {
     ..sort());
 });
 
-/// The rolls on screen: the format-narrowed list, narrowed again to the
-/// selected chip. Film in stock is listed soonest expiry first, so film to use
-/// up comes first; every other list is newest start date first, rolls not
+/// The rolls on screen: the filtered list, narrowed again to the selected
+/// stage. Film in stock is listed soonest expiry first, so film to use up
+/// comes first; every other list is newest start date first, rolls not
 /// started last.
 final visibleRollsProvider =
     Provider.autoDispose<AsyncValue<List<RollSummary>>>((ref) {
-      final state = ref.watch(rollsViewModelProvider);
-      final status = state.status;
-      return ref.watch(_formatRollsProvider).whenData((all) {
+      final stage = ref.watch(
+        rollsViewModelProvider.select((rolls) => rolls.stage),
+      );
+      return ref.watch(_filteredRollsProvider).whenData((all) {
         final shown = [
-          for (final r in all)
-            if (state.negativesAtLab
-                ? r.negativesAtLab
-                : status == null || inStatusChip(r, status))
-              r,
+          for (final roll in all)
+            if (stage == null || roll.stage == stage) roll,
         ];
-        if (status == RollStatus.inStock) {
+        if (stage == RollLifecycleStage.inStock) {
           return _sortKeepingServerOrder(
             shown,
-            (a, b) => expiryKey(a.expiry).compareTo(expiryKey(b.expiry)),
+            (first, second) =>
+                expiryKey(first.expiry).compareTo(expiryKey(second.expiry)),
           );
         }
-        return _sortKeepingServerOrder(shown, (a, b) {
-          final (x, y) = (a.startedAt, b.startedAt);
-          if (x != null && y != null) return y.compareTo(x);
-          return (x == null ? 1 : 0) - (y == null ? 1 : 0);
+        return _sortKeepingServerOrder(shown, (first, second) {
+          final (firstStart, secondStart) = (first.startedAt, second.startedAt);
+          if (firstStart != null && secondStart != null) {
+            return secondStart.compareTo(firstStart);
+          }
+          return (firstStart == null ? 1 : 0) - (secondStart == null ? 1 : 0);
         });
       });
     });
@@ -171,24 +176,20 @@ List<RollSummary> _sortKeepingServerOrder(
   });
 }
 
-/// How many rolls each chip would show for the current filter and format.
-typedef RollCounts = ({
-  int all,
-  Map<RollStatus, int> byStatus,
-  int negativesAtLab,
-});
+/// How many rolls each chip would show for the current filters. A roll
+/// cached without a stage is only in [all], so the stages can add up to less.
+typedef RollCounts = ({int all, Map<RollLifecycleStage, int> byStage});
 
 /// Roll counts per chip. Null while loading.
 final rollCountsProvider = Provider.autoDispose<RollCounts?>((ref) {
-  final all = ref.watch(_formatRollsProvider).value;
+  final all = ref.watch(_filteredRollsProvider).value;
   if (all == null) return null;
   return (
     all: all.length,
-    byStatus: {
-      for (final s in RollStatus.values)
-        s: all.where((r) => inStatusChip(r, s)).length,
+    byStage: {
+      for (final stage in RollLifecycleStage.values)
+        stage: all.where((roll) => roll.stage == stage).length,
     },
-    negativesAtLab: all.where((r) => r.negativesAtLab).length,
   );
 });
 

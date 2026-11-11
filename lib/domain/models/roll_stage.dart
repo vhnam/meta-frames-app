@@ -55,13 +55,3 @@ RollStage? rollStage(RollSummary roll) {
 /// [RollSummary.openAtLab] (older server) counts as at a lab.
 bool _atHome(RollSummary roll) =>
     roll.status == RollStatus.atLab && roll.openAtLab == false;
-
-/// Whether [roll] belongs under the [status] chip. A roll both developed and
-/// scanned is under both chips; a roll processed at home is under none.
-bool inStatusChip(RollSummary roll, RollStatus status) =>
-    !_atHome(roll) &&
-    switch (status) {
-      RollStatus.developed => roll.developed ?? roll.status == status,
-      RollStatus.scanned => roll.scanned ?? roll.status == status,
-      _ => roll.status == status,
-    };

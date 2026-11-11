@@ -80,39 +80,6 @@ void main() {
     test('without openAtLab (older server): at the lab', () {
       expect(stage('at_lab', open: ['develop'])?.atHome, isFalse);
     });
-    test('only in All: under no status chip', () {
-      final r = roll(
-        'r',
-        status: 'at_lab',
-        developed: false,
-        scanned: false,
-        openJobTypes: ['develop'],
-        openAtLab: false,
-      );
-      for (final s in RollStatus.values) {
-        expect(inStatusChip(r, s), isFalse, reason: s.wire);
-      }
-    });
-    test(
-      'developed at a lab, then an open home scan: under no status chip',
-      () {
-        final r = roll(
-          'r',
-          status: 'at_lab',
-          developed: true,
-          scanned: true,
-          openJobTypes: ['scan'],
-          openAtLab: false,
-        );
-        for (final s in RollStatus.values) {
-          expect(inStatusChip(r, s), isFalse, reason: s.wire);
-        }
-      },
-    );
-    test('without openAtLab the roll stays under At lab', () {
-      final r = roll('r', status: 'at_lab', openJobTypes: ['develop']);
-      expect(inStatusChip(r, RollStatus.atLab), isTrue);
-    });
   });
 
   group('back from the lab, the recorded results give the steps', () {
@@ -158,30 +125,6 @@ void main() {
     for (final s in RollStatus.values) {
       expect(stage(s.wire), isNull, reason: s.wire);
     }
-  });
-
-  group('status chips', () {
-    test('a developed and scanned roll is under both chips', () {
-      final r = roll('r', status: 'scanned', developed: true, scanned: true);
-      expect(inStatusChip(r, RollStatus.developed), isTrue);
-      expect(inStatusChip(r, RollStatus.scanned), isTrue);
-    });
-    test('scan only is not under Developed', () {
-      final r = roll('r', status: 'scanned', developed: false, scanned: true);
-      expect(inStatusChip(r, RollStatus.developed), isFalse);
-      expect(inStatusChip(r, RollStatus.scanned), isTrue);
-    });
-    test('a roll sent for a rescan stays under Developed and At lab', () {
-      final r = roll('r', status: 'at_lab', developed: true, scanned: false);
-      expect(inStatusChip(r, RollStatus.developed), isTrue);
-      expect(inStatusChip(r, RollStatus.atLab), isTrue);
-      expect(inStatusChip(r, RollStatus.scanned), isFalse);
-    });
-    test('without the job fields the chip follows the status', () {
-      final r = roll('r', status: 'scanned');
-      expect(inStatusChip(r, RollStatus.scanned), isTrue);
-      expect(inStatusChip(r, RollStatus.developed), isFalse);
-    });
   });
 
   group('server stage fields', () {

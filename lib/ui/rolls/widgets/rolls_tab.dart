@@ -15,7 +15,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/cards.dart';
 import 'roll_card.dart';
 
-/// M-22 browse rolls by status with filters. Film in stock shows its expiry,
+/// M-22 browse rolls by stage with filters. Film in stock shows its expiry,
 /// so the separate Expiry screen is no longer needed to find film to use up.
 class RollsTab extends ConsumerWidget {
   const RollsTab({super.key});
@@ -29,7 +29,7 @@ class RollsTab extends ConsumerWidget {
     final v = ref.watch(visibleRollsProvider);
     final processes = ref.watch(stockProcessByIdProvider);
     final expiring = ref.watch(expiringRollIdsProvider);
-    // Status chips narrow [v] on the client. The global empty state is only
+    // Stage chips narrow [v] on the client. The global empty state is only
     // for an account with no rolls; an empty chip keeps the chips on screen.
     final noRolls =
         !state.filtered &&
@@ -66,11 +66,10 @@ class RollsTab extends ConsumerWidget {
               ),
             ),
             if (!noRolls)
-              _StatusChips(
+              _StageChips(
                 counts: counts,
-                state: state,
-                onStatus: vm.selectStatus,
-                onNegativesAtLab: vm.selectNegativesAtLab,
+                selected: state.stage,
+                onStage: vm.selectStage,
               ),
             // Only worth a row when there is a choice, or one to undo.
             if (!noRolls && (formats.length > 1 || state.format != null))
@@ -127,7 +126,9 @@ class _FilterSheet extends ConsumerWidget {
     final state = ref.watch(rollsViewModelProvider);
     final vm = ref.read(rollsViewModelProvider.notifier);
     final filter = state.filter;
-    return Padding(
+    // Scrolls on a short screen (landscape phone), where the fields and the
+    // At lab / Needs scan row are taller than the sheet.
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         16,
         0,
@@ -201,6 +202,21 @@ class _FilterSheet extends ConsumerWidget {
             ],
           ),
           Row(
+            spacing: 6,
+            children: [
+              FilterPill(
+                label: 'At lab',
+                on: state.atLab,
+                onTap: () => vm.setAtLab(!state.atLab),
+              ),
+              FilterPill(
+                label: 'Needs scan',
+                on: state.needsScan,
+                onTap: () => vm.setNeedsScan(!state.needsScan),
+              ),
+            ],
+          ),
+          Row(
             children: [
               TextButton(
                 onPressed: vm.clearFilters,
@@ -219,19 +235,25 @@ class _FilterSheet extends ConsumerWidget {
   }
 }
 
-/// "All 10  In stock 3  In camera 2 ... Negatives at lab 1" selectable chips:
-/// one per business status, plus the rolls whose negatives are at a lab.
-class _StatusChips extends StatelessWidget {
-  const _StatusChips({
+const _stageLabels = {
+  RollLifecycleStage.inStock: 'In stock',
+  RollLifecycleStage.inCamera: 'In camera',
+  RollLifecycleStage.doneShooting: 'Done shooting',
+  RollLifecycleStage.processing: 'Processing',
+  RollLifecycleStage.completed: 'Completed',
+};
+
+/// "All 10  In stock 3  In camera 2 ... Completed 4" selectable chips: one per
+/// stage. A roll cached without a stage is only under All.
+class _StageChips extends StatelessWidget {
+  const _StageChips({
     required this.counts,
-    required this.state,
-    required this.onStatus,
-    required this.onNegativesAtLab,
+    required this.selected,
+    required this.onStage,
   });
   final RollCounts? counts;
-  final RollsState state;
-  final ValueChanged<RollStatus?> onStatus;
-  final VoidCallback onNegativesAtLab;
+  final RollLifecycleStage? selected;
+  final ValueChanged<RollLifecycleStage?> onStage;
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +263,6 @@ class _StatusChips extends StatelessWidget {
           on: on,
           onTap: onTap,
         );
-    final noChip = state.status == null && !state.negativesAtLab;
 
     return SizedBox(
       height: 60,
@@ -249,23 +270,16 @@ class _StatusChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         children: [
-          chip('All', counts?.all, noChip, () => onStatus(null)),
-          for (final s in RollStatus.values) ...[
+          chip('All', counts?.all, selected == null, () => onStage(null)),
+          for (final stage in RollLifecycleStage.values) ...[
             const SizedBox(width: 6),
             chip(
-              s.label,
-              counts?.byStatus[s],
-              state.status == s,
-              () => onStatus(s),
+              _stageLabels[stage]!,
+              counts?.byStage[stage],
+              selected == stage,
+              () => onStage(stage),
             ),
           ],
-          const SizedBox(width: 6),
-          chip(
-            'Negatives at lab',
-            counts?.negativesAtLab,
-            state.negativesAtLab,
-            onNegativesAtLab,
-          ),
         ],
       ),
     );
