@@ -98,6 +98,96 @@ void main() {
     expect((detail['frames'] as List).map((f) => f['number']), [7, 9]);
   });
 
+  group('stage', () {
+    final finish = _op(OpKind.finish, payload: {'date': '2026-11-08'});
+
+    test('a pending load or finish moves the stage in list and detail', () {
+      final inStock = {'id': 'r1', 'status': 'in_stock', 'stage': 'in_stock'};
+      final listed = project('/rolls', [inStock], [_load]) as List;
+      expect(listed.single['stage'], 'in_camera');
+
+      // A stale processing summary must not keep its detail after a finish.
+      final detail = project(
+        '/rolls/r1',
+        {
+          'roll': {
+            'id': 'r1',
+            'status': 'in_camera',
+            'stage': 'processing',
+            'stageDetail': 'lab_developing',
+          },
+          'frames': [],
+        },
+        [finish],
+      );
+      final roll = detail['roll'] as Map<String, dynamic>;
+      expect(roll['status'], 'done_shooting');
+      expect(roll['stage'], 'done_shooting');
+      expect(roll.containsKey('stageDetail'), isFalse);
+    });
+
+    test('a pending roll note keeps the plan and stage', () {
+      final plan = {'target': 'scanned', 'developBy': 'lab', 'scanBy': 'self'};
+      final note = _op(OpKind.rollNotes, payload: {'text': 'Trip'});
+      final listed = project(
+        '/rolls',
+        [
+          {
+            'id': 'r1',
+            'status': 'done_shooting',
+            'stage': 'done_shooting',
+            'plan': plan,
+          },
+        ],
+        [note],
+      ) as List;
+      expect(listed.single['description'], 'Trip');
+      expect(listed.single['plan'], plan);
+      expect(listed.single['stage'], 'done_shooting');
+    });
+
+    test('a done load takes the server stage, even when finished since', () {
+      // Loaded on the phone, then finished on the dashboard before the
+      // phone's load was confirmed.
+      final server = {
+        'id': 'r1',
+        'status': 'done_shooting',
+        'stage': 'done_shooting',
+      };
+      final listed = applyOp(
+        '/rolls',
+        [
+          {'id': 'r1', 'status': 'in_stock', 'stage': 'in_stock'},
+        ],
+        _load,
+        server: server,
+      ) as List;
+      expect(listed.single['status'], 'done_shooting');
+      expect(listed.single['stage'], 'done_shooting');
+
+      final processing = {
+        'id': 'r1',
+        'status': 'at_lab',
+        'stage': 'processing',
+        'stageDetail': 'lab_developing',
+      };
+      final detail = applyOp(
+        '/rolls/r1',
+        {
+          'roll': <String, dynamic>{
+            'id': 'r1',
+            'status': 'in_camera',
+            'stage': 'in_camera',
+          },
+        },
+        finish,
+        server: processing,
+      );
+      expect(detail['roll']['stage'], 'processing');
+      expect(detail['roll']['stageDetail'], 'lab_developing');
+    });
+  });
+
   test(
     'reads are kept by path and sorted query; searches and scans are not',
     () {

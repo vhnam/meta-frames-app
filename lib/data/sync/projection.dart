@@ -131,14 +131,14 @@ Map<String, dynamic> _summary(
   final p = op.payload;
   switch (op.kind) {
     case OpKind.load:
-      return r
+      return _lifecycle(r, 'in_camera')
         ..['status'] = 'in_camera'
         ..['cameraId'] = op.cameraId
         ..['cameraName'] = p['cameraName']
         ..['startedAt'] = p['startedAt']
         ..['shotIso'] = p['shotIso'];
     case OpKind.finish:
-      return r
+      return _lifecycle(r, 'done_shooting')
         ..['status'] = 'done_shooting'
         ..['finishedAt'] = p['date'];
     case OpKind.rollNotes:
@@ -147,6 +147,13 @@ Map<String, dynamic> _summary(
       return r;
   }
 }
+
+/// A local load or finish moves the stage with the status, so a stage kept
+/// from the server does not contradict it. stageDetail exists only while
+/// processing.
+Map<String, dynamic> _lifecycle(Map<String, dynamic> roll, String stage) => roll
+  ..['stage'] = stage
+  ..remove('stageDetail');
 
 List<Map<String, dynamic>> _frames(List frames, PendingOp op) {
   final out = [for (final f in frames) f as Map<String, dynamic>];
