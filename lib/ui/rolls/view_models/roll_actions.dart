@@ -169,6 +169,22 @@ class RollActions {
       ..invalidate(rollsProvider);
   }
 
+  /// Returns the negatives of handoff [handoffId], online only like
+  /// [setPlan]. Every job of the handoff gets the return date, so the jobs,
+  /// the roll and the lists that show where the negatives are all refresh.
+  /// A roll without a handoff id returns its negatives job by job instead.
+  Future<void> returnHandoff(String handoffId, DateTime date) async {
+    final roll = await _ref
+        .read(rollRepositoryProvider)
+        .returnHandoff(handoffId, date);
+    _ref
+      ..invalidate(rollDetailProvider(roll.id))
+      ..invalidate(processingProvider)
+      ..invalidate(rollsProvider)
+      ..invalidate(expiryProvider)
+      ..invalidate(negativesAtLabProvider);
+  }
+
   Future<void> setLenses(String rollId, List<String> lensIds) async {
     await _ref.read(rollRepositoryProvider).setLenses(rollId, lensIds);
     _ref

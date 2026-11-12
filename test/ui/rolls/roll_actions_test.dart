@@ -218,5 +218,91 @@ void main() {
         },
       );
     }
+
+    group('returning a handoff', () {
+      late FakeProcessingRepository jobs;
+      late ProviderContainer withJobs;
+
+      setUp(() async {
+        jobs = FakeProcessingRepository()
+          ..jobs['j1'] = Processing.fromJson({
+            'id': 'j1',
+            'rollId': 'a',
+            'type': 'develop',
+            'process': 'C-41',
+            'sentAt': '2026-11-01',
+            'isOpen': true,
+          });
+        withJobs = ProviderContainer(
+          overrides: [
+            rollRepositoryProvider.overrideWithValue(rolls),
+            processingRepositoryProvider.overrideWithValue(jobs),
+          ],
+        );
+        addTearDown(withJobs.dispose);
+        final subs = [
+          withJobs.listen(rollsProvider(RollFilter.empty), (_, _) {}),
+          withJobs.listen(rollDetailProvider('a'), (_, _) {}),
+          withJobs.listen(processingProvider('j1'), (_, _) {}),
+        ];
+        addTearDown(() {
+          for (final sub in subs) {
+            sub.close();
+          }
+        });
+        await withJobs.read(processingProvider('j1').future);
+      });
+
+      Future<void> reread() async {
+        await withJobs.read(rollsProvider(RollFilter.empty).future);
+        await withJobs.read(rollDetailProvider('a').future);
+        await withJobs.read(processingProvider('j1').future);
+      }
+
+      test(
+        'sends once by handoff id, then refreshes roll, list and job',
+        () async {
+          await reread();
+          final before = (rolls.listCalls, rolls.detailCalls, jobs.jobReads);
+
+          await withJobs
+              .read(rollActionsProvider)
+              .returnHandoff('h1', DateTime(2026, 11, 5));
+          await reread();
+
+          expect(rolls.calls, ['returned:h1:2026-11-05']);
+          expect(rolls.listCalls, before.$1 + 1);
+          expect(rolls.detailCalls, before.$2 + 1);
+          expect(jobs.jobReads, before.$3 + 1);
+        },
+      );
+
+      test('a failed return throws and refreshes nothing', () async {
+        await reread();
+        final before = (rolls.listCalls, rolls.detailCalls, jobs.jobReads);
+        rolls.writeError = ApiException(
+          0,
+          'network',
+          'Cannot reach the server.',
+        );
+
+        await expectLater(
+          withJobs
+              .read(rollActionsProvider)
+              .returnHandoff('h1', DateTime(2026, 11, 5)),
+          throwsA(
+            isA<ApiException>().having(
+              (error) => error.isNetwork,
+              'isNetwork',
+              true,
+            ),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(rolls.calls, isEmpty);
+        expect((rolls.listCalls, rolls.detailCalls, jobs.jobReads), before);
+      });
+    });
   });
 }

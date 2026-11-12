@@ -93,6 +93,15 @@ class RollRepositoryRemote implements RollRepository {
         await _api.send('PUT', '/rolls/$id/developed', body: input.toJson()),
       );
   @override
+  Future<RollSummary> returnHandoff(String handoffId, DateTime date) async =>
+      RollSummary.fromJson(
+        await _api.send(
+          'PUT',
+          '/lab-handoffs/$handoffId/returned',
+          body: {'date': ymd(date)},
+        ),
+      );
+  @override
   Future<Frame> frame(String rollId, int n) async =>
       Frame.fromJson(await _api.send('GET', '/rolls/$rollId/frames/$n'));
   @override

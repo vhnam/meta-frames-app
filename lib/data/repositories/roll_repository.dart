@@ -40,6 +40,11 @@ abstract class RollRepository {
   /// reason when the roll has nothing to develop or the date does not fit.
   Future<RollDetail> markDeveloped(String id, DevelopedInput input);
 
+  /// Records that the roll came back from the lab of handoff [handoffId]
+  /// (the roll's `openHandoffId`) on [date]. Closes the handoff even when
+  /// every job of it was cancelled. Returns the roll's summary.
+  Future<RollSummary> returnHandoff(String handoffId, DateTime date);
+
   /// One frame of a roll. Frames are numbered by the photographer and exist
   /// once they have notes or scans, so an unknown number is a 404.
   Future<Frame> frame(String rollId, int n);

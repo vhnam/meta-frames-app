@@ -256,4 +256,39 @@ void main() {
       );
     });
   });
+
+  group('PUT /lab-handoffs/{id}/returned', () {
+    test('sends the date to the handoff and reads the roll back', () async {
+      reply = _detail({}, 'completed')['roll'] as Map<String, dynamic>;
+      final roll = await repo().returnHandoff('h1', DateTime(2026, 11, 5));
+
+      final request = requests.single;
+      expect(
+        '${request.method} ${request.url.path}',
+        'PUT /lab-handoffs/h1/returned',
+      );
+      expect(jsonDecode(request.body), {'date': '2026-11-05'});
+      expect(roll.id, 'r1');
+      expect(roll.stage, RollLifecycleStage.completed);
+    });
+
+    test('a network failure is an error, not a returned handoff', () async {
+      final offline = RollRepositoryRemote(
+        ApiClient(
+          () => 'http://srv',
+          MockClient((_) async => throw http.ClientException('offline')),
+        ),
+      );
+      await expectLater(
+        offline.returnHandoff('h1', DateTime(2026, 11, 5)),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.isNetwork,
+            'isNetwork',
+            true,
+          ),
+        ),
+      );
+    });
+  });
 }

@@ -158,8 +158,8 @@ class FakeRollRepository implements RollRepository {
   Future<void> delete(String id) async => calls.add('delete:$id');
 
   /// The plans sent through [setPlan]. [writeError], when set, is thrown by
-  /// [setPlan], [setNeedsScan] and [markDeveloped] instead, as the server or
-  /// the network would.
+  /// [setPlan], [setNeedsScan], [markDeveloped] and [returnHandoff] instead,
+  /// as the server or the network would.
   final plans = <RollPlan>[];
   Object? writeError;
 
@@ -227,6 +227,15 @@ class FakeRollRepository implements RollRepository {
     calls.add('developed:$id');
     developed.add(input);
     return _unusedDetail();
+  }
+
+  /// Records `returned:handoff:date` and answers with the first roll, the
+  /// one the handoff belongs to in the tests.
+  @override
+  Future<RollSummary> returnHandoff(String handoffId, DateTime date) async {
+    if (writeError case final error?) throw error;
+    calls.add('returned:$handoffId:${ymd(date)}');
+    return all.first;
   }
 
   /// How many times a roll's details were read.
@@ -436,9 +445,15 @@ class FakeProcessingRepository implements ProcessingRepository {
     return _job(job.id ?? 'new', job.type, job.process);
   }
 
+  /// How many times a job was read.
+  int jobReads = 0;
+
   @override
-  Future<Processing> processing(String id) async =>
-      jobs[id] ?? (throw UnimplementedError());
+  Future<Processing> processing(String id) async {
+    jobReads++;
+    return jobs[id] ?? (throw UnimplementedError());
+  }
+
   @override
   Future<void> delete(String id) async => deleted.add(id);
   @override
