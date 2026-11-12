@@ -8,7 +8,11 @@ import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/models.dart';
 
 /// A RollDetail as the server answers it, with [plan] and [stage] set.
-Map<String, dynamic> _detail(Map<String, dynamic> plan, String stage) => {
+Map<String, dynamic> _detail(
+  Map<String, dynamic> plan,
+  String stage, {
+  bool needsScan = false,
+}) => {
   'roll': {
     'id': 'r1',
     'filmStockId': 's1',
@@ -20,7 +24,7 @@ Map<String, dynamic> _detail(Map<String, dynamic> plan, String stage) => {
     'negativesAtLab': false,
     'plan': plan,
     'stage': stage,
-    'needsScan': false,
+    'needsScan': needsScan,
   },
   'stock': {
     'id': 's1',
@@ -122,6 +126,51 @@ void main() {
       );
       await expectLater(
         offline.setPlan('r1', const RollPlan(target: PlanTarget.scanned)),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.isNetwork,
+            'isNetwork',
+            true,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('/rolls/{id}/scan-request', () {
+    test('PUT marks the roll and sends no body', () async {
+      reply = _detail({}, 'completed', needsScan: true);
+      final detail = await repo().setNeedsScan('r1', true);
+
+      final request = requests.single;
+      expect(
+        '${request.method} ${request.url.path}',
+        'PUT /rolls/r1/scan-request',
+      );
+      expect(request.body, isEmpty);
+      expect(detail.roll.needsScan, isTrue);
+    });
+
+    test('DELETE removes the mark', () async {
+      reply = _detail({}, 'completed');
+      final detail = await repo().setNeedsScan('r1', false);
+
+      expect(
+        '${requests.single.method} ${requests.single.url.path}',
+        'DELETE /rolls/r1/scan-request',
+      );
+      expect(detail.roll.needsScan, isFalse);
+    });
+
+    test('a network failure is an error, not a changed mark', () async {
+      final offline = RollRepositoryRemote(
+        ApiClient(
+          () => 'http://srv',
+          MockClient((_) async => throw http.ClientException('offline')),
+        ),
+      );
+      await expectLater(
+        offline.setNeedsScan('r1', true),
         throwsA(
           isA<ApiException>().having(
             (error) => error.isNetwork,

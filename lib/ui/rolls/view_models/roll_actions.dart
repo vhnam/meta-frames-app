@@ -151,6 +151,15 @@ class RollActions {
       ..invalidate(rollsProvider);
   }
 
+  /// Marks or unmarks the roll for a scan, online only like [setPlan]. The
+  /// mark shows in the details and the Rolls list's Needs scan filter.
+  Future<void> setNeedsScan(String rollId, bool needed) async {
+    await _ref.read(rollRepositoryProvider).setNeedsScan(rollId, needed);
+    _ref
+      ..invalidate(rollDetailProvider(rollId))
+      ..invalidate(rollsProvider);
+  }
+
   Future<void> setLenses(String rollId, List<String> lensIds) async {
     await _ref.read(rollRepositoryProvider).setLenses(rollId, lensIds);
     _ref

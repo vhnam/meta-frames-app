@@ -157,14 +157,14 @@ class FakeRollRepository implements RollRepository {
   @override
   Future<void> delete(String id) async => calls.add('delete:$id');
 
-  /// The plans sent through [setPlan]; [planError], when set, is thrown
-  /// instead, as the server or the network would.
+  /// The plans sent through [setPlan]. [writeError], when set, is thrown by
+  /// [setPlan] and [setNeedsScan] instead, as the server or the network would.
   final plans = <RollPlan>[];
-  Object? planError;
+  Object? writeError;
 
   @override
   Future<RollDetail> setPlan(String id, RollPlan plan) async {
-    if (planError case final error?) throw error;
+    if (writeError case final error?) throw error;
     calls.add('setPlan:$id');
     plans.add(plan);
     return _unusedDetail();
@@ -209,6 +209,13 @@ class FakeRollRepository implements RollRepository {
 
   @override
   Future<ExpiryView> expiry() async => expiryView;
+
+  @override
+  Future<RollDetail> setNeedsScan(String id, bool needed) async {
+    if (writeError case final error?) throw error;
+    calls.add('${needed ? 'markScan' : 'unmarkScan'}:$id');
+    return _unusedDetail();
+  }
 
   /// How many times a roll's details were read.
   int detailCalls = 0;

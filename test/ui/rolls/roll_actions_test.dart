@@ -69,7 +69,7 @@ void main() {
     expect(rolls.listCalls, before + 1);
   });
 
-  group('setPlan', () {
+  group('online roll writes', () {
     late FakeRollRepository rolls;
     late ProviderContainer container;
 
@@ -108,10 +108,48 @@ void main() {
     test('a failed save throws and refreshes nothing', () async {
       final before = rolls.listCalls;
       final detailsBefore = rolls.detailCalls;
-      rolls.planError = ApiException(0, 'network', 'Cannot reach the server.');
+      rolls.writeError = ApiException(0, 'network', 'Cannot reach the server.');
 
       await expectLater(
         container.read(rollActionsProvider).setPlan('a', const RollPlan()),
+        throwsA(isA<ApiException>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(rolls.calls, isEmpty);
+      expect(rolls.listCalls, before);
+      expect(rolls.detailCalls, detailsBefore);
+    });
+
+    test(
+      'marking and unmarking Needs scan each refresh list and details',
+      () async {
+        for (final (needed, call) in [
+          (true, 'markScan:a'),
+          (false, 'unmarkScan:a'),
+        ]) {
+          final before = rolls.listCalls;
+          final detailsBefore = rolls.detailCalls;
+
+          await container.read(rollActionsProvider).setNeedsScan('a', needed);
+          await container.read(rollsProvider(RollFilter.empty).future);
+          await container.read(rollDetailProvider('a').future);
+
+          expect(rolls.calls.last, call);
+          expect(rolls.listCalls, before + 1, reason: call);
+          expect(rolls.detailCalls, detailsBefore + 1, reason: call);
+        }
+        expect(rolls.calls, ['markScan:a', 'unmarkScan:a']);
+      },
+    );
+
+    test('a failed Needs scan change throws and refreshes nothing', () async {
+      final before = rolls.listCalls;
+      final detailsBefore = rolls.detailCalls;
+      rolls.writeError = ApiException(0, 'network', 'Cannot reach the server.');
+
+      await expectLater(
+        container.read(rollActionsProvider).setNeedsScan('a', true),
         throwsA(isA<ApiException>()),
       );
       await Future<void>.delayed(Duration.zero);

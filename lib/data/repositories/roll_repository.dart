@@ -31,6 +31,10 @@ abstract class RollRepository {
   /// `scanBy` with target developed is `422 scan_not_planned`.
   Future<RollDetail> setPlan(String id, RollPlan plan);
 
+  /// Marks the roll "Needs scan" ([needed]) or removes the mark. Only an
+  /// intent: it creates no job. Marking again keeps the first date.
+  Future<RollDetail> setNeedsScan(String id, bool needed);
+
   /// One frame of a roll. Frames are numbered by the photographer and exist
   /// once they have notes or scans, so an unknown number is a 404.
   Future<Frame> frame(String rollId, int n);
