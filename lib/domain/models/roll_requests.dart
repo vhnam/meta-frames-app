@@ -11,6 +11,19 @@ extension RollPlanBody on RollPlan {
   };
 }
 
+/// Body for `PUT /rolls/{id}/developed`: the day the film was developed
+/// ([date], today when left out) and, when given, the plan's new [target].
+class DevelopedInput {
+  const DevelopedInput({this.date, this.target});
+  final DateTime? date;
+  final PlanTarget? target;
+
+  Map<String, dynamic> toJson() => {
+    if (date != null) 'date': ymd(date!),
+    'target': ?target?.name,
+  };
+}
+
 /// Body for adding [quantity] identical rolls to stock.
 class NewRolls {
   const NewRolls({

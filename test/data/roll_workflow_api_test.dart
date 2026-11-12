@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:meta_frames/data/repositories/roll_repository_remote.dart';
 import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/models.dart';
+import 'package:meta_frames/domain/models/roll_requests.dart';
 
 /// A RollDetail as the server answers it, with [plan] and [stage] set.
 Map<String, dynamic> _detail(
@@ -50,6 +51,7 @@ Map<String, dynamic> _detail(
 void main() {
   late List<http.Request> requests;
   late Map<String, dynamic> reply;
+  late int status;
 
   RollRepositoryRemote repo() => RollRepositoryRemote(
     ApiClient(
@@ -58,14 +60,17 @@ void main() {
         requests.add(request);
         return http.Response(
           jsonEncode(reply),
-          200,
+          status,
           headers: {'content-type': 'application/json'},
         );
       }),
     ),
   );
 
-  setUp(() => requests = []);
+  setUp(() {
+    requests = [];
+    status = 200;
+  });
 
   group('PUT /rolls/{id}/plan', () {
     test('sets a plan and reads the roll the server returns', () async {
@@ -171,6 +176,76 @@ void main() {
       );
       await expectLater(
         offline.setNeedsScan('r1', true),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.isNetwork,
+            'isNetwork',
+            true,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('PUT /rolls/{id}/developed', () {
+    test('sends the date and target and sends no returned request', () async {
+      reply = _detail({'target': 'scanned'}, 'processing');
+      final detail = await repo().markDeveloped(
+        'r1',
+        DevelopedInput(date: DateTime(2026, 11, 3), target: PlanTarget.scanned),
+      );
+
+      // Recording the develop date is one request: the negatives stay where
+      // they are until the user returns the handoff on its own.
+      final request = requests.single;
+      expect(
+        '${request.method} ${request.url.path}',
+        'PUT /rolls/r1/developed',
+      );
+      expect(jsonDecode(request.body), {
+        'date': '2026-11-03',
+        'target': 'scanned',
+      });
+      expect(detail.roll.plan!.target, PlanTarget.scanned);
+    });
+
+    test('left out date and target are not sent', () async {
+      reply = _detail({}, 'processing');
+      await repo().markDeveloped('r1', const DevelopedInput());
+      expect(jsonDecode(requests.single.body), <String, dynamic>{});
+    });
+
+    for (final (code, error) in [
+      (422, 'developed_before_sent'),
+      (409, 'nothing_to_develop'),
+    ]) {
+      test('$code $error is an error with the server reason', () async {
+        status = code;
+        reply = {'code': error, 'message': 'reason'};
+        await expectLater(
+          repo().markDeveloped(
+            'r1',
+            DevelopedInput(date: DateTime(2026, 1, 1)),
+          ),
+          throwsA(
+            isA<ApiException>()
+                .having((failure) => failure.status, 'status', code)
+                .having((failure) => failure.code, 'code', error),
+          ),
+        );
+        expect(requests.single.url.path, '/rolls/r1/developed');
+      });
+    }
+
+    test('a network failure is an error, not a recorded date', () async {
+      final offline = RollRepositoryRemote(
+        ApiClient(
+          () => 'http://srv',
+          MockClient((_) async => throw http.ClientException('offline')),
+        ),
+      );
+      await expectLater(
+        offline.markDeveloped('r1', const DevelopedInput()),
         throwsA(
           isA<ApiException>().having(
             (error) => error.isNetwork,

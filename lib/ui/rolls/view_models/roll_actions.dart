@@ -160,6 +160,15 @@ class RollActions {
       ..invalidate(rollsProvider);
   }
 
+  /// Records the develop date, online only like [setPlan]. On a `409`/`422`
+  /// it throws the server's reason and refreshes nothing.
+  Future<void> markDeveloped(String rollId, DevelopedInput input) async {
+    await _ref.read(rollRepositoryProvider).markDeveloped(rollId, input);
+    _ref
+      ..invalidate(rollDetailProvider(rollId))
+      ..invalidate(rollsProvider);
+  }
+
   Future<void> setLenses(String rollId, List<String> lensIds) async {
     await _ref.read(rollRepositoryProvider).setLenses(rollId, lensIds);
     _ref

@@ -35,6 +35,11 @@ abstract class RollRepository {
   /// intent: it creates no job. Marking again keeps the first date.
   Future<RollDetail> setNeedsScan(String id, bool needed);
 
+  /// Records the day the roll's film was developed, on its open develop job
+  /// (or a new home develop job). The server answers `409`/`422` with the
+  /// reason when the roll has nothing to develop or the date does not fit.
+  Future<RollDetail> markDeveloped(String id, DevelopedInput input);
+
   /// One frame of a roll. Frames are numbered by the photographer and exist
   /// once they have notes or scans, so an unknown number is a 404.
   Future<Frame> frame(String rollId, int n);

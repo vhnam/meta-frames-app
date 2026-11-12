@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/models/roll_filter.dart';
+import 'package:meta_frames/domain/models/roll_requests.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/ui/rolls/view_models/roll_actions.dart';
 
@@ -158,5 +159,64 @@ void main() {
       expect(rolls.listCalls, before);
       expect(rolls.detailCalls, detailsBefore);
     });
+
+    test(
+      'marking developed sends once, then refreshes list and details',
+      () async {
+        final before = rolls.listCalls;
+        final detailsBefore = rolls.detailCalls;
+        final input = DevelopedInput(
+          date: DateTime(2026, 11, 3),
+          target: PlanTarget.developed,
+        );
+
+        await container.read(rollActionsProvider).markDeveloped('a', input);
+        await container.read(rollsProvider(RollFilter.empty).future);
+        await container.read(rollDetailProvider('a').future);
+
+        expect(rolls.calls, ['developed:a']);
+        expect(rolls.developed.single, input);
+        expect(rolls.listCalls, before + 1);
+        expect(rolls.detailCalls, detailsBefore + 1);
+      },
+    );
+
+    for (final failure in [
+      ApiException(
+        422,
+        'developed_before_sent',
+        'The develop date is before the roll was sent.',
+      ),
+      ApiException(0, 'network', 'Cannot reach the server.'),
+    ]) {
+      test(
+        'a develop date that fails (${failure.code}) throws and refreshes nothing',
+        () async {
+          final before = rolls.listCalls;
+          final detailsBefore = rolls.detailCalls;
+          rolls.writeError = failure;
+
+          await expectLater(
+            container
+                .read(rollActionsProvider)
+                .markDeveloped('a', const DevelopedInput()),
+            throwsA(
+              isA<ApiException>()
+                  .having((error) => error.code, 'code', failure.code)
+                  .having(
+                    (error) => error.isNetwork,
+                    'isNetwork',
+                    failure.isNetwork,
+                  ),
+            ),
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          expect(rolls.calls, isEmpty);
+          expect(rolls.listCalls, before);
+          expect(rolls.detailCalls, detailsBefore);
+        },
+      );
+    }
   });
 }

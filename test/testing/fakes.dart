@@ -158,7 +158,8 @@ class FakeRollRepository implements RollRepository {
   Future<void> delete(String id) async => calls.add('delete:$id');
 
   /// The plans sent through [setPlan]. [writeError], when set, is thrown by
-  /// [setPlan] and [setNeedsScan] instead, as the server or the network would.
+  /// [setPlan], [setNeedsScan] and [markDeveloped] instead, as the server or
+  /// the network would.
   final plans = <RollPlan>[];
   Object? writeError;
 
@@ -214,6 +215,17 @@ class FakeRollRepository implements RollRepository {
   Future<RollDetail> setNeedsScan(String id, bool needed) async {
     if (writeError case final error?) throw error;
     calls.add('${needed ? 'markScan' : 'unmarkScan'}:$id');
+    return _unusedDetail();
+  }
+
+  /// The inputs sent through [markDeveloped].
+  final developed = <DevelopedInput>[];
+
+  @override
+  Future<RollDetail> markDeveloped(String id, DevelopedInput input) async {
+    if (writeError case final error?) throw error;
+    calls.add('developed:$id');
+    developed.add(input);
     return _unusedDetail();
   }
 
