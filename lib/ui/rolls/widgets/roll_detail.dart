@@ -10,6 +10,7 @@ import '../../sync/widgets/op_status.dart';
 import '../view_models/roll_actions.dart';
 import 'finish_roll.dart';
 import 'frame_notes.dart';
+import 'roll_plan_sheet.dart';
 import 'roll_processing_choice.dart';
 import '../../../routing/routes.dart';
 
@@ -56,6 +57,7 @@ class RollDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            _Menu(detail: v.value!),
           ],
         ],
       ),
@@ -64,6 +66,45 @@ class RollDetailScreen extends ConsumerWidget {
         onRefresh: () async => ref.refresh(rollDetailProvider(rollId).future),
         builder: (d) => _Body(detail: d),
       ),
+    );
+  }
+}
+
+/// The roll's online plan and Needs scan actions, as [detailActions] allows.
+class _Menu extends ConsumerWidget {
+  const _Menu({required this.detail});
+  final RollDetail detail;
+
+  static const _labels = {
+    DetailAction.changePlan: 'Change plan',
+    DetailAction.markNeedsScan: 'Needs scan',
+    DetailAction.unmarkNeedsScan: 'Remove needs scan',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items = detailActions(detail).menu
+        .where(_labels.containsKey)
+        .toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+    return PopupMenuButton<DetailAction>(
+      tooltip: 'More actions',
+      itemBuilder: (_) => [
+        for (final action in items)
+          PopupMenuItem(value: action, child: Text(_labels[action]!)),
+      ],
+      onSelected: (action) => switch (action) {
+        DetailAction.changePlan => editPlan(context, detail),
+        _ => guard(
+          context,
+          () => ref
+              .read(rollActionsProvider)
+              .setNeedsScan(
+                detail.roll.id,
+                action == DetailAction.markNeedsScan,
+              ),
+        ),
+      },
     );
   }
 }

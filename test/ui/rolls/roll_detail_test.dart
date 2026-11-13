@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
@@ -33,27 +34,33 @@ class _Rolls extends FakeRollRepository {
   /// Roll fields laid over the default done-shooting roll.
   final Map<String, dynamic> fields;
 
+  /// How many times the roll was read: each refresh reads it again.
+  int reads = 0;
+
   @override
-  Future<RollDetail> roll(String id) async => RollDetail.fromJson({
-    'roll': {
-      'id': id,
-      'filmStockId': 's1',
-      'stockBrand': 'Fujifilm',
-      'stockName': 'Superia',
-      'format': 135,
-      'exposures': 36,
-      'status': 'done_shooting',
-      ...fields,
-    },
-    'stock': _stock('s1', _name),
-    if (withBase) 'baseStock': _stock('s2', _base),
-    'totals': {
-      'rollPrice': 0,
-      'processingPrice': 0,
-      'total': 0,
-      'incomplete': false,
-    },
-  });
+  Future<RollDetail> roll(String id) async {
+    reads++;
+    return RollDetail.fromJson({
+      'roll': {
+        'id': id,
+        'filmStockId': 's1',
+        'stockBrand': 'Fujifilm',
+        'stockName': 'Superia',
+        'format': 135,
+        'exposures': 36,
+        'status': 'done_shooting',
+        ...fields,
+      },
+      'stock': _stock('s1', _name),
+      if (withBase) 'baseStock': _stock('s2', _base),
+      'totals': {
+        'rollPrice': 0,
+        'processingPrice': 0,
+        'total': 0,
+        'incomplete': false,
+      },
+    });
+  }
 }
 
 /// Scanners that arrive only when the test completes [load].
@@ -72,6 +79,7 @@ Future<GoRouter> _pump(
   FakeProcessingRepository? processing,
   bool ownScanner = true,
   FakeScannerRepository? scanners,
+  _Rolls? rolls,
 }) async {
   tester.view
     ..physicalSize = const Size(360, 2000)
@@ -83,7 +91,7 @@ Future<GoRouter> _pump(
     ProviderScope(
       overrides: [
         rollRepositoryProvider.overrideWithValue(
-          _Rolls(withBase: withBase, fields: fields),
+          rolls ?? _Rolls(withBase: withBase, fields: fields),
         ),
         filmStockRepositoryProvider.overrideWithValue(
           FakeFilmStockRepository(),
@@ -394,6 +402,125 @@ void main() {
 
       expect(jobs.sent.single.type, ProcessingType.scan);
       expect(jobs.sent.single.labId, 'l1');
+    });
+  });
+
+  group('plan and Needs scan menu', () {
+    Future<_Rolls> open(
+      WidgetTester tester,
+      Map<String, dynamic> fields,
+    ) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: {'stage': 'done_shooting', ...fields},
+      );
+      await _pump(tester, rolls: rolls);
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+      return rolls;
+    }
+
+    Future<void> pick(WidgetTester tester, String field, String option) async {
+      await tester.tap(find.widgetWithText(InputDecorator, field));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the plan opens with the saved choices and saves online', (
+      tester,
+    ) async {
+      final rolls = await open(tester, {
+        'needsScan': false,
+        'plan': {'developBy': 'lab'},
+      });
+      await tester.tap(find.text('Change plan'));
+      await tester.pumpAndSettle();
+      await pick(tester, 'Goal', 'Develop + scan');
+      final reads = rolls.reads;
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final plan = rolls.plans.single;
+      expect(plan.target, PlanTarget.scanned);
+      // The saved choice the user did not touch is kept.
+      expect(plan.developBy, StepActor.lab);
+      expect(plan.scanBy, isNull);
+      expect(find.text('Save'), findsNothing);
+      expect(rolls.reads, greaterThan(reads));
+    });
+
+    testWidgets('a develop-only plan drops the scanner', (tester) async {
+      final rolls = await open(tester, {
+        'needsScan': false,
+        'plan': {'target': 'scanned', 'scanBy': 'self'},
+      });
+      await tester.tap(find.text('Change plan'));
+      await tester.pumpAndSettle();
+      await pick(tester, 'Goal', 'Develop only');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(rolls.plans.single.target, PlanTarget.developed);
+      expect(rolls.plans.single.scanBy, isNull);
+    });
+
+    testWidgets('a refused plan keeps the sheet and the input', (tester) async {
+      final rolls = await open(tester, {
+        'needsScan': false,
+        'plan': <String, dynamic>{},
+      });
+      rolls.writeError = ApiException(422, 'invalid_plan', 'Plan refused.');
+      await tester.tap(find.text('Change plan'));
+      await tester.pumpAndSettle();
+      await pick(tester, 'Develop by', 'At home');
+      final reads = rolls.reads;
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Plan refused.'), findsOneWidget);
+      expect(rolls.plans, isEmpty);
+      expect(rolls.reads, reads);
+
+      // Saving again sends the input that was kept.
+      rolls.writeError = null;
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(rolls.plans.single.developBy, StepActor.self);
+      expect(find.text('Save'), findsNothing);
+    });
+
+    testWidgets('Needs scan marks the roll and refreshes it', (tester) async {
+      final rolls = await open(tester, {'needsScan': false});
+      final reads = rolls.reads;
+      await tester.tap(find.text('Needs scan'));
+      await tester.pumpAndSettle();
+      expect(rolls.calls, contains('markScan:r'));
+      expect(rolls.reads, greaterThan(reads));
+    });
+
+    testWidgets('Remove needs scan unmarks the roll', (tester) async {
+      final rolls = await open(tester, {'needsScan': true});
+      await tester.tap(find.text('Remove needs scan'));
+      await tester.pumpAndSettle();
+      expect(rolls.calls, contains('unmarkScan:r'));
+    });
+
+    testWidgets('a refused Needs scan shows why and refreshes nothing', (
+      tester,
+    ) async {
+      final rolls = await open(tester, {'needsScan': false});
+      rolls.writeError = ApiException(409, 'conflict', 'Roll changed.');
+      final reads = rolls.reads;
+      await tester.tap(find.text('Needs scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Roll changed.'), findsOneWidget);
+      expect(rolls.reads, reads);
+    });
+
+    testWidgets('a cached roll with no stage has no plan menu', (tester) async {
+      await _pump(tester, fields: {'status': 'developed'});
+      expect(find.byTooltip('More actions'), findsNothing);
     });
   });
 }
