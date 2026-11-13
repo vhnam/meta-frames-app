@@ -446,8 +446,12 @@ void main() {
         types: const [ProcessingType.scan, ProcessingType.print],
         type: ProcessingType.scan,
       );
+      // The app cannot add a scanner, so it says where to add one.
+      expect(
+        find.text('No scanner of your own. Add one on the dashboard first.'),
+        findsOneWidget,
+      );
       await _tap(tester, 'Start');
-      expect(find.text('Pick at least one scanner.'), findsOneWidget);
       expect(jobs.sent, isEmpty);
     });
 
@@ -461,9 +465,35 @@ void main() {
       // Only built-in lab scanners: none to pick, none sent.
       expect(find.text('Noritsu HS-1800'), findsNothing);
       expect(find.text('Frontier SP-3000'), findsNothing);
+      // The app cannot add a scanner, so it says where to add one.
+      expect(
+        find.text('No scanner of your own. Add one on the dashboard first.'),
+        findsOneWidget,
+      );
       await _tap(tester, 'Start');
-      expect(find.text('Pick at least one scanner.'), findsOneWidget);
       expect(jobs.sent, isEmpty);
+    });
+
+    testWidgets('the submit button stays above the navigation bar', (
+      tester,
+    ) async {
+      tester.view.padding = const FakeViewPadding(bottom: 48);
+      addTearDown(tester.view.resetPadding);
+      await _pumpMode(
+        tester,
+        SendMode.startAtHome,
+        type: ProcessingType.develop,
+        size: const Size(400, 700),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Start'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      final button = tester.getRect(find.widgetWithText(FilledButton, 'Start'));
+      expect(button.bottom, lessThanOrEqualTo(700 - 48));
     });
 
     testWidgets('a home scan starts on your scanner, open', (tester) async {

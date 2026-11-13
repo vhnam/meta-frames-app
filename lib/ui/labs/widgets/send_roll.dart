@@ -198,7 +198,14 @@ class _State extends ConsumerState<SendRollScreen> {
       body: Form(
         key: _key,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          // The submit button ends the list: keep it above the system
+          // navigation bar of an edge-to-edge phone.
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -274,6 +281,11 @@ class _State extends ConsumerState<SendRollScreen> {
                 Text('${scanners.error ?? kinds.error}')
               else if (!scansReady)
                 const LinearProgressIndicator()
+              else if (ownOnly && choices.isEmpty)
+                // The app cannot add scanners; the dashboard can.
+                const FormNote(
+                  'No scanner of your own. Add one on the dashboard first.',
+                )
               else
                 ScanOrderPicker(
                   orders: orders,

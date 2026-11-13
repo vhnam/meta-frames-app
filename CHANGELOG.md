@@ -57,6 +57,9 @@ These workflows left the phone. The data stays on the server. Use the dashboard.
 - A conflict that could not read the server's note says so, instead of showing an empty note.
 - A list or roll that was read while one of your own changes reached the server is read again, instead of showing the earlier state or nothing.
 - Opening a frame that has no notes or scans yet no longer leaves the app asking the server for it again in the background.
+- On a phone with on-screen navigation buttons, the Start / Send to lab button at the end of the send form scrolls above them instead of staying under them.
+- A roll's page shows the same stage label as its card in the list, such as "Developing at home", instead of the plain status "At lab".
+- Starting a home scan without a scanner of your own says to add one on the dashboard first, before you tap Start.
 
 ## [1.1.0] - 2026-11-03
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../domain/models/roll_requests.dart';
+import '../../../domain/models/roll_stage.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
@@ -515,7 +516,11 @@ class _StockRow extends StatelessWidget {
                     style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 10),
-                  StatusChip(detail.roll.status),
+                  // The same one label as the roll's card in the list.
+                  StampBadge(
+                    rollStageLabel(detail.roll),
+                    color: statusTone(context, detail.roll.status),
+                  ),
                 ],
               ),
             ),

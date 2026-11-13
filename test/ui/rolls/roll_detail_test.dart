@@ -140,7 +140,12 @@ void main() {
     await _pump(tester);
     final name = tester.getTopLeft(_inCard(_name));
     final base = tester.getTopLeft(_inCard('Base: $_base'));
-    final status = tester.getTopLeft(find.byType(StatusChip));
+    final status = tester.getTopLeft(
+      find.ancestor(
+        of: _inCard('DONE SHOOTING'),
+        matching: find.byType(StampBadge),
+      ),
+    );
     expect(name.dy, lessThan(base.dy));
     expect(base.dy, lessThan(status.dy));
     expect(status.dx, name.dx);
@@ -803,6 +808,25 @@ void main() {
         expect(router.state.uri.toString(), Routes.rollSend('r', resend: true));
       },
     );
+  });
+
+  testWidgets('a home develop reads as one stage label, not At lab', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      fields: {
+        'status': 'at_lab',
+        'stage': 'processing',
+        'stageDetail': 'home_developing',
+        'negativesAtLab': false,
+        'needsScan': false,
+        'plan': <String, dynamic>{},
+      },
+    );
+    // Stamps are upper case.
+    expect(_inCard('DEVELOPING AT HOME'), findsOneWidget);
+    expect(_inCard(RollStatus.atLab.label.toUpperCase()), findsNothing);
   });
 
   group('entries and block order', () {
