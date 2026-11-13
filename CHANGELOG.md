@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit Roll sends the version of the roll it opened with. If the roll changed meanwhile, such as a note saved from the phone, nothing is saved and the form reloads to show what changed. Needs a MetaFrames API that returns `version` on rolls and accepts `If-Match`.
 - A roll's page has one button for the next processing step, taken from its stage, jobs and plan: Develop, Scan, Start developing at home, Start scanning at home or Hand to lab. When the plan does not say where the step is done, a How is it processed? sheet asks for home or a lab first; a home develop is offered only when no job or lab holds the film, and a home scan only with a scanner of your own. The send form then opens with the service the roll needs.
 - A roll's page has a More actions menu with Change plan, Needs scan and Remove needs scan, the same as the dashboard. Change plan opens the saved plan: goal, develop by and scan by, each can be Not decided. A develop-only goal sends no scanner. The plan and the Needs scan mark are saved online only; if the server refuses the plan, the sheet stays open with your choices and the reason.
+- A roll's page can record the develop date (Mark as developed, from the job's sent date or the finish date up to today) and the return of the negatives (Negatives returned, by the roll's lab handoff). A roll from before handoffs opens its lab job to record the return there, and one job in progress opens with Open job. Returning the negatives comes before a scan.
 
 ### Changed
 
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The tabs are Shooting, Rolls and More. Shooting replaces Home and its counters. Rolls ready for the lab are under the Done shooting chip, negatives at the lab under More and the At lab filter, and expiring film in the Rolls list. Links to `/home` open Shooting.
 - Note frame left the Shooting tab. The card still finishes the roll and opens roll notes. Frame notes stay on the roll's page.
 - Note frame asks only for the frame number and starts empty each time: the app does not guess which frame was just taken. Any whole number from 0 opens, including frames past the exposure count. Frame notes need no scans.
+- A roll's page shows one main button, from its stage, jobs and plan. Send to lab (to record processing already done) and Re-scan moved to the More actions menu. Re-scan is offered only when the negatives are at home.
 - In stock, the Rolls list shows film soonest expiry first and marks expired film. Load roll's picker marks expired and expiring rolls, and searching it by format, such as 120, narrows the list.
 - The Expiry entry left More. The screen still opens from a link.
 - Lenses used lists each lens as a row you can tap, shows how many are selected, and the save button waits while the change is sent.

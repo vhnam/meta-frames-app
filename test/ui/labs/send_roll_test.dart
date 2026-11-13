@@ -393,24 +393,32 @@ void main() {
   });
 
   group('the roll\'s page', () {
+    // The record form entries are in the roll's menu.
+    Future<void> openMenu(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('a finished roll with no job offers Send to lab', (
       tester,
     ) async {
       await _pump(tester, path: Routes.roll('r'));
+      await openMenu(tester);
       expect(find.text('Send to lab'), findsOneWidget);
       expect(find.text('Re-scan'), findsNothing);
     });
 
     testWidgets('a processed roll offers Re-scan', (tester) async {
       await _pump(tester, status: 'developed', jobs: 1, path: Routes.roll('r'));
+      await openMenu(tester);
       expect(find.text('Re-scan'), findsOneWidget);
       expect(find.text('Send to lab'), findsNothing);
     });
 
     testWidgets('a roll at the lab offers neither', (tester) async {
       await _pump(tester, status: 'at_lab', jobs: 1, path: Routes.roll('r'));
-      expect(find.text('Re-scan'), findsNothing);
-      expect(find.text('Send to lab'), findsNothing);
+      // No entry at all, so the menu does not show.
+      expect(find.byTooltip('More actions'), findsNothing);
     });
   });
 

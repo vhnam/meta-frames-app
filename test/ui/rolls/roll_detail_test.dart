@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/domain/models/models.dart';
+import 'package:meta_frames/domain/utils.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/routing/routes.dart';
@@ -28,8 +29,15 @@ Map<String, dynamic> _stock(String id, String name) => {
 };
 
 class _Rolls extends FakeRollRepository {
-  _Rolls({required this.withBase, this.fields = const {}});
+  _Rolls({
+    required this.withBase,
+    this.fields = const {},
+    this.jobs = const [],
+  });
   final bool withBase;
+
+  /// The roll's processing jobs.
+  final List<Map<String, dynamic>> jobs;
 
   /// Roll fields laid over the default done-shooting roll.
   final Map<String, dynamic> fields;
@@ -52,6 +60,7 @@ class _Rolls extends FakeRollRepository {
         ...fields,
       },
       'stock': _stock('s1', _name),
+      'processing': jobs,
       if (withBase) 'baseStock': _stock('s2', _base),
       'totals': {
         'rollPrice': 0,
@@ -522,5 +531,277 @@ void main() {
       await _pump(tester, fields: {'status': 'developed'});
       expect(find.byTooltip('More actions'), findsNothing);
     });
+  });
+
+  group('date actions and the main button', () {
+    Map<String, dynamic> job(
+      String id, {
+      String type = 'develop',
+      String? labId = 'l1',
+      String? developedAt,
+      String? scansReceivedAt,
+      bool isOpen = true,
+    }) => {
+      'id': id,
+      'rollId': 'r',
+      'labId': labId,
+      'type': type,
+      'process': 'C-41',
+      'sentAt': '2026-10-02',
+      'developedAt': developedAt,
+      'scansReceivedAt': scansReceivedAt,
+      'isOpen': isOpen,
+    };
+
+    // A lab is developing the roll; one open develop job.
+    const developing = {
+      'status': 'at_lab',
+      'stage': 'processing',
+      'stageDetail': 'lab_developing',
+      'negativesAtLab': true,
+      'needsScan': false,
+      'plan': <String, dynamic>{},
+    };
+
+    Future<void> openMenu(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Mark as developed sends the picked day once', (tester) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: developing,
+        jobs: [job('j1')],
+      );
+      await _pump(tester, rolls: rolls);
+      final reads = rolls.reads;
+      await tester.tap(find.text('Mark as developed'));
+      await tester.pumpAndSettle();
+
+      // The day can be from the job's sent date to today, not later.
+      final picker = tester.widget<DatePickerDialog>(
+        find.byType(DatePickerDialog),
+      );
+      expect(picker.firstDate, DateTime(2026, 10, 2));
+      expect(picker.lastDate, DateUtils.dateOnly(DateTime.now()));
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(ymd(rolls.developed.single.date!), ymd(DateTime.now()));
+      expect(rolls.developed.single.target, isNull);
+      expect(rolls.reads, greaterThan(reads));
+
+      // The main action is not in the menu again.
+      await openMenu(tester);
+      expect(find.text('Change plan'), findsOneWidget);
+      expect(find.text('Mark as developed'), findsOneWidget);
+    });
+
+    testWidgets('with no job, the develop date starts at the finish date', (
+      tester,
+    ) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: {
+          'stage': 'done_shooting',
+          'finishedAt': '2026-10-01',
+          'negativesAtLab': false,
+          'needsScan': false,
+          'plan': {'developBy': 'self'},
+        },
+      );
+      await _pump(tester, rolls: rolls);
+      // The main button starts a home develop; the menu records one done.
+      await openMenu(tester);
+      await tester.tap(find.text('Mark as developed'));
+      await tester.pumpAndSettle();
+      final picker = tester.widget<DatePickerDialog>(
+        find.byType(DatePickerDialog),
+      );
+      expect(picker.firstDate, DateTime(2026, 10, 1));
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(rolls.developed, hasLength(1));
+    });
+
+    testWidgets('a refused develop date shows why and refreshes nothing', (
+      tester,
+    ) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: developing,
+        jobs: [job('j1')],
+      );
+      rolls.writeError = ApiException(
+        422,
+        'developed_before_sent',
+        'Developed before the job was sent.',
+      );
+      await _pump(tester, rolls: rolls);
+      final reads = rolls.reads;
+      await tester.tap(find.text('Mark as developed'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Developed before the job was sent.'), findsOneWidget);
+      expect(rolls.developed, isEmpty);
+      expect(rolls.reads, reads);
+    });
+
+    testWidgets('a cancelled date picker sends nothing', (tester) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: developing,
+        jobs: [job('j1')],
+      );
+      await _pump(tester, rolls: rolls);
+      await tester.tap(find.text('Mark as developed'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(rolls.developed, isEmpty);
+    });
+
+    testWidgets('the return comes before a scan, by the handoff id', (
+      tester,
+    ) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: {
+          'status': 'developed',
+          'stage': 'completed',
+          'needsScan': true,
+          'plan': {'scanBy': 'lab'},
+          'negativesAtLab': true,
+          'openHandoffId': 'h1',
+        },
+        jobs: [job('j1', developedAt: '2026-10-05', isOpen: false)],
+      )..all = [roll('r', status: 'developed')];
+      await _pump(tester, rolls: rolls);
+      // No hand-over button: returning the negatives is the main action.
+      expect(find.text('Hand to lab'), findsNothing);
+      await tester.tap(find.text('Negatives returned'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(rolls.calls, ['returned:h1:${ymd(DateTime.now())}']);
+      await openMenu(tester);
+      expect(find.text('Negatives returned'), findsOneWidget);
+      // No scan while the lab holds the negatives.
+      expect(find.text('Re-scan'), findsNothing);
+    });
+
+    testWidgets('a roll from before handoffs returns on its lab job', (
+      tester,
+    ) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: {
+          'status': 'developed',
+          'stage': 'completed',
+          'needsScan': false,
+          'plan': <String, dynamic>{},
+          'negativesAtLab': true,
+        },
+        jobs: [
+          job('home', labId: null, isOpen: false),
+          job('j2', developedAt: '2026-10-05', isOpen: false),
+        ],
+      );
+      final router = await _pump(tester, rolls: rolls);
+      await openMenu(tester);
+      expect(find.text('Re-scan'), findsNothing);
+      await tester.tapAt(Offset.zero);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Negatives returned'));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.last.matchedLocation,
+        Routes.processing('j2'),
+      );
+      expect(rolls.calls, isEmpty);
+    });
+
+    testWidgets('one lab scan in progress opens its job', (tester) async {
+      final rolls = _Rolls(
+        withBase: true,
+        fields: {
+          'status': 'developed',
+          'stage': 'processing',
+          'stageDetail': 'lab_scanning',
+          'negativesAtLab': true,
+          'needsScan': false,
+          'plan': <String, dynamic>{},
+          'openHandoffId': null,
+        },
+        jobs: [job('s1', type: 'scan')],
+      );
+      final router = await _pump(tester, rolls: rolls);
+      // Both taps land before the button rebuilds.
+      await tester.tap(find.text('Open job'));
+      await tester.tap(find.text('Open job'));
+      await tester.pumpAndSettle();
+      expect(
+        router.routerDelegate.currentConfiguration.last.matchedLocation,
+        Routes.processing('s1'),
+      );
+
+      // The job opened once: one Back returns to the roll's page.
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(
+        router.routerDelegate.currentConfiguration.last.matchedLocation,
+        Routes.roll('r'),
+      );
+    });
+
+    testWidgets(
+      'done shooting has one hand-over button; the record form is in the menu',
+      (tester) async {
+        final router = await _pump(
+          tester,
+          fields: {
+            'stage': 'done_shooting',
+            'needsScan': false,
+            'plan': {'developBy': 'lab'},
+          },
+        );
+        expect(find.byType(FilledButton), findsOneWidget);
+        expect(find.text('Send to lab'), findsNothing);
+        await openMenu(tester);
+        await tester.tap(find.text('Send to lab'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.toString(), Routes.rollSend('r'));
+      },
+    );
+
+    testWidgets(
+      'completed with nothing waiting: no main button, Re-scan in the menu',
+      (tester) async {
+        final router = await _pump(
+          tester,
+          rolls: _Rolls(
+            withBase: true,
+            fields: {
+              'status': 'developed',
+              'stage': 'completed',
+              'needsScan': false,
+              'plan': <String, dynamic>{},
+              'negativesAtLab': false,
+            },
+            jobs: [job('j1', developedAt: '2026-10-05', isOpen: false)],
+          ),
+        );
+        expect(find.byType(FilledButton), findsNothing);
+        await openMenu(tester);
+        await tester.tap(find.text('Re-scan'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.toString(), Routes.rollSend('r', resend: true));
+      },
+    );
   });
 }

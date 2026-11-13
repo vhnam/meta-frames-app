@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
+import '../../../domain/models/roll_requests.dart';
 import '../../../providers.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
@@ -70,43 +71,148 @@ class RollDetailScreen extends ConsumerWidget {
   }
 }
 
-/// The roll's online plan and Needs scan actions, as [detailActions] allows.
+/// Details actions that are not a processing step, for the main button and
+/// the menu.
+const _labels = {
+  DetailAction.markDeveloped: 'Mark as developed',
+  DetailAction.returnHandoff: 'Negatives returned',
+  DetailAction.returnJob: 'Negatives returned',
+  DetailAction.openJob: 'Open job',
+  DetailAction.changePlan: 'Change plan',
+  DetailAction.markNeedsScan: 'Needs scan',
+  DetailAction.unmarkNeedsScan: 'Remove needs scan',
+};
+
+/// A day from [first] to today. The server checks the rest, such as a
+/// develop date after the negatives came back.
+Future<DateTime?> _pickDay(BuildContext context, DateTime? first) {
+  final today = DateUtils.dateOnly(DateTime.now());
+  final start = first == null ? DateTime(1950) : DateUtils.dateOnly(first);
+  return showDatePicker(
+    context: context,
+    initialDate: today,
+    firstDate: start.isAfter(today) ? today : start,
+    lastDate: today,
+  );
+}
+
+/// Runs [action] from the main button or the menu. [jobId] is the job that
+/// [DetailAction.openJob] and [DetailAction.returnJob] open.
+Future<void> _run(
+  BuildContext context,
+  WidgetRef ref,
+  RollDetail detail,
+  DetailAction action,
+  String? jobId,
+) async {
+  final roll = detail.roll;
+  final actions = ref.read(rollActionsProvider);
+  switch (action) {
+    case DetailAction.markDeveloped:
+      final date = await _pickDay(
+        context,
+        developingJob(detail.processing)?.sentAt ?? roll.finishedAt,
+      );
+      if (date == null || !context.mounted) return;
+      await guard(
+        context,
+        () => actions.markDeveloped(roll.id, DevelopedInput(date: date)),
+      );
+    case DetailAction.returnHandoff:
+      final date = await _pickDay(context, roll.finishedAt);
+      if (date == null || !context.mounted) return;
+      await guard(
+        context,
+        () => actions.returnHandoff(roll.openHandoffId!, date),
+      );
+    // A roll from before handoffs returns its negatives on the job.
+    case DetailAction.openJob || DetailAction.returnJob:
+      await context.push(Routes.processing(jobId!));
+    case DetailAction.changePlan:
+      await editPlan(context, detail);
+    case DetailAction.markNeedsScan || DetailAction.unmarkNeedsScan:
+      await guard(
+        context,
+        () =>
+            actions.setNeedsScan(roll.id, action == DetailAction.markNeedsScan),
+      );
+    default:
+      return;
+  }
+}
+
+/// The roll's other valid actions, as [detailActions] allows, and the send
+/// form that records processing already done.
 class _Menu extends ConsumerWidget {
   const _Menu({required this.detail});
   final RollDetail detail;
 
-  static const _labels = {
-    DetailAction.changePlan: 'Change plan',
-    DetailAction.markNeedsScan: 'Needs scan',
-    DetailAction.unmarkNeedsScan: 'Remove needs scan',
-  };
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = detailActions(detail).menu
-        .where(_labels.containsKey)
-        .toList();
+    final roll = detail.roll;
+    final jobs = detail.processing;
+    final items = <(String, Future<void> Function())>[
+      for (final action in detailActions(detail).menu)
+        if (_labels[action] case final label?)
+          (label, () => _run(context, ref, detail, action, null)),
+      if (roll.status == RollStatus.doneShooting && jobs.isEmpty)
+        ('Send to lab', () => context.push(Routes.rollSend(roll.id))),
+      // A scan again needs the negatives at home: a lab that holds them gives
+      // them back first.
+      if (jobs.isNotEmpty &&
+          sendableTypes(roll.status, jobs.length).isNotEmpty &&
+          !roll.negativesAtLab &&
+          roll.openHandoffId == null)
+        ('Re-scan', () => context.push(Routes.rollSend(roll.id, resend: true))),
+    ];
     if (items.isEmpty) return const SizedBox.shrink();
-    return PopupMenuButton<DetailAction>(
+    return PopupMenuButton<Future<void> Function()>(
       tooltip: 'More actions',
       itemBuilder: (_) => [
-        for (final action in items)
-          PopupMenuItem(value: action, child: Text(_labels[action]!)),
+        for (final (label, run) in items)
+          PopupMenuItem(value: run, child: Text(label)),
       ],
-      onSelected: (action) => switch (action) {
-        DetailAction.changePlan => editPlan(context, detail),
-        _ => guard(
-          context,
-          () => ref
-              .read(rollActionsProvider)
-              .setNeedsScan(
-                detail.roll.id,
-                action == DetailAction.markNeedsScan,
-              ),
-        ),
-      },
+      onSelected: (run) => run(),
     );
   }
+}
+
+/// The main button for a date action or a job to open. It stays locked from
+/// the first tap until the action ends, so two fast taps run it once.
+class _MainButton extends ConsumerStatefulWidget {
+  const _MainButton({
+    required this.detail,
+    required this.action,
+    required this.jobId,
+  });
+  final RollDetail detail;
+  final DetailAction action;
+  final String? jobId;
+
+  @override
+  ConsumerState<_MainButton> createState() => _MainButtonState();
+}
+
+class _MainButtonState extends ConsumerState<_MainButton> {
+  bool _busy = false;
+
+  Future<void> _start() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _run(context, ref, widget.detail, widget.action, widget.jobId);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FilledButton.icon(
+    style: FilledButton.styleFrom(padding: const EdgeInsets.all(16)),
+    icon: const Icon(Icons.science_outlined),
+    label: Text(_labels[widget.action]!),
+    onPressed: _busy ? null : _start,
+  );
 }
 
 class _Body extends ConsumerWidget {
@@ -125,11 +231,13 @@ class _Body extends ConsumerWidget {
     const pad = EdgeInsets.all(16);
     final canManageLenses =
         r.status == RollStatus.inCamera && cam != null && !cam.hasFixedLens;
-    final next = detailActions(detail).primary;
-    final processing = next == null ? null : processingLabel(next);
+    final (:primary, :jobId, menu: _) = detailActions(detail);
+    final processing = primary == null ? null : processingLabel(primary);
     final actions = [
       if (processing != null)
-        ProcessingButton(detail: detail, action: next!, label: processing),
+        ProcessingButton(detail: detail, action: primary!, label: processing)
+      else if (_labels.containsKey(primary))
+        _MainButton(detail: detail, action: primary!, jobId: jobId),
       if (r.status == RollStatus.inStock)
         FilledButton.icon(
           style: FilledButton.styleFrom(padding: pad),
@@ -143,22 +251,6 @@ class _Body extends ConsumerWidget {
           icon: const Icon(Icons.check),
           label: const Text('Finish roll'),
           onPressed: () => finishRoll(context, ref, r.id, cameraId: r.cameraId),
-        ),
-      if (r.status == RollStatus.doneShooting && detail.processing.isEmpty)
-        FilledButton.icon(
-          style: FilledButton.styleFrom(padding: pad),
-          icon: const Icon(Icons.local_shipping_outlined),
-          label: const Text('Send to lab'),
-          onPressed: () => context.push(Routes.rollSend(r.id)),
-        ),
-      // Once processed, scanning again is the only action left.
-      if (detail.processing.isNotEmpty &&
-          sendableTypes(r.status, detail.processing.length).isNotEmpty)
-        FilledButton.icon(
-          style: FilledButton.styleFrom(padding: pad),
-          icon: const Icon(Icons.replay),
-          label: const Text('Re-scan'),
-          onPressed: () => context.push(Routes.rollSend(r.id, resend: true)),
         ),
     ];
     final notes = r.description?.trim() ?? '';
