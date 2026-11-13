@@ -19,6 +19,20 @@ import 'scan_order_picker.dart';
 /// Stand-in for working at home: the API takes no lab id then.
 const _self = 'self';
 
+/// What the send form is opened for.
+enum SendMode {
+  /// Record work, at home or at a lab; work at home is done by the time it is
+  /// recorded, so its result dates go with it.
+  record,
+
+  /// Start work at home: an open job with no result date. The results are
+  /// recorded on the job later.
+  startAtHome,
+
+  /// Hand this one roll to a lab the user picks.
+  handToLab,
+}
+
 /// M-27 send a roll for processing, or record work done at home; M-31 scan a
 /// processed roll again. Follows the dashboard's Send to Lab dialog.
 class SendRollScreen extends ConsumerStatefulWidget {
@@ -28,6 +42,8 @@ class SendRollScreen extends ConsumerStatefulWidget {
     required this.stock,
     required this.types,
     this.rescan = false,
+    this.mode = SendMode.record,
+    this.type,
   });
   final RollSummary roll;
   final FilmStock stock;
@@ -35,6 +51,11 @@ class SendRollScreen extends ConsumerStatefulWidget {
   /// Services offered for this job.
   final List<ProcessingType> types;
   final bool rescan;
+  final SendMode mode;
+
+  /// The service picked at the start, from the roll's context; the first of
+  /// [types] when null or not in [types].
+  final ProcessingType? type;
   @override
   ConsumerState<SendRollScreen> createState() => _State();
 }
@@ -47,8 +68,13 @@ class _State extends ConsumerState<SendRollScreen> {
   final _notes = TextEditingController();
 
   // A new job starts at home, where the work is done by the time it is recorded.
-  String _labId = _self;
-  late ProcessingType _type = widget.types.first;
+  // A hand-over starts with no lab: the user picks a real one.
+  late String? _labId = widget.mode == SendMode.handToLab ? null : _self;
+  // A [SendRollScreen.type] the roll cannot be sent for falls back to the
+  // first offered one, so the service list always holds the picked value.
+  late ProcessingType _type = widget.types.contains(widget.type)
+      ? widget.type!
+      : widget.types.first;
   late Process _process = widget.stock.process;
   DateTime? _sent;
   DateTime? _scansExpected;
@@ -74,8 +100,8 @@ class _State extends ConsumerState<SendRollScreen> {
 
   bool get _atHome => _labId == _self;
 
-  /// Receipt dates are asked for work done at home.
-  bool get _showReceipts => _atHome;
+  /// Receipt dates are asked for work done at home, not for work started.
+  bool get _showReceipts => _atHome && widget.mode == SendMode.record;
   bool get _needsScanners => _type.hasScans;
 
   /// A lab that develops the film returns the negatives.
@@ -123,16 +149,35 @@ class _State extends ConsumerState<SendRollScreen> {
     final kinds = ref.watch(scannerKindsProvider);
     // Orders start from the scanner's settings, so saving waits for both.
     final scansReady = scanners.hasValue && kinds.hasValue;
+    // Work started at home runs only on the user's own scanners.
+    final ownOnly = widget.mode == SendMode.startAtHome;
+    final choices = !scansReady
+        ? const <ScannerDevice>[]
+        : [
+            for (final device in scanners.requireValue)
+              if (!ownOnly || !device.builtIn) device,
+          ];
     final orders = !scansReady
         ? const <ScanOrder>[]
-        : _pickedOrders ??
-              _defaultOrders(labs, scanners.requireValue, kinds.requireValue);
+        : [
+            for (final order
+                in _pickedOrders ??
+                    _defaultOrders(labs, choices, kinds.requireValue))
+              if (!ownOnly ||
+                  choices.any((device) => device.id == order.scannerId))
+                order,
+          ];
 
     final String title, description, submit;
     if (widget.rescan) {
       title = 'Re-scan Roll';
       description = 'Scan the negatives again, at another lab or yourself. Earlier jobs and scans stay';
       submit = 'Add re-scan';
+    } else if (widget.mode == SendMode.startAtHome) {
+      title = 'Start at Home';
+      description =
+          'Starts an open job; record the results on it when they are ready';
+      submit = 'Start';
     } else if (_atHome) {
       title = 'Send to Lab';
       description = 'Record work done at home, with the days the negatives and scans were ready';
@@ -177,7 +222,9 @@ class _State extends ConsumerState<SendRollScreen> {
                 value: _atHome
                     ? _selfLabel
                     : labs.where((l) => l.id == _labId).firstOrNull?.name,
-                onTap: _pickLab,
+                // Work started at home stays at home.
+                onTap: widget.mode == SendMode.startAtHome ? null : _pickLab,
+                validator: () => _labId == null ? 'Pick a lab.' : null,
               ),
             ),
             LabeledField(
@@ -234,7 +281,7 @@ class _State extends ConsumerState<SendRollScreen> {
                     _pickedOrders = v;
                     _scanError = null;
                   }),
-                  scanners: scanners.requireValue,
+                  scanners: choices,
                   kinds: kinds.requireValue,
                   offered:
                       labs
@@ -363,7 +410,8 @@ class _State extends ConsumerState<SendRollScreen> {
     final id = await pickOne<String>(
       context,
       title: 'Lab',
-      items: [_self, ...names.keys],
+      // A hand-over goes to a real lab.
+      items: [if (widget.mode != SendMode.handToLab) _self, ...names.keys],
       label: (i) => i == _self ? _selfLabel : names[i]!.name,
       subtitle: (i) => names[i]?.address ?? '',
       footer: CreateFooter<String>(
@@ -386,6 +434,12 @@ class _State extends ConsumerState<SendRollScreen> {
     final missing = _needsScanners && orders.isEmpty;
     setState(() => _scanError = missing ? 'Pick at least one scanner.' : null);
     if (!valid || missing) return;
+    // The Lab field may be scrolled out of the list, where the Form skips its
+    // validator: check the hand-over's lab here too.
+    if (widget.mode == SendMode.handToLab && _labId == null) {
+      toast(context, 'Pick a lab.');
+      return;
+    }
     setState(() => _busy = true);
     final job = NewProcessing(
       id: _jobId,

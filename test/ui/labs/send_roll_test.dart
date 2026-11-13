@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:meta_frames/data/services/api_client.dart';
+import 'package:meta_frames/domain/models/lab_requests.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/domain/utils.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/routing/routes.dart';
+import 'package:meta_frames/ui/labs/widgets/send_roll.dart';
 
 import '../../testing/fakes.dart';
 
@@ -154,6 +158,77 @@ Future<void> _pickLab(WidgetTester tester, String from, String name) async {
 Future<void> _pickService(WidgetTester tester, String name) async {
   await _tap(tester, 'Develop');
   await _tap(tester, name);
+}
+
+/// A lab that refuses the job, as the server does while another lab holds
+/// the film.
+class _Refusing extends FakeProcessingRepository {
+  @override
+  Future<Processing> send(String rollId, NewProcessing job) async {
+    sent.add(job);
+    throw ApiException(409, 'negatives_at_lab', 'Another lab holds the film.');
+  }
+}
+
+/// Opens the send form in [mode], the way the roll's page will (slice 11).
+Future<FakeProcessingRepository> _pumpMode(
+  WidgetTester tester,
+  SendMode mode, {
+  List<ProcessingType> types = ProcessingType.values,
+  ProcessingType? type,
+  List<Lab> labs = const [],
+  List<ScannerDevice>? scanners,
+  FakeProcessingRepository? processing,
+  Size size = const Size(800, 4000),
+}) async {
+  tester.view
+    ..physicalSize = size
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final jobs = processing ?? FakeProcessingRepository();
+  final stock = FilmStock.fromJson({
+    'id': 's1',
+    'brand': 'Kodak',
+    'name': 'Gold',
+    'type': 'color',
+    'boxIso': '200',
+    'process': 'C-41',
+    'packaging': 'factory',
+  });
+  final router = GoRouter(
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('Roll')),
+      ),
+      GoRoute(
+        path: '/send',
+        builder: (_, _) => SendRollScreen(
+          roll: roll('r', status: 'done_shooting'),
+          stock: stock,
+          types: types,
+          type: type,
+          mode: mode,
+        ),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        processingRepositoryProvider.overrideWithValue(jobs),
+        labRepositoryProvider.overrideWithValue(FakeLabRepository(labs)),
+        scannerRepositoryProvider.overrideWithValue(
+          FakeScannerRepository(scanners ?? [_noritsu, _frontier], _kinds),
+        ),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
+  router.push('/send');
+  await tester.pumpAndSettle();
+  return jobs;
 }
 
 void main() {
@@ -336,6 +411,157 @@ void main() {
       await _pump(tester, status: 'at_lab', jobs: 1, path: Routes.roll('r'));
       expect(find.text('Re-scan'), findsNothing);
       expect(find.text('Send to lab'), findsNothing);
+    });
+  });
+
+  group('start at home', () {
+    testWidgets('starts an open job with no result date', (tester) async {
+      final jobs = await _pumpMode(
+        tester,
+        SendMode.startAtHome,
+        type: ProcessingType.develop,
+      );
+      await _tap(tester, 'Start');
+
+      final job = jobs.sent.single;
+      expect(job.labId, isNull);
+      expect(job.type, ProcessingType.develop);
+      // No receipt: the job stays open until its results are recorded.
+      expect(jobs.receipts, isEmpty);
+      expect(find.text('Roll'), findsOneWidget);
+    });
+
+    testWidgets('a home scan needs a scanner of your own', (tester) async {
+      final jobs = await _pumpMode(
+        tester,
+        SendMode.startAtHome,
+        types: const [ProcessingType.scan, ProcessingType.print],
+        type: ProcessingType.scan,
+      );
+      await _tap(tester, 'Start');
+      expect(find.text('Pick at least one scanner.'), findsOneWidget);
+      expect(jobs.sent, isEmpty);
+    });
+
+    testWidgets('a home scan never runs on a lab scanner', (tester) async {
+      final jobs = await _pumpMode(
+        tester,
+        SendMode.startAtHome,
+        type: ProcessingType.scan,
+        scanners: [_noritsu, _frontier],
+      );
+      // Only built-in lab scanners: none to pick, none sent.
+      expect(find.text('Noritsu HS-1800'), findsNothing);
+      expect(find.text('Frontier SP-3000'), findsNothing);
+      await _tap(tester, 'Start');
+      expect(find.text('Pick at least one scanner.'), findsOneWidget);
+      expect(jobs.sent, isEmpty);
+    });
+
+    testWidgets('a home scan starts on your scanner, open', (tester) async {
+      final jobs = await _pumpMode(
+        tester,
+        SendMode.startAtHome,
+        type: ProcessingType.scan,
+        scanners: [_noritsu, _epson],
+      );
+      await _tap(tester, 'Start');
+      expect(jobs.sent.single.scanOrders.single.scannerId, 'epson');
+      expect(jobs.receipts, isEmpty);
+    });
+  });
+
+  testWidgets('a service the roll cannot have falls back to the first', (
+    tester,
+  ) async {
+    final jobs = await _pumpMode(
+      tester,
+      SendMode.startAtHome,
+      types: const [ProcessingType.scan, ProcessingType.print],
+      type: ProcessingType.develop,
+      scanners: [_noritsu, _epson],
+    );
+    await _tap(tester, 'Start');
+    expect(jobs.sent.single.type, ProcessingType.scan);
+  });
+
+  group('hand to a lab', () {
+    final lone = lab('l1', 'Foto Lab');
+
+    testWidgets('needs a real lab before it sends', (tester) async {
+      final jobs = await _pumpMode(tester, SendMode.handToLab, labs: [lone]);
+      await _tap(tester, 'Send to lab');
+      expect(find.text('Pick a lab.'), findsOneWidget);
+      expect(jobs.sent, isEmpty);
+
+      // The picker offers labs only, not working at home.
+      await _tap(tester, 'Select a lab');
+      expect(find.text('Self-develop'), findsNothing);
+    });
+
+    testWidgets('needs a lab even when its field is scrolled away', (
+      tester,
+    ) async {
+      final jobs = await _pumpMode(
+        tester,
+        SendMode.handToLab,
+        type: ProcessingType.develop,
+        labs: [lone],
+        size: const Size(390, 500),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Send to lab'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      // The Lab field is out of the list, so the Form cannot validate it.
+      expect(find.text('Select a lab'), findsNothing);
+
+      await _tap(tester, 'Send to lab');
+
+      expect(find.text('Pick a lab.'), findsOneWidget);
+      expect(jobs.sent, isEmpty);
+    });
+
+    testWidgets('sends this one roll to the picked lab', (tester) async {
+      final jobs = await _pumpMode(
+        tester,
+        SendMode.handToLab,
+        type: ProcessingType.develop,
+        labs: [lone],
+      );
+      await _pickLab(tester, 'Select a lab', 'Foto Lab');
+      await _tap(tester, 'Send to lab');
+
+      final job = jobs.sent.single;
+      expect(job.labId, 'l1');
+      expect(job.type, ProcessingType.develop);
+      expect(jobs.receipts, isEmpty);
+    });
+
+    testWidgets('a refused hand-over shows the reason and keeps the form', (
+      tester,
+    ) async {
+      final jobs = await _pumpMode(
+        tester,
+        SendMode.handToLab,
+        type: ProcessingType.develop,
+        labs: [lone],
+        processing: _Refusing(),
+      );
+      await _pickLab(tester, 'Select a lab', 'Foto Lab');
+      await tester.enterText(find.byType(TextFormField).first, 'Rush');
+      await _tap(tester, 'Send to lab');
+
+      expect(find.text('Another lab holds the film.'), findsOneWidget);
+      expect(find.text('Foto Lab'), findsOneWidget);
+      expect(find.text('Rush'), findsOneWidget);
+
+      // Saving again reuses the job id, so it cannot make a second job.
+      await _tap(tester, 'Send to lab');
+      expect(jobs.sent, hasLength(2));
+      expect(jobs.sent.last.id, jobs.sent.first.id);
     });
   });
 }
