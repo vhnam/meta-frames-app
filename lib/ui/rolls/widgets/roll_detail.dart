@@ -7,8 +7,10 @@ import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../sync/view_models/sync_actions.dart';
 import '../../sync/widgets/op_status.dart';
+import '../view_models/roll_actions.dart';
 import 'finish_roll.dart';
 import 'frame_notes.dart';
+import 'roll_processing_choice.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
@@ -82,7 +84,11 @@ class _Body extends ConsumerWidget {
     const pad = EdgeInsets.all(16);
     final canManageLenses =
         r.status == RollStatus.inCamera && cam != null && !cam.hasFixedLens;
+    final next = detailActions(detail).primary;
+    final processing = next == null ? null : processingLabel(next);
     final actions = [
+      if (processing != null)
+        ProcessingButton(detail: detail, action: next!, label: processing),
       if (r.status == RollStatus.inStock)
         FilledButton.icon(
           style: FilledButton.styleFrom(padding: pad),

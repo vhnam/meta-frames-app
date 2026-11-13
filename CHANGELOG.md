@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Each saved server can have a dashboard URL. The Dashboard entry in More opens it in the browser (the one of the server in use when tapped); if no browser takes it, the address can be copied.
 - A roll card shows one stage label, the same as the dashboard: what a processing roll is doing or waiting for, such as "Lab developing" or "Waiting to scan at home", else its stage, such as "Completed". A Negatives at lab stamp shows when the label does not already say a lab has the roll. When two cards in the Rolls list read the same, each shows the start of its id, such as #1c8d. A roll kept on the phone from an older API shows its plain status until the list is refreshed.
 - Edit Roll sends the version of the roll it opened with. If the roll changed meanwhile, such as a note saved from the phone, nothing is saved and the form reloads to show what changed. Needs a MetaFrames API that returns `version` on rolls and accepts `If-Match`.
+- A roll's page has one button for the next processing step, taken from its stage, jobs and plan: Develop, Scan, Start developing at home, Start scanning at home or Hand to lab. When the plan does not say where the step is done, a How is it processed? sheet asks for home or a lab first; a home develop is offered only when no job or lab holds the film, and a home scan only with a scanner of your own. The send form then opens with the service the roll needs.
 
 ### Changed
 
