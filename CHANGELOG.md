@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Note frame left the Shooting tab. The card still finishes the roll and opens roll notes. Frame notes stay on the roll's page.
 - Note frame asks only for the frame number and starts empty each time: the app does not guess which frame was just taken. Any whole number from 0 opens, including frames past the exposure count. Frame notes need no scans.
 - A roll's page shows one main button, from its stage, jobs and plan. Send to lab (to record processing already done) and Re-scan moved to the More actions menu. Re-scan is offered only when the negatives are at home.
+- The main button is at the top of a roll's page. In stock it loads the roll; in a camera it is Log frame, which asks for the frame number and opens its notes, and Finish roll is in the More actions menu. In a camera, frames and notes come before the processing history; while a roll is processed, its jobs come right after the roll card.
 - In stock, the Rolls list shows film soonest expiry first and marks expired film. Load roll's picker marks expired and expiring rolls, and searching it by format, such as 120, narrows the list.
 - The Expiry entry left More. The screen still opens from a link.
 - Lenses used lists each lens as a row you can tap, shows how many are selected, and the save button waits while the change is sent.

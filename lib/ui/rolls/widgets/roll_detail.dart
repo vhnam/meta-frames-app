@@ -74,6 +74,9 @@ class RollDetailScreen extends ConsumerWidget {
 /// Details actions that are not a processing step, for the main button and
 /// the menu.
 const _labels = {
+  DetailAction.loadRoll: 'Load into camera',
+  DetailAction.logFrame: 'Log frame',
+  DetailAction.finish: 'Finish roll',
   DetailAction.markDeveloped: 'Mark as developed',
   DetailAction.returnHandoff: 'Negatives returned',
   DetailAction.returnJob: 'Negatives returned',
@@ -108,6 +111,12 @@ Future<void> _run(
   final roll = detail.roll;
   final actions = ref.read(rollActionsProvider);
   switch (action) {
+    case DetailAction.loadRoll:
+      await context.push(Routes.rollLoad(roll.id));
+    case DetailAction.logFrame:
+      await noteFrame(context, roll.id);
+    case DetailAction.finish:
+      await finishRoll(context, ref, roll.id, cameraId: roll.cameraId);
     case DetailAction.markDeveloped:
       final date = await _pickDay(
         context,
@@ -177,7 +186,7 @@ class _Menu extends ConsumerWidget {
   }
 }
 
-/// The main button for a date action or a job to open. It stays locked from
+/// The main button for a Details action. It stays locked from
 /// the first tap until the action ends, so two fast taps run it once.
 class _MainButton extends ConsumerStatefulWidget {
   const _MainButton({
@@ -209,7 +218,11 @@ class _MainButtonState extends ConsumerState<_MainButton> {
   @override
   Widget build(BuildContext context) => FilledButton.icon(
     style: FilledButton.styleFrom(padding: const EdgeInsets.all(16)),
-    icon: const Icon(Icons.science_outlined),
+    icon: Icon(switch (widget.action) {
+      DetailAction.loadRoll => Icons.photo_camera_outlined,
+      DetailAction.logFrame => Icons.edit_note,
+      _ => Icons.science_outlined,
+    }),
     label: Text(_labels[widget.action]!),
     onPressed: _busy ? null : _start,
   );
@@ -228,7 +241,6 @@ class _Body extends ConsumerWidget {
     final jobs = [...detail.processing]
       ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
     final cs = Theme.of(context).colorScheme;
-    const pad = EdgeInsets.all(16);
     final canManageLenses =
         r.status == RollStatus.inCamera && cam != null && !cam.hasFixedLens;
     final (:primary, :jobId, menu: _) = detailActions(detail);
@@ -238,24 +250,213 @@ class _Body extends ConsumerWidget {
         ProcessingButton(detail: detail, action: primary!, label: processing)
       else if (_labels.containsKey(primary))
         _MainButton(detail: detail, action: primary!, jobId: jobId),
-      if (r.status == RollStatus.inStock)
-        FilledButton.icon(
-          style: FilledButton.styleFrom(padding: pad),
-          icon: const Icon(Icons.photo_camera_outlined),
-          label: const Text('Load into camera'),
-          onPressed: () => context.push(Routes.rollLoad(r.id)),
-        ),
-      if (r.status == RollStatus.inCamera)
-        FilledButton.icon(
-          style: FilledButton.styleFrom(padding: pad),
-          icon: const Icon(Icons.check),
-          label: const Text('Finish roll'),
-          onPressed: () => finishRoll(context, ref, r.id, cameraId: r.cameraId),
-        ),
     ];
     final notes = r.description?.trim() ?? '';
     final ops = ref.watch(rollOpsProvider(r.id));
 
+    final rollBlock = <Widget>[
+      const DetailLabel('ROLL', top: 0),
+      CardList(
+        children: [
+          _StockRow(detail: detail),
+          if (r.negativesAtLab) const DetailInfoRow('Negatives', 'At lab'),
+          DetailInfoRow('Format', '${r.format}'),
+          DetailInfoRow('Exposures', '${r.exposures}'),
+          DetailInfoRow('Price', fmtVnd(r.price)),
+          DetailInfoRow('Expiry', r.expiry?.toString()),
+          DetailInfoRow(
+            'Shot ISO',
+            r.shotIso?.toString() ?? 'Box (${detail.stock.boxIso})',
+          ),
+          DetailInfoRow('Started', fmtDate(r.startedAt)),
+          DetailInfoRow('Finished', fmtDate(r.finishedAt)),
+        ],
+      ),
+    ];
+    final notesBlock = <Widget>[
+      DetailLabel(
+        'NOTES',
+        trailing: TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          onPressed: () => context.push(Routes.rollNotes(r.id)),
+          child: Text(
+            notes.isEmpty ? 'Add notes' : 'Edit',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+      Text(
+        notes.isEmpty ? 'Subject, location, conditions, incidents.' : notes,
+        style: TextStyle(
+          fontSize: 14,
+          color: notes.isEmpty ? cs.onSurfaceVariant : cs.onSurface,
+        ),
+      ),
+    ];
+    final gearBlock = <Widget>[
+      if (r.cameraId != null ||
+          detail.lenses.isNotEmpty ||
+          canManageLenses) ...[
+        const DetailLabel('GEAR'),
+        CardList(
+          children: [
+            if (r.cameraId != null)
+              CardTile(
+                compact: true,
+                leading: Icon(
+                  Icons.photo_camera_outlined,
+                  size: 20,
+                  color: cs.onSurfaceVariant,
+                ),
+                title: r.cameraName ?? 'Camera',
+                subtitle: 'Camera',
+                trailing: Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: cs.onSurfaceVariant,
+                ),
+                onTap: () => context.push(Routes.camera(r.cameraId!)),
+              ),
+            for (final l in detail.lenses)
+              CardTile(
+                compact: true,
+                leading: Icon(
+                  Icons.adjust,
+                  size: 20,
+                  color: cs.onSurfaceVariant,
+                ),
+                title: l.name,
+                subtitle: 'Lens',
+              ),
+          ],
+        ),
+        if (canManageLenses) ...[
+          const SizedBox(height: 8),
+          DashedButton(
+            label: 'Manage lenses',
+            onTap: () => context.push(Routes.rollLenses(r.id)),
+          ),
+        ],
+      ],
+    ];
+    final costBlock = <Widget>[
+      const DetailLabel('COST'),
+      CardList(
+        children: [
+          DetailInfoRow('Film', fmtVnd(detail.totals.rollPrice)),
+          DetailInfoRow('Processing', fmtVnd(detail.totals.processingPrice)),
+          DetailInfoRow(
+            'Total',
+            '${fmtVnd(detail.totals.total)}${detail.totals.incomplete ? ' (incomplete)' : ''}',
+            bold: true,
+          ),
+        ],
+      ),
+    ];
+    final historyBlock = <Widget>[
+      const DetailLabel('PROCESSING HISTORY'),
+      if (jobs.isEmpty)
+        Text(
+          'Not sent yet',
+          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+        )
+      else
+        CardList(
+          children: [
+            for (final j in jobs)
+              CardTile(
+                compact: true,
+                title: '${j.where} · ${j.type.label}',
+                subtitle: [
+                  j.process.wire,
+                  'sent ${fmtDate(j.sentAt)}',
+                  if (j.scansReceivedAt != null)
+                    'scans ${fmtDate(j.scansReceivedAt)}',
+                  if (j.negativesReturnedAt != null)
+                    'negatives ${fmtDate(j.negativesReturnedAt)}',
+                  if (j.scanners.isNotEmpty)
+                    j.scanners.map((s) => s.label).join('+'),
+                  if (j.price != null) fmtVnd(j.price),
+                  if (j.notes != null) j.notes!,
+                ].join(' · '),
+                badge: j.isOpen
+                    ? StampBadge('Open', color: cs.onPrimaryContainer)
+                    : null,
+                onTap: () => context.push(Routes.processing(j.id)),
+              ),
+          ],
+        ),
+    ];
+    final framesBlock = <Widget>[
+      DetailLabel(
+        'FRAMES',
+        trailing: TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          onPressed: () => noteFrame(context, r.id),
+          child: const Text(
+            'Add notes',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+      if (detail.frames.isEmpty)
+        Text(
+          'No frames yet. Add notes, or import scans in the dashboard.',
+          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+        )
+      else
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final f in detail.frames)
+              ActionChip(
+                label: Text(
+                  '#${f.number}${f.scans.isEmpty ? '' : ' · ${f.scans.length}'}',
+                ),
+                avatar: f.notes == null
+                    ? null
+                    : const Icon(Icons.notes, size: 14),
+                onPressed: () => context.push(Routes.frame(r.id, f.number)),
+              ),
+          ],
+        ),
+    ];
+    // In a camera, frames and notes come before the history; while it is
+    // processed, the jobs come first (where the negatives are is in the roll
+    // card).
+    final order = switch (r.stage) {
+      RollLifecycleStage.inCamera => [
+        rollBlock,
+        framesBlock,
+        notesBlock,
+        gearBlock,
+        historyBlock,
+        costBlock,
+      ],
+      RollLifecycleStage.processing => [
+        rollBlock,
+        historyBlock,
+        notesBlock,
+        framesBlock,
+        gearBlock,
+        costBlock,
+      ],
+      _ => [
+        rollBlock,
+        notesBlock,
+        gearBlock,
+        costBlock,
+        historyBlock,
+        framesBlock,
+      ],
+    };
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -264,172 +465,12 @@ class _Body extends ConsumerWidget {
           OpStatusCard(op: op),
           const SizedBox(height: 8),
         ],
-        const DetailLabel('ROLL', top: 0),
-        CardList(
-          children: [
-            _StockRow(detail: detail),
-            if (r.negativesAtLab) const DetailInfoRow('Negatives', 'At lab'),
-            DetailInfoRow('Format', '${r.format}'),
-            DetailInfoRow('Exposures', '${r.exposures}'),
-            DetailInfoRow('Price', fmtVnd(r.price)),
-            DetailInfoRow('Expiry', r.expiry?.toString()),
-            DetailInfoRow(
-              'Shot ISO',
-              r.shotIso?.toString() ?? 'Box (${detail.stock.boxIso})',
-            ),
-            DetailInfoRow('Started', fmtDate(r.startedAt)),
-            DetailInfoRow('Finished', fmtDate(r.finishedAt)),
-          ],
-        ),
-        DetailLabel(
-          'NOTES',
-          trailing: TextButton(
-            style: TextButton.styleFrom(
-              minimumSize: const Size(0, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            onPressed: () => context.push(Routes.rollNotes(r.id)),
-            child: Text(
-              notes.isEmpty ? 'Add notes' : 'Edit',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-        Text(
-          notes.isEmpty ? 'Subject, location, conditions, incidents.' : notes,
-          style: TextStyle(
-            fontSize: 14,
-            color: notes.isEmpty ? cs.onSurfaceVariant : cs.onSurface,
-          ),
-        ),
-        if (r.cameraId != null ||
-            detail.lenses.isNotEmpty ||
-            canManageLenses) ...[
-          const DetailLabel('GEAR'),
-          CardList(
-            children: [
-              if (r.cameraId != null)
-                CardTile(
-                  compact: true,
-                  leading: Icon(
-                    Icons.photo_camera_outlined,
-                    size: 20,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  title: r.cameraName ?? 'Camera',
-                  subtitle: 'Camera',
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  onTap: () => context.push(Routes.camera(r.cameraId!)),
-                ),
-              for (final l in detail.lenses)
-                CardTile(
-                  compact: true,
-                  leading: Icon(
-                    Icons.adjust,
-                    size: 20,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  title: l.name,
-                  subtitle: 'Lens',
-                ),
-            ],
-          ),
-          if (canManageLenses) ...[
-            const SizedBox(height: 8),
-            DashedButton(
-              label: 'Manage lenses',
-              onTap: () => context.push(Routes.rollLenses(r.id)),
-            ),
-          ],
-        ],
-        const DetailLabel('COST'),
-        CardList(
-          children: [
-            DetailInfoRow('Film', fmtVnd(detail.totals.rollPrice)),
-            DetailInfoRow('Processing', fmtVnd(detail.totals.processingPrice)),
-            DetailInfoRow(
-              'Total',
-              '${fmtVnd(detail.totals.total)}${detail.totals.incomplete ? ' (incomplete)' : ''}',
-              bold: true,
-            ),
-          ],
-        ),
-        const DetailLabel('PROCESSING HISTORY'),
-        if (jobs.isEmpty)
-          Text(
-            'Not sent yet',
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-          )
-        else
-          CardList(
-            children: [
-              for (final j in jobs)
-                CardTile(
-                  compact: true,
-                  title: '${j.where} · ${j.type.label}',
-                  subtitle: [
-                    j.process.wire,
-                    'sent ${fmtDate(j.sentAt)}',
-                    if (j.scansReceivedAt != null)
-                      'scans ${fmtDate(j.scansReceivedAt)}',
-                    if (j.negativesReturnedAt != null)
-                      'negatives ${fmtDate(j.negativesReturnedAt)}',
-                    if (j.scanners.isNotEmpty)
-                      j.scanners.map((s) => s.label).join('+'),
-                    if (j.price != null) fmtVnd(j.price),
-                    if (j.notes != null) j.notes!,
-                  ].join(' · '),
-                  badge: j.isOpen
-                      ? StampBadge('Open', color: cs.onPrimaryContainer)
-                      : null,
-                  onTap: () => context.push(Routes.processing(j.id)),
-                ),
-            ],
-          ),
-        DetailLabel(
-          'FRAMES',
-          trailing: TextButton(
-            style: TextButton.styleFrom(
-              minimumSize: const Size(0, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            onPressed: () => noteFrame(context, r.id),
-            child: const Text(
-              'Add notes',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-        if (detail.frames.isEmpty)
-          Text(
-            'No frames yet. Add notes, or import scans in the dashboard.',
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-          )
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final f in detail.frames)
-                ActionChip(
-                  label: Text(
-                    '#${f.number}${f.scans.isEmpty ? '' : ' · ${f.scans.length}'}',
-                  ),
-                  avatar: f.notes == null
-                      ? null
-                      : const Icon(Icons.notes, size: 14),
-                  onPressed: () => context.push(Routes.frame(r.id, f.number)),
-                ),
-            ],
-          ),
-        if (actions.isNotEmpty) ...[
+        // The main action comes first, one tap from the top of the page.
+        for (final a in actions) ...[
+          SizedBox(width: double.infinity, child: a),
           const SizedBox(height: 20),
-          for (final a in actions) SizedBox(width: double.infinity, child: a),
         ],
+        for (final block in order) ...block,
         const SizedBox(height: 16),
       ],
     );

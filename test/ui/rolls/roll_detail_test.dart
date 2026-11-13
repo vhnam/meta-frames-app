@@ -804,4 +804,88 @@ void main() {
       },
     );
   });
+
+  group('entries and block order', () {
+    const inCamera = {
+      'status': 'in_camera',
+      'stage': 'in_camera',
+      'needsScan': false,
+      'plan': <String, dynamic>{},
+    };
+
+    double top(WidgetTester tester, String label) =>
+        tester.getTopLeft(find.text(label)).dy;
+
+    testWidgets('in a camera, one tap opens the frame log', (tester) async {
+      final router = await _pump(tester, fields: inCamera);
+      await tester.tap(find.text('Log frame'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '3');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(
+        router.routerDelegate.currentConfiguration.last.matchedLocation,
+        Routes.frame('r', 3),
+      );
+    });
+
+    testWidgets(
+      'in a camera, Finish is in the menu and frames come before the history',
+      (tester) async {
+        final rolls = _Rolls(withBase: true, fields: inCamera);
+        await _pump(tester, rolls: rolls);
+        // The main action is at the top of the page.
+        expect(top(tester, 'Log frame'), lessThan(top(tester, 'ROLL')));
+        expect(
+          top(tester, 'FRAMES'),
+          lessThan(top(tester, 'PROCESSING HISTORY')),
+        );
+        expect(
+          top(tester, 'NOTES'),
+          lessThan(top(tester, 'PROCESSING HISTORY')),
+        );
+        expect(find.byType(FilledButton), findsOneWidget);
+
+        await tester.tap(find.byTooltip('More actions'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Finish roll'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Finish'));
+        await tester.pumpAndSettle();
+        expect(rolls.calls, contains('finish:r'));
+      },
+    );
+
+    testWidgets('in stock, the main button loads the roll', (tester) async {
+      final router = await _pump(
+        tester,
+        fields: {'status': 'in_stock', 'stage': 'in_stock'},
+      );
+      await tester.tap(find.text('Load into camera'));
+      await tester.pumpAndSettle();
+      expect(
+        router.routerDelegate.currentConfiguration.last.matchedLocation,
+        Routes.rollLoad('r'),
+      );
+    });
+
+    testWidgets('while processed, the jobs come first', (tester) async {
+      await _pump(
+        tester,
+        fields: {
+          'status': 'at_lab',
+          'stage': 'processing',
+          'stageDetail': 'lab_developing',
+          'negativesAtLab': true,
+          'needsScan': false,
+          'plan': <String, dynamic>{},
+        },
+      );
+      expect(top(tester, 'PROCESSING HISTORY'), lessThan(top(tester, 'NOTES')));
+      expect(
+        top(tester, 'PROCESSING HISTORY'),
+        lessThan(top(tester, 'FRAMES')),
+      );
+    });
+  });
 }
