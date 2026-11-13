@@ -195,3 +195,175 @@ class RollActions {
 }
 
 final rollActionsProvider = Provider<RollActions>(RollActions.new);
+
+/// What the roll Details screen offers. The stage picks how the roll reads;
+/// the raw status, jobs, who holds the negatives and the plan pick what is
+/// valid.
+enum DetailAction {
+  loadRoll,
+  logFrame,
+  finish,
+  startHomeDevelop,
+  handToLab,
+
+  /// The "how is it processed" sheet: no plan step chosen yet.
+  choosePlan,
+  markDeveloped,
+
+  /// Opens the one job to record on ([DetailActions.jobId]).
+  openJob,
+
+  /// Several jobs fit, or none is known: pick one in the history. The app
+  /// never picks a job to write on by itself.
+  pickJob,
+  startHomeScan,
+
+  /// The "where is it scanned" sheet.
+  chooseScanPlace,
+
+  /// Returns the negatives by the roll's `openHandoffId`.
+  returnHandoff,
+
+  /// A roll from before handoffs: opens the job whose negatives the lab holds
+  /// ([DetailActions.jobId]) to return them there.
+  returnJob,
+  changePlan,
+  markNeedsScan,
+  unmarkNeedsScan,
+
+  /// Too little is known to write (a roll cached without its stage).
+  refresh,
+}
+
+/// The main button, the job it opens when it is [DetailAction.openJob] or
+/// [DetailAction.returnJob], and the other valid actions for the menu.
+typedef DetailActions = ({
+  DetailAction? primary,
+  String? jobId,
+  List<DetailAction> menu,
+});
+
+/// Ports the dashboard's detail rules (types.ts, canHandOver in rollList.ts)
+/// in the order of the mobile rolls handoff.
+DetailActions detailActions(RollDetail detail) {
+  final roll = detail.roll;
+  final jobs = detail.processing;
+  final openJobs = jobs.where((job) => job.isOpen).toList();
+  final atLab = roll.negativesAtLab;
+  final stage = roll.stage;
+  final stageDetail = roll.stageDetail;
+
+  // [action] on the one open job that fits; several or none: pick in the
+  // history, or refresh when the roll has no job at all.
+  (DetailAction, String?) jobFor(
+    bool Function(Processing job) fits, {
+    DetailAction action = DetailAction.openJob,
+    bool openOnly = true,
+  }) {
+    final fitting = (openOnly ? openJobs : jobs).where(fits).toList();
+    if (fitting.length == 1) return (action, fitting.single.id);
+    return (jobs.isEmpty ? DetailAction.refresh : DetailAction.pickJob, null);
+  }
+
+  // The lab still holds the film: returning it comes first.
+  (DetailAction, String?)? giveBack() {
+    if (roll.openHandoffId != null) return (DetailAction.returnHandoff, null);
+    if (!atLab) return null;
+    return jobFor(
+      (job) => !job.isHome && job.negativesReturnedAt == null,
+      action: DetailAction.returnJob,
+      // A lab scan job closes on its scans while the lab keeps the negatives.
+      openOnly: false,
+    );
+  }
+
+  final homeDevelop = canStartHomeDevelop(
+    roll.status,
+    jobs,
+    negativesAtLab: atLab,
+  );
+  final markDeveloped = canMarkDeveloped(
+    roll.status,
+    jobs,
+    negativesAtLab: atLab,
+  );
+  // A home scan needs the negatives at home, so it is not offered while a
+  // lab holds them.
+  final homeScan =
+      !atLab &&
+      canStartHomeScan(
+        roll.status,
+        stageDetail,
+        needsScan: roll.needsScan == true,
+      );
+  final waiting = switch (stageDetail) {
+    StageDetail.waitingScan ||
+    StageDetail.waitingHomeScan ||
+    StageDetail.waitingLabScan => true,
+    _ => false,
+  };
+
+  final (primary, jobId) = switch (stage) {
+    null => (DetailAction.refresh, null),
+    RollLifecycleStage.inStock => (DetailAction.loadRoll, null),
+    RollLifecycleStage.inCamera => (DetailAction.logFrame, null),
+    RollLifecycleStage.doneShooting => switch (roll.plan?.developBy) {
+      StepActor.self when homeDevelop => (DetailAction.startHomeDevelop, null),
+      StepActor.self => giveBack() ?? (null, null),
+      StepActor.lab => (DetailAction.handToLab, null),
+      null => (DetailAction.choosePlan, null),
+    },
+    RollLifecycleStage.processing when waiting && atLab =>
+      giveBack() ?? (null, null),
+    RollLifecycleStage.processing => switch (stageDetail) {
+      StageDetail.labDeveloping || StageDetail.homeDeveloping =>
+        markDeveloped
+            ? (DetailAction.markDeveloped, null)
+            : jobFor((job) => job.type.developsFilm),
+      StageDetail.labScanning ||
+      StageDetail.homeScanning ||
+      StageDetail.rescanning => jobFor((job) => job.type.hasScans),
+      StageDetail.printing => jobFor((job) => job.type == ProcessingType.print),
+      StageDetail.waitingHomeScan => (DetailAction.startHomeScan, null),
+      StageDetail.waitingLabScan => (DetailAction.handToLab, null),
+      StageDetail.waitingScan => (DetailAction.chooseScanPlace, null),
+      null => jobFor((_) => true),
+    },
+    RollLifecycleStage.completed =>
+      giveBack() ??
+          (roll.needsScan == true
+              ? switch (roll.plan?.scanBy) {
+                  StepActor.self when homeScan => (
+                    DetailAction.startHomeScan,
+                    null,
+                  ),
+                  StepActor.self => (null, null),
+                  StepActor.lab => (DetailAction.handToLab, null),
+                  null => (DetailAction.chooseScanPlace, null),
+                }
+              : (null, null)),
+  };
+
+  final afterShooting =
+      stage == RollLifecycleStage.doneShooting ||
+      stage == RollLifecycleStage.processing ||
+      stage == RollLifecycleStage.completed;
+  final canHandOver =
+      stage == RollLifecycleStage.doneShooting ||
+      (stage == RollLifecycleStage.processing && waiting) ||
+      (stage == RollLifecycleStage.completed && roll.needsScan == true);
+  final menu = [
+    if (stage == RollLifecycleStage.inCamera) DetailAction.finish,
+    // A roll with no job can start a home develop or record one done.
+    if (afterShooting && homeDevelop) DetailAction.startHomeDevelop,
+    if (afterShooting && markDeveloped) DetailAction.markDeveloped,
+    if (afterShooting && homeScan) DetailAction.startHomeScan,
+    if (canHandOver) DetailAction.handToLab,
+    if (roll.openHandoffId != null) DetailAction.returnHandoff,
+    // The plan and the scan mark can be set ahead, while still shooting.
+    if (stage != null) DetailAction.changePlan,
+    if (stage != null && roll.needsScan == false) DetailAction.markNeedsScan,
+    if (stage != null && roll.needsScan == true) DetailAction.unmarkNeedsScan,
+  ]..remove(primary);
+  return (primary: primary, jobId: jobId, menu: menu);
+}

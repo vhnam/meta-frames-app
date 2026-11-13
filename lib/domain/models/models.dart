@@ -124,6 +124,53 @@ List<ProcessingType> sendableTypes(RollStatus status, int jobCount) =>
       _ => const [],
     };
 
+/// The open develop job not developed yet ("Mark developed"). Negatives or
+/// scans back count as developed, as in the server's stage rule, for jobs from
+/// before the developed date existed.
+Processing? developingJob(List<Processing> jobs) => jobs
+    .where(
+      (job) =>
+          job.isOpen &&
+          job.type.developsFilm &&
+          job.developedAt == null &&
+          job.negativesReturnedAt == null &&
+          job.scansReceivedAt == null,
+    )
+    .firstOrNull;
+
+/// A roll done shooting with no job is developed at home in one step; not
+/// while a lab holds it (a lab job cancelled before the roll came back).
+bool canStartHomeDevelop(
+  RollStatus status,
+  List<Processing> jobs, {
+  required bool negativesAtLab,
+}) => status == RollStatus.doneShooting && jobs.isEmpty && !negativesAtLab;
+
+bool canMarkDeveloped(
+  RollStatus status,
+  List<Processing> jobs, {
+  required bool negativesAtLab,
+}) =>
+    developingJob(jobs) != null ||
+    canStartHomeDevelop(status, jobs, negativesAtLab: negativesAtLab);
+
+/// Waiting for its scan, or marked for one where the API takes a scan job
+/// (done shooting, developed or scanned). A roll still developing keeps its
+/// mark until it is done. A waiting roll whose negatives a lab holds still
+/// passes, as on the dashboard: the caller checks where the negatives are.
+bool canStartHomeScan(
+  RollStatus status,
+  StageDetail? stageDetail, {
+  required bool needsScan,
+}) =>
+    stageDetail == StageDetail.waitingScan ||
+    stageDetail == StageDetail.waitingHomeScan ||
+    stageDetail == StageDetail.waitingLabScan ||
+    (needsScan &&
+        (status == RollStatus.doneShooting ||
+            status == RollStatus.developed ||
+            status == RollStatus.scanned));
+
 enum Scanner {
   noritsu('Noritsu'),
   frontier('Frontier'),
