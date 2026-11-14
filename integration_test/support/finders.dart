@@ -12,6 +12,12 @@ abstract final class Ui {
   static const logIn = 'Log in';
 
   // Tabs and More.
+  static const rollsTab = 'Rolls';
   static const moreTab = 'More';
   static const logOut = 'Log out';
+
+  // Notes on a roll.
+  static const addNotes = 'Add notes';
+  static const openFrame = 'Open';
+  static const save = 'Save';
 }
