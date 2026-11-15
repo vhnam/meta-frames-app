@@ -1,3 +1,18 @@
+## Git Commits
+
+- Do not add a `Co-Authored-By` trailer (or any other Claude attribution) to commit messages. Write the subject and body only.
+- Write each commit message to the [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/#specification) specification.
+
+## Changelog
+
+- Keep `CHANGELOG.md` in the [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) format, with versions that follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- Add every user-facing change under `## [Unreleased]`, in the matching section: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` or `Security`.
+- To release, rename `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a new empty `## [Unreleased]` above it, update the compare links at the bottom of the file, set the version name in `pubspec.yaml` (`version: X.Y.Z+build`), commit, and tag the commit `vX.Y.Z`.
+
+## Naming
+
+- Do not use single-character variable names, including callback parameters, loop indices and destructured values. Name the thing it holds: `roll`, `stock`, `index`, `event`, not `r`, `s`, `i`, `e`. `_` for an unused parameter is allowed. `flutter analyze` does not enforce this.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 

@@ -54,10 +54,11 @@ class ServerApi {
     return token;
   }
 
-  /// A film stock with [name] and one `in_stock` 135 roll of it.
-  Future<({String rollId, String stockName})> seedRoll(
-    String token, {
-    required String stockName,
+  /// A film stock named [name]; returns its id.
+  Future<String> seedStock(
+    String token,
+    String name, {
+    String boxIso = '400',
   }) async {
     final stockId = const Uuid().v4();
     await _send(
@@ -66,13 +67,22 @@ class ServerApi {
       token: token,
       body: {
         'brand': 'Kodak',
-        'name': stockName,
+        'name': name,
         'type': 'color',
-        'boxIso': '400',
+        'boxIso': boxIso,
         'process': 'C-41',
         'packaging': 'factory',
       },
     );
+    return stockId;
+  }
+
+  /// [quantity] new `in_stock` 135 rolls of [stockId]; returns their ids.
+  Future<List<String>> seedRolls(
+    String token,
+    String stockId, {
+    int quantity = 1,
+  }) async {
     final rolls = await _send(
       'POST',
       '/rolls/bulk',
@@ -81,14 +91,98 @@ class ServerApi {
         'filmStockId': stockId,
         'format': 135,
         'exposures': 36,
-        'quantity': 1,
+        'quantity': quantity,
       },
     );
-    return (
-      rollId: (rolls as List).single['id'] as String,
-      stockName: stockName,
-    );
+    return [for (final roll in rolls as List) roll['id'] as String];
   }
+
+  /// A film stock with [stockName] and one `in_stock` 135 roll of it.
+  Future<({String rollId, String stockName})> seedRoll(
+    String token, {
+    required String stockName,
+  }) async {
+    final stockId = await seedStock(token, stockName);
+    final rollIds = await seedRolls(token, stockId);
+    return (rollId: rollIds.single, stockName: stockName);
+  }
+
+  /// A camera body named "Nikon [model]"; returns its id.
+  Future<String> seedCamera(String token, String model) async {
+    final id = const Uuid().v4();
+    await _send(
+      'PUT',
+      '/cameras/$id',
+      token: token,
+      body: {
+        'brand': 'Nikon',
+        'model': model,
+        'hasFixedLens': false,
+        'mount': 'F',
+      },
+    );
+    return id;
+  }
+
+  /// Loads a roll into a camera, like another client would.
+  Future<void> loadRoll(
+    String token,
+    String rollId,
+    String cameraId, {
+    int? shotIso,
+  }) => _send(
+    'PUT',
+    '/rolls/$rollId/load',
+    token: token,
+    body: {'cameraId': cameraId, 'shotIso': ?shotIso},
+  );
+
+  /// Sets the notes of a roll, like another client would.
+  Future<void> putRollNotes(String token, String rollId, String text) => _send(
+    'PUT',
+    '/rolls/$rollId/notes',
+    token: token,
+    body: {'description': text},
+  );
+
+  /// The roll of `GET /rolls/{id}`: status, shot ISO, dates, version.
+  Future<Map<String, dynamic>> roll(String token, String rollId) async {
+    final detail = await _send(
+      'GET',
+      '/rolls/$rollId',
+      token: token,
+    ) as Map<String, dynamic>;
+    return detail['roll'] as Map<String, dynamic>;
+  }
+
+  /// The rolls of the account.
+  Future<List<Map<String, dynamic>>> rolls(String token) async => [
+    for (final roll in await _send('GET', '/rolls', token: token) as List)
+      roll as Map<String, dynamic>,
+  ];
+
+  /// The frames of a roll that have notes or scans, by number.
+  Future<List<Map<String, dynamic>>> frames(
+    String token,
+    String rollId,
+  ) async => [
+    for (final frame
+        in await _send('GET', '/rolls/$rollId/frames', token: token) as List)
+      frame as Map<String, dynamic>,
+  ];
+
+  /// The processing jobs of a roll, oldest first.
+  Future<List<Map<String, dynamic>>> processing(
+    String token,
+    String rollId,
+  ) async => [
+    for (final job in await _send(
+      'GET',
+      '/rolls/$rollId/processing',
+      token: token,
+    ) as List)
+      job as Map<String, dynamic>,
+  ];
 
   /// A write that is not the app's: a new lab.
   Future<String> addLab(String token, String name) async {

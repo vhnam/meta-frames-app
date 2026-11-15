@@ -12,9 +12,24 @@ abstract final class Ui {
   static const logIn = 'Log in';
 
   // Tabs and More.
+  static const shootingTab = 'Shooting';
   static const rollsTab = 'Rolls';
   static const moreTab = 'More';
   static const logOut = 'Log out';
+
+  // A roll's page and its main actions.
+  static const loadIntoCamera = 'Load into camera';
+  static const logFrame = 'Log frame';
+  static const moreActions = 'More actions';
+  static const finish = 'Finish';
+  static const sendToLab = 'Send to lab';
+
+  // Load roll, new roll and send forms.
+  static const selectCamera = 'Select a camera';
+  static const selectStock = 'Select a film stock';
+  static const selfPrefix = 'Self-';
+  static const load = 'Load';
+  static const addRollsButton = '+ Roll';
 
   // Notes on a roll.
   static const addNotes = 'Add notes';
