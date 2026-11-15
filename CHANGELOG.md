@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-15
+
 ### Added
 
 - The app reads each roll's stage, stage detail, Needs scan mark, plan and open lab handoff from the MetaFrames API, and the developed date of each job. Nothing on screen changes yet. A roll kept on the phone from an older API gets its stage only while it is in stock, in a camera or done shooting; its plan and Needs scan mark stay unknown until the next refresh.
@@ -119,6 +121,7 @@ These workflows left the phone. The data stays on the server. Use the dashboard.
 - Camera, lens, roll, and film stock details with one card-based layout, an Edit button, and action rows for activate, deactivate, and delete.
 - Failed API requests print a curl command and the response in debug builds.
 
-[Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/vhnam/meta-frames-app/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/vhnam/meta-frames-app/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/vhnam/meta-frames-app/releases/tag/v1.0.0
