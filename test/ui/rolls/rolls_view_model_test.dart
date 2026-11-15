@@ -121,7 +121,10 @@ void main() {
         ]);
         final counts = container.read(rollCountsProvider)!;
         expect(counts.all, 8);
-        expect(counts.byStage.values.fold<int>(0, (sum, count) => sum + count), 7);
+        expect(
+          counts.byStage.values.fold<int>(0, (sum, count) => sum + count),
+          7,
+        );
       },
     );
 

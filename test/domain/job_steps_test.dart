@@ -60,22 +60,29 @@ void main() {
     expect(jobSteps(dueToday, today)[2].status, 'Due today');
   });
 
-  test('home work is worded as done by you and keeps a stored expected date', () {
-    expect(
-      steps(
-        _job({
-          'type': 'develop_scan',
-          'negativesReturnedAt': '2026-09-01',
-          'scansExpectedAt': '2026-09-02',
-        }),
-      ),
-      [('Started', 'Done'), ('Negatives', 'Done'), ('Scans', 'Overdue 8 days')],
-    );
-    expect(steps(_job({'type': 'print'})), [
-      ('Started', 'Done'),
-      ('Prints', 'Waiting'),
-    ]);
-  });
+  test(
+    'home work is worded as done by you and keeps a stored expected date',
+    () {
+      expect(
+        steps(
+          _job({
+            'type': 'develop_scan',
+            'negativesReturnedAt': '2026-09-01',
+            'scansExpectedAt': '2026-09-02',
+          }),
+        ),
+        [
+          ('Started', 'Done'),
+          ('Negatives', 'Done'),
+          ('Scans', 'Overdue 8 days'),
+        ],
+      );
+      expect(steps(_job({'type': 'print'})), [
+        ('Started', 'Done'),
+        ('Prints', 'Waiting'),
+      ]);
+    },
+  );
 
   test('a home scan records no negatives step', () {
     expect(steps(_job({'type': 'scan'})), [
