@@ -24,8 +24,10 @@ class SyncScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(localStoreProvider);
     final status = ref.watch(syncStatusProvider);
-    final ops = ref.watch(openOpsProvider).value ?? const <PendingOp>[];
-    final drafts = ref.watch(draftsProvider).value ?? const <Draft>[];
+    final opsRead = ref.watch(openOpsProvider);
+    final draftsRead = ref.watch(draftsProvider);
+    final ops = opsRead.value ?? const <PendingOp>[];
+    final drafts = draftsRead.value ?? const <Draft>[];
     final binding = ref.watch(sessionStoreProvider).binding;
     final others = [
       for (final p in ref.watch(partitionsProvider).value ?? const [])
@@ -33,6 +35,23 @@ class SyncScreen extends ConsumerWidget {
     ];
     final cs = Theme.of(context).colorScheme;
     final muted = TextStyle(fontSize: 13, color: cs.onSurfaceVariant);
+
+    /// Replaces a list that is not known: an empty fallback proves nothing.
+    Widget? readNotice(AsyncValue<Object?> read, String items) {
+      if (read.hasError && !read.isLoading) {
+        return Text(
+          'Could not read $items on this phone. Tap Sync now to read them again.',
+          style: muted.copyWith(color: cs.error),
+        );
+      }
+      // A value kept through a failed read is older than that failure.
+      return read.hasValue && !read.hasError
+          ? null
+          : Text('Checking this phone…', style: muted);
+    }
+
+    final opsNotice = readNotice(opsRead, 'changes');
+    final draftsNotice = readNotice(draftsRead, 'drafts');
 
     return Scaffold(
       appBar: AppBar(
@@ -61,9 +80,12 @@ class SyncScreen extends ConsumerWidget {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
-            Text(syncStatusLine(status, ops.length), style: muted),
+            if (opsNotice == null)
+              Text(syncStatusLine(status, ops.length), style: muted),
             const DetailLabel('CHANGES'),
-            if (ops.isEmpty)
+            if (opsNotice != null)
+              opsNotice
+            else if (ops.isEmpty)
               Text('Everything is on the server.', style: muted)
             else
               for (final op in ops) ...[
@@ -71,7 +93,9 @@ class SyncScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
               ],
             const DetailLabel('DRAFTS'),
-            if (drafts.isEmpty)
+            if (draftsNotice != null)
+              draftsNotice
+            else if (drafts.isEmpty)
               Text('No unsent drafts.', style: muted)
             else
               CardList(
