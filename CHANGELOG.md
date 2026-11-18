@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A profile or release build reads its API server from `--dart-define=API_BASE_URL=<HTTPS origin>`. A build with a missing or invalid value shows a blocking message at startup and does not use any other server.
+- The Development Release launch configuration prompts for the API origin.
+
 ### Changed
 
-- Settings lists the saved servers in one card, with an In use mark, and Add server opens a dialog for the name and address.
+- A profile or release build talks to one fixed server. Settings shows Appearance only, the login screen's hidden route to Settings is off, and connection errors no longer link to Settings or tell you to change the URL.
+- When the stored session does not match the build's server, the app signs you out once and shows a notice. Your offline work stays on the phone. When the same account signs in on the original server, the app sends the eligible pending changes. You open each draft in Sync status and send it yourself.
+- Scan images load through the same server check as the API and refuse a redirect to another origin in a profile or release build.
+- In a debug build, Settings lists the saved servers in one card, with an In use mark, and Add server opens a dialog for the name and address.
 
 ### Removed
 
