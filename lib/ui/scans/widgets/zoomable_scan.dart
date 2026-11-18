@@ -35,15 +35,20 @@ class _ZoomableScanState extends ConsumerState<ZoomableScan> {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final fitWidth = (mq.size.width * mq.devicePixelRatio).round();
+    final scan = ref.watch(scanImageProvider)(widget.url);
     return InteractiveViewer(
       transformationController: _controller,
       maxScale: 6,
       onInteractionEnd: _onInteractionEnd,
       child: Center(
-        child: Image.network(
-          widget.url,
-          headers: ref.watch(scanImageHeadersProvider),
-          cacheWidth: _fullRes ? null : fitWidth,
+        child: Image(
+          // Gapless only within a session: another session starts with no frame.
+          key: ValueKey(scan),
+          image: ResizeImage.resizeIfNeeded(
+            _fullRes ? null : fitWidth,
+            null,
+            scan,
+          ),
           gaplessPlayback: true,
           loadingBuilder: (c, child, p) => p == null
               ? child

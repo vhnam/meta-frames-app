@@ -18,7 +18,17 @@
             "type": "dart",
             "program": "lib/main.dart",
             "flutterMode": "release",
-            "toolArgs": ["--dart-define-from-file=google_sign_in.json"]
+            "toolArgs": [
+                "--dart-define-from-file=google_sign_in.json",
+                "--dart-define=API_BASE_URL=${input:apiBaseUrl}"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "apiBaseUrl",
+            "type": "promptString",
+            "description": "HTTPS API origin the release build talks to, such as https://api.example.com. No path, and spelled exactly as in the stored session."
         }
     ]
 }

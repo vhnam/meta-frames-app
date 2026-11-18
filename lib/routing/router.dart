@@ -44,7 +44,8 @@ final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 /// Sends visitors to the login screen and signed-in users away from the
 /// signed-out screens. Settings is open to both, because a visitor may need to
-/// set the server URL before signing in.
+/// set the server URL before signing in. A build with a fixed server shows
+/// Appearance only there.
 String? authRedirect({required bool signedIn, required String location}) {
   if (location == Routes.settings) return null;
   final signedOutScreen =

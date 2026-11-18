@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/services/api_client.dart';
 import '../../../routing/routes.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
+import '../../more/view_models/settings_actions.dart';
 import 'google_button.dart';
 
 /// Page shared by the auth screens: heading, validated fields, submit button
 /// and the server's error. Below the form come [footer] widgets.
-class AuthForm extends StatefulWidget {
+class AuthForm extends ConsumerStatefulWidget {
   const AuthForm({
     super.key,
     required this.title,
@@ -40,10 +42,10 @@ class AuthForm extends StatefulWidget {
   final Future<void> Function()? onGoogle;
 
   @override
-  State<AuthForm> createState() => _AuthFormState();
+  ConsumerState<AuthForm> createState() => _AuthFormState();
 }
 
-class _AuthFormState extends State<AuthForm> {
+class _AuthFormState extends ConsumerState<AuthForm> {
   final _formKey = GlobalKey<FormState>();
   bool _busy = false;
   String? _error;
@@ -136,10 +138,12 @@ class _AuthFormState extends State<AuthForm> {
             ),
             if (_error != null) ...[
               WarningBanner([_error!]),
-              if (_networkError)
+              if (_networkError &&
+                  ref.read(settingsActionsProvider).canChooseServer)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: OutlinedButton(
+                    key: serverSettingsLinkKey,
                     onPressed: _openSettings,
                     child: const Text('Server settings'),
                   ),

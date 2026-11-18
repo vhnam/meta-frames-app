@@ -115,11 +115,13 @@ class _Thumb extends ConsumerWidget {
     child: Stack(
       fit: StackFit.expand,
       children: [
-        Image.network(
-          url,
-          headers: ref.watch(scanImageHeadersProvider),
+        Image(
+          image: ResizeImage.resizeIfNeeded(
+            300,
+            null,
+            ref.watch(scanImageProvider)(url),
+          ),
           fit: BoxFit.cover,
-          cacheWidth: 300,
           errorBuilder: (_, _, _) => const ColoredBox(
             color: Colors.black12,
             child: Icon(Icons.broken_image),

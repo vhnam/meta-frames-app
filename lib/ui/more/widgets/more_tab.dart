@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,10 +8,9 @@ import '../../../routing/routes.dart';
 import '../../auth/view_models/auth_actions.dart';
 import '../../core/widgets/common.dart';
 import '../../sync/widgets/sync_screen.dart';
-import '../view_models/settings_actions.dart';
 
 /// Everything that is not a main tab: the account, sync status, gear, film
-/// stocks, labs, the dashboard link and settings. Expiry shows in the Rolls list
+/// stocks, labs and settings. Expiry shows in the Rolls list
 /// and the roll picker; its old screen stays reachable by link.
 class MoreTab extends ConsumerWidget {
   const MoreTab({super.key});
@@ -22,7 +20,6 @@ class MoreTab extends ConsumerWidget {
     final user = ref.watch(currentUserProvider).value;
     final ops = ref.watch(openOpsProvider).value ?? const [];
     final drafts = ref.watch(draftsProvider).value ?? const [];
-    final dashboard = ref.read(settingsActionsProvider).dashboardUrl();
     Widget entry(IconData icon, String title, String route) => ListTile(
       leading: Icon(icon),
       title: Text(title),
@@ -72,21 +69,7 @@ class MoreTab extends ConsumerWidget {
                     'Film stocks',
                     Routes.film,
                   ),
-                  entry(
-                    Icons.local_shipping_outlined,
-                    'Negatives at lab',
-                    Routes.negativesAtLab,
-                  ),
                   entry(Icons.store_outlined, 'Labs', Routes.labs),
-                  ListTile(
-                    leading: const Icon(Icons.open_in_new),
-                    title: const Text('Dashboard'),
-                    subtitle: Text(
-                      dashboard ??
-                          'Set its address for this server in Settings',
-                    ),
-                    onTap: () => _openDashboard(context, ref),
-                  ),
                   entry(Icons.settings_outlined, 'Settings', Routes.settings),
                   ListTile(
                     leading: const Icon(Icons.logout),
@@ -111,28 +94,4 @@ class MoreTab extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// Opens the dashboard of the server in use now (read at the tap, so a server
-/// switched or a URL saved since the tab was built is the one used). With no
-/// address set it goes to Settings; when no browser takes it, the address is
-/// offered for copying.
-Future<void> _openDashboard(BuildContext context, WidgetRef ref) async {
-  final actions = ref.read(settingsActionsProvider);
-  final url = actions.dashboardUrl();
-  if (url == null) {
-    context.push(Routes.settings);
-    return;
-  }
-  final messenger = ScaffoldMessenger.of(context);
-  if (await actions.openDashboard()) return;
-  messenger.showSnackBar(
-    SnackBar(
-      content: const Text('Could not open the dashboard.'),
-      action: SnackBarAction(
-        label: 'Copy address',
-        onPressed: () => Clipboard.setData(ClipboardData(text: url)),
-      ),
-    ),
-  );
 }

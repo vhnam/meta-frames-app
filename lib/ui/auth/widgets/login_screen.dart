@@ -6,7 +6,9 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../../domain/auth_validators.dart';
 import '../../../providers.dart';
 import '../../../routing/routes.dart';
+import '../../core/widgets/common.dart';
 import '../../sync/view_models/sync_actions.dart';
+import '../../more/view_models/settings_actions.dart';
 import '../../sync/widgets/sync_screen.dart';
 import '../view_models/auth_actions.dart';
 import 'auth_form.dart';
@@ -37,11 +39,14 @@ class _State extends ConsumerState<LoginScreen> {
     onGoogle: ref.read(authActionsProvider).googleAvailable
         ? ref.read(authActionsProvider).signInWithGoogle
         : null,
-    // The server URL has to be reachable before anyone can sign in.
+    // A debug build's server URL has to be reachable before anyone can sign
+    // in. A build with a fixed server has no server settings to open.
     bottom: SafeArea(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onDoubleTap: () => context.push(Routes.settings),
+        onDoubleTap: ref.read(settingsActionsProvider).canChooseServer
+            ? () => context.push(Routes.settings)
+            : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
@@ -58,6 +63,7 @@ class _State extends ConsumerState<LoginScreen> {
         .read(authActionsProvider)
         .login(email: _email.text, password: _password.text),
     fields: [
+      const _SessionEndedNotice(),
       AuthField(
         label: 'Email',
         hint: 'you@example.com',
@@ -88,6 +94,28 @@ class _State extends ConsumerState<LoginScreen> {
       ),
     ],
   );
+}
+
+/// Tells the user, once, that this launch ended the stored session.
+class _SessionEndedNotice extends ConsumerStatefulWidget {
+  const _SessionEndedNotice();
+  @override
+  ConsumerState<_SessionEndedNotice> createState() => _NoticeState();
+}
+
+class _NoticeState extends ConsumerState<_SessionEndedNotice> {
+  late final _show = ref.read(sessionEndedAtStartupProvider).take();
+
+  @override
+  Widget build(BuildContext context) => _show
+      ? const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: WarningBanner([
+            'Please sign in again. Your saved offline work stays on this '
+                'device.',
+          ]),
+        )
+      : const SizedBox.shrink();
 }
 
 /// Says what this phone keeps for accounts on this server, so a user whose

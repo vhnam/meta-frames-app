@@ -1,16 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meta_frames/data/repositories/auth_repository.dart';
 import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/data/services/google_id_token.dart';
+import 'package:meta_frames/data/services/server_policy.dart';
 import 'package:meta_frames/data/services/session_store.dart';
 import 'package:meta_frames/domain/auth_validators.dart';
 import 'package:meta_frames/domain/models/models.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/routing/routes.dart';
+import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/ui/more/view_models/settings_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,6 +127,7 @@ Future<_Harness> _pumpApp(
   WidgetTester tester, {
   String? token,
   _FakeGoogle? google,
+  ServerPolicy? policy,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -129,6 +136,7 @@ Future<_Harness> _pumpApp(
   final container = ProviderContainer(
     overrides: [
       prefsProvider.overrideWithValue(prefs),
+      if (policy != null) serverPolicyProvider.overrideWithValue(policy),
       sessionStoreProvider.overrideWithValue(session),
       authRepositoryProvider.overrideWithValue(auth),
       googleIdTokenSourceProvider.overrideWithValue(
@@ -340,6 +348,229 @@ void main() {
     });
   });
 
+  group('a build with a fixed server', () {
+    const fixed = FixedServer('https://api.example.com');
+
+    Future<void> failToLogIn(WidgetTester tester) async {
+      await _enter(tester, 'you@example.com', 'a@b.co');
+      await _enter(tester, 'Enter your password', 'offline');
+      await _tapAndSettle(tester, find.text('Log in'));
+    }
+
+    testWidgets('a connection error on login has no link to settings', (
+      tester,
+    ) async {
+      await _pumpApp(tester, policy: fixed);
+      await failToLogIn(tester);
+      expect(find.text('Cannot reach the server.'), findsOneWidget);
+      expect(find.byKey(serverSettingsLinkKey), findsNothing);
+    });
+
+    testWidgets('a double tap on the copyright stays on login', (tester) async {
+      final app = await _pumpApp(tester, policy: fixed);
+      final copyright = find.text('© ${DateTime.now().year} MetaFrames');
+      await tester.tap(copyright);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(copyright);
+      await tester.pumpAndSettle();
+      expect(app.location, Routes.login);
+    });
+
+    testWidgets('a debug build keeps the link to settings', (tester) async {
+      await _pumpApp(tester, policy: const DebugServers());
+      await failToLogIn(tester);
+      expect(find.byKey(serverSettingsLinkKey), findsOneWidget);
+    });
+  });
+
+  group('connection failures in the app', () {
+    final offline = ApiException(0, 'network', 'Cannot reach the server.');
+
+    /// Pumps a screen with a button that runs [action] under [guard] and an
+    /// async body that fails with [offline], under [policy].
+    Future<({SessionStore session, List<bool> outcomes, List<int> refreshes})>
+    pumpFailures(
+      WidgetTester tester,
+      ServerPolicy policy,
+      Future<void> Function() action, {
+      ValueNotifier<bool>? callerVisible,
+    }) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final session = SessionStore('token');
+      final outcomes = <bool>[];
+      final refreshes = <int>[];
+      Widget caller() => Builder(
+        builder: (context) => TextButton(
+          onPressed: () async => outcomes.add(await guard(context, action)),
+          child: const Text('Run'),
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            prefsProvider.overrideWithValue(prefs),
+            serverPolicyProvider.overrideWithValue(policy),
+            sessionStoreProvider.overrideWithValue(session),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  if (callerVisible == null)
+                    caller()
+                  else
+                    ValueListenableBuilder<bool>(
+                      valueListenable: callerVisible,
+                      builder: (_, visible, _) =>
+                          visible ? caller() : const SizedBox.shrink(),
+                    ),
+                  Expanded(
+                    child: AsyncBody<int>(
+                      value: AsyncValue.error(offline, StackTrace.empty),
+                      builder: (_) => const SizedBox(),
+                      onRefresh: () async => refreshes.add(1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      return (session: session, outcomes: outcomes, refreshes: refreshes);
+    }
+
+    for (final (name, policy, linked) in [
+      ('a debug build', const DebugServers() as ServerPolicy, true),
+      (
+        'a build with a fixed server',
+        const FixedServer('https://api.example.com') as ServerPolicy,
+        false,
+      ),
+    ]) {
+      group(name, () {
+        testWidgets('Retry runs the action again until it works', (
+          tester,
+        ) async {
+          var calls = 0;
+          final run = await pumpFailures(tester, policy, () async {
+            if (++calls < 3) throw offline;
+          });
+          await _tapAndSettle(tester, find.text('Run'));
+          expect(find.byType(AlertDialog), findsOneWidget);
+          await _tapAndSettle(tester, find.text('Retry').last);
+          expect(find.byType(AlertDialog), findsOneWidget);
+          await _tapAndSettle(tester, find.text('Retry').last);
+          expect(calls, 3);
+          expect(run.outcomes, [true]);
+          expect(find.byType(AlertDialog), findsNothing);
+        });
+
+        testWidgets('Cancel fails the action and keeps the session', (
+          tester,
+        ) async {
+          final run = await pumpFailures(tester, policy, () async {
+            throw offline;
+          });
+          await _tapAndSettle(tester, find.text('Run'));
+          await _tapAndSettle(tester, find.text('Cancel'));
+          expect(run.outcomes, [false]);
+          expect(run.session.signedIn, isTrue);
+        });
+
+        testWidgets('links to settings only where the server can change', (
+          tester,
+        ) async {
+          final run = await pumpFailures(tester, policy, () async {
+            throw offline;
+          });
+          expect(
+            find.byKey(serverSettingsLinkKey),
+            linked ? findsOneWidget : findsNothing,
+          );
+          await _tapAndSettle(tester, find.text('Run'));
+          expect(
+            find.descendant(
+              of: find.byType(AlertDialog),
+              matching: find.byKey(serverSettingsLinkKey),
+            ),
+            linked ? findsOneWidget : findsNothing,
+          );
+          await _tapAndSettle(tester, find.text('Cancel'));
+          // Retry on the error view asks for a refresh.
+          await _tapAndSettle(tester, find.text('Retry'));
+          expect(run.refreshes, [1]);
+        });
+      });
+    }
+
+    testWidgets('guard ignores a network failure after its caller unmounts', (
+      tester,
+    ) async {
+      final action = Completer<void>();
+      final run = await pumpFailures(
+        tester,
+        const FixedServer('https://api.example.com'),
+        () => action.future,
+      );
+      await tester.tap(find.text('Run'));
+      await tester.pumpWidget(const SizedBox.shrink());
+      action.completeError(offline);
+      await tester.pump();
+
+      expect(run.outcomes, [false]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('guard does not retry after its caller unmounts', (
+      tester,
+    ) async {
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      var calls = 0;
+      final run = await pumpFailures(
+        tester,
+        const FixedServer('https://api.example.com'),
+        () async {
+          calls++;
+          throw offline;
+        },
+        callerVisible: visible,
+      );
+      await _tapAndSettle(tester, find.text('Run'));
+      visible.value = false;
+      await tester.pump();
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Retry'),
+        ),
+      );
+
+      expect(calls, 1);
+      expect(run.outcomes, [false]);
+      expect(tester.takeException(), isNull);
+    });
+
+    test('an unreachable fixed server is a connection failure only', () async {
+      final session = SessionStore('token');
+      final client = ApiClient(
+        () => 'https://api.example.com',
+        MockClient((_) async => throw http.ClientException('unreachable')),
+        session,
+      );
+      await expectLater(
+        client.send('GET', '/rolls'),
+        throwsA(
+          isA<ApiException>().having((e) => e.isNetwork, 'isNetwork', true),
+        ),
+      );
+      expect(session.signedIn, isTrue);
+    });
+  });
+
   group('Google', () {
     const button = 'Continue with Google';
 
@@ -452,11 +683,16 @@ void main() {
     testWidgets('a new server URL ends the session', (tester) async {
       final app = await openMore(tester);
       await _tapAndSettle(tester, find.text('Settings'));
-      await tester.enterText(
-        find.byType(TextField).first,
-        'https://other.example',
+      await _tapAndSettle(tester, find.text('Add server'));
+      final fields = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
       );
-      await _tapAndSettle(tester, find.text('Save'));
+      await tester.enterText(fields.at(0), 'Other');
+      await tester.enterText(fields.at(1), 'https://other.example');
+      await tester.pump();
+      await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Add'));
+      await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Save'));
       expect(app.session.signedIn, isFalse);
       expect(app.location, Routes.login);
     });

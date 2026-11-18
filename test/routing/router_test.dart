@@ -9,6 +9,7 @@ import 'package:meta_frames/routing/router.dart';
 import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/ui/labs/widgets/lab_detail.dart';
 import 'package:meta_frames/routing/routes.dart';
+import 'package:meta_frames/ui/more/widgets/settings_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/expiry_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/load_roll.dart';
 import 'package:meta_frames/ui/shooting/widgets/shooting_tab.dart';
@@ -322,7 +323,7 @@ void main() {
       router.push(Routes.settings);
       await tester.pumpAndSettle();
       expect(find.text('Settings'), findsWidgets);
-      expect(find.text('SERVER URL'), findsOneWidget);
+      expect(find.byType(SettingsScreen), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
     });
   });
@@ -362,13 +363,7 @@ void main() {
       await tester.tap(find.text('More'));
       await tester.pumpAndSettle();
 
-      for (final label in [
-        'Gear',
-        'Film stocks',
-        'Negatives at lab',
-        'Labs',
-        'Settings',
-      ]) {
+      for (final label in ['Gear', 'Film stocks', 'Labs', 'Settings']) {
         await tester.scrollUntilVisible(find.text(label), 200);
         expect(find.text(label), findsOneWidget, reason: label);
       }
@@ -379,7 +374,6 @@ void main() {
       final entries = {
         'Gear': Routes.gear,
         'Film stocks': Routes.film,
-        'Negatives at lab': Routes.negativesAtLab,
         'Labs': Routes.labs,
         'Settings': Routes.settings,
       };

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/repositories/settings_repository.dart';
+import '../../../data/services/server_policy.dart';
 import '../../../domain/models/saved_server.dart';
 import '../../../providers.dart';
 
@@ -24,6 +25,9 @@ class SettingsActions {
       _ref.read(settingsRepositoryProvider).servers;
 
   bool get signedIn => _ref.read(sessionStoreProvider).signedIn;
+
+  /// False in a build whose server was fixed when it was built.
+  bool get canChooseServer => _ref.read(serverPolicyProvider) is DebugServers;
 
   /// The dashboard of the server [server] (the current one by default).
   String? dashboardUrl([String? server]) =>
@@ -51,7 +55,12 @@ class SettingsActions {
   /// ends the session: its token must never reach a different server. What
   /// this phone keeps for the old server's account stays in its partition
   /// (unless [discardKept]), to sync when that account signs in there again.
+  /// Throws a [StateError], before anything changes, when [canChooseServer] is
+  /// false.
   Future<String> saveBaseUrl(String url, {bool discardKept = false}) async {
+    if (!canChooseServer) {
+      throw StateError('This build uses a fixed API server.');
+    }
     final settings = _ref.read(settingsRepositoryProvider);
     final before = settings.baseUrl;
     final kept = _ref.read(localStoreProvider)?.key;

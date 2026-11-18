@@ -4,12 +4,17 @@ import 'package:intl/intl.dart';
 
 import '../../../data/services/api_client.dart';
 import '../../../domain/models/models.dart';
+import '../../more/view_models/settings_actions.dart';
 import '../theme.dart';
 import '../../../routing/routes.dart';
 
 import 'package:go_router/go_router.dart';
 
 import '../../../routing/navigation.dart';
+
+/// The link from a connection failure to Settings, shown only when the build
+/// lets the user choose a server.
+const serverSettingsLinkKey = ValueKey('server-settings-link');
 
 final _dateFmt = DateFormat('d MMM yyyy');
 final _vndFmt = NumberFormat.decimalPattern('en_US');
@@ -33,25 +38,32 @@ Future<bool> guard(BuildContext context, Future<void> Function() action) async {
         if (context.mounted) toast(context, e.message);
         return false;
       }
+      final canChooseServer = ProviderScope.containerOf(context)
+          .read(settingsActionsProvider)
+          .canChooseServer;
       final retry = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
           icon: const Icon(Icons.cloud_off),
           title: const Text('Cannot connect'),
           content: Text(
-            '${e.message}\nCheck that the server is running and the URL is correct.',
+            canChooseServer
+                ? '${e.message}\nCheck that the server is running and the URL is correct.'
+                : '${e.message}\nCheck your connection and try again. If it keeps failing, contact the server operator.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(c, false),
               child: const Text('Cancel'),
             ),
-            TextButton(
-              onPressed: () async {
-                await c.push(Routes.settings);
-              },
-              child: const Text('Settings'),
-            ),
+            if (canChooseServer)
+              TextButton(
+                key: serverSettingsLinkKey,
+                onPressed: () async {
+                  await c.push(Routes.settings);
+                },
+                child: const Text('Settings'),
+              ),
             FilledButton(
               onPressed: () => Navigator.pop(c, true),
               child: const Text('Retry'),
@@ -119,13 +131,13 @@ class AsyncBody<T> extends StatelessWidget {
   );
 }
 
-class _ErrorView extends StatelessWidget {
+class _ErrorView extends ConsumerWidget {
   const _ErrorView({required this.error, required this.onRetry});
   final Object error;
   final Future<void> Function() onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final network = error is ApiException && (error as ApiException).isNetwork;
     return Center(
       child: Padding(
@@ -154,8 +166,10 @@ class _ErrorView extends StatelessWidget {
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
                 ),
-                if (network)
+                if (network &&
+                    ref.read(settingsActionsProvider).canChooseServer)
                   OutlinedButton(
+                    key: serverSettingsLinkKey,
                     onPressed: () => context.push(Routes.settings),
                     child: const Text('Server settings'),
                   ),
