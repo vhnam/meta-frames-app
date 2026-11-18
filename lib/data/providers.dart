@@ -158,6 +158,10 @@ final localStoreProvider = Provider<LocalStore?>((ref) {
   return controller.store;
 });
 
+/// A pending automatic retry keeps its error through a store change, where it
+/// cannot be told from a failed read of the new store.
+Duration? _noRetry(int _, Object _) => null;
+
 /// Changes waiting for the server in the open partition, oldest first.
 final openOpsProvider = FutureProvider<List<PendingOp>>((ref) async {
   final store = ref.watch(localStoreProvider);
@@ -168,7 +172,7 @@ final openOpsProvider = FutureProvider<List<PendingOp>>((ref) async {
     if (!store.isClosed) store.changes.removeListener(changed);
   });
   return store.openOps();
-});
+}, retry: _noRetry);
 
 /// Drafts in the open partition, oldest first.
 final draftsProvider = FutureProvider<List<Draft>>((ref) async {
@@ -180,7 +184,7 @@ final draftsProvider = FutureProvider<List<Draft>>((ref) async {
     if (!store.isClosed) store.changes.removeListener(changed);
   });
   return store.drafts();
-});
+}, retry: _noRetry);
 
 /// The sync engine's state, for the Shooting tab and Sync status.
 final syncStatusProvider = Provider<SyncStatus?>((ref) {
