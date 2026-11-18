@@ -10,15 +10,23 @@ const _serversKey = 'saved_servers';
 const _dashboardsKey = 'dashboard_urls';
 
 class SettingsRepositoryPrefs implements SettingsRepository {
-  SettingsRepositoryPrefs(this._prefs);
+  SettingsRepositoryPrefs(this._prefs, {this.fixedUrl});
   final SharedPreferences _prefs;
 
-  @override
-  String get baseUrl => _prefs.getString(_baseUrlKey) ?? defaultBaseUrl;
+  /// The server of a release or profile build. It wins over the stored URL.
+  final String? fixedUrl;
 
   @override
-  Future<void> setBaseUrl(String url) =>
-      _prefs.setString(_baseUrlKey, normalizeBaseUrl(url));
+  String get baseUrl =>
+      fixedUrl ?? _prefs.getString(_baseUrlKey) ?? defaultBaseUrl;
+
+  @override
+  Future<void> setBaseUrl(String url) {
+    if (fixedUrl != null) {
+      throw StateError('This build uses a fixed API server.');
+    }
+    return _prefs.setString(_baseUrlKey, normalizeBaseUrl(url));
+  }
 
   @override
   List<SavedServer> get servers {

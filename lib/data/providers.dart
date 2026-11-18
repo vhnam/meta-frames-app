@@ -30,6 +30,7 @@ import 'repositories/settings_repository_prefs.dart';
 import '../domain/models/models.dart';
 import 'services/api_client.dart';
 import 'services/google_id_token.dart';
+import 'services/server_policy.dart';
 import 'services/session_store.dart';
 import 'sync/pending_op.dart';
 import 'sync/sync_engine.dart';
@@ -39,8 +40,22 @@ final prefsProvider = Provider<SharedPreferences>(
   (_) => throw UnimplementedError(),
 );
 
+/// Overridden in `main()` with the policy this build was compiled with.
+final serverPolicyProvider = Provider<ServerPolicy>(
+  (_) => const DebugServers(),
+);
+
 final settingsRepositoryProvider = Provider<SettingsRepository>(
-  (ref) => SettingsRepositoryPrefs(ref.watch(prefsProvider)),
+  (ref) => SettingsRepositoryPrefs(
+    ref.watch(prefsProvider),
+    fixedUrl: switch (ref.watch(serverPolicyProvider)) {
+      DebugServers() => null,
+      FixedServer(:final url) => url,
+      InvalidServerBuild() => throw StateError(
+        'API_BASE_URL must be an HTTPS origin.',
+      ),
+    },
+  ),
 );
 
 /// Overridden in `main()` with the store that keeps the session on the device.

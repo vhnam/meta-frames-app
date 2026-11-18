@@ -539,5 +539,29 @@ void main() {
     test('reads a saved value', () async {
       expect((await repo({'base_url': 'http://nas'})).baseUrl, 'http://nas');
     });
+
+    group('with a fixed server', () {
+      const fixed = 'https://api.example.com';
+
+      Future<SharedPreferences> prefs() async {
+        SharedPreferences.setMockInitialValues({'base_url': 'http://nas'});
+        return SharedPreferences.getInstance();
+      }
+
+      test('the fixed server wins over the stored URL', () async {
+        final settings = SettingsRepositoryPrefs(
+          await prefs(),
+          fixedUrl: fixed,
+        );
+        expect(settings.baseUrl, fixed);
+      });
+
+      test('a server change is refused before any write', () async {
+        final stored = await prefs();
+        final settings = SettingsRepositoryPrefs(stored, fixedUrl: fixed);
+        expect(() => settings.setBaseUrl('http://other'), throwsStateError);
+        expect(stored.getString('base_url'), 'http://nas');
+      });
+    });
   });
 }
