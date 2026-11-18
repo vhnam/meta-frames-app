@@ -114,6 +114,17 @@ flutter build ipa --dart-define=API_BASE_URL=https://api.example.com
 
 Add `--dart-define-from-file=google_sign_in.json` to each command when you need Google sign-in. It is a separate argument.
 
+To install a release build on a connected Android device without Google Play, build an APK and install it over the existing app:
+
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=https://api.example.com
+adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+Add `--dart-define-from-file=google_sign_in.json` to the build command when you need Google sign-in.
+
+`install -r` keeps the app's data. The update works only when the installed app has the same application ID, a compatible signing certificate, and a version code that is not higher than this build. This APK is signed with the debug key of the computer that builds it, and Google Play does not accept it. If `adb` reports a signature or version mismatch, do not uninstall the app: uninstalling deletes held offline work.
+
 - **HTTPS only.** The value is an absolute HTTPS origin: a host, and an optional port from 1 to 65535. It has no credentials, path, query or fragment. Use a staging endpoint whose certificate the device trusts. A profile or release build cannot use plain HTTP.
 - **Exact spelling.** The app trims spaces and trailing slashes, then compares the URL as an exact string. It keeps the host spelling and an explicit port. `https://API.example.com:443` and `https://api.example.com` are two different servers to the app, so a session and offline work filed under one are not found under the other. Use the same spelling as the build that the phone ran before.
 - **Another server needs another build.** The server cannot change at run time. Build again with the new `API_BASE_URL`.
