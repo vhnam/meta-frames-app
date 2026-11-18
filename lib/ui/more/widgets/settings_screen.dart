@@ -28,7 +28,20 @@ class _State extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final actions = ref.read(settingsActionsProvider);
     return Scaffold(
-      appBar: formAppBar(context, 'Settings'),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        actions: [
+          if (actions.canChooseServer)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: _save,
+                child: const Text('Save'),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -64,10 +77,13 @@ class _State extends ConsumerState<SettingsScreen> {
         gapAfter: 8,
         // Flexible, so a large text size wraps the label, not overflows.
         trailing: Flexible(
-          child: TextButton.icon(
-            onPressed: () => _addServer(),
-            icon: const Icon(Icons.add),
-            label: const Text('Add server', maxLines: 2),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _addServer(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add server', maxLines: 2),
+            ),
           ),
         ),
         child: _ServerList(
@@ -94,7 +110,6 @@ class _State extends ConsumerState<SettingsScreen> {
         ),
       ),
       const FormNote('Changing the server logs you out.'),
-      FormSaveBar(label: 'Save', busy: false, onPressed: _save),
     ];
   }
 

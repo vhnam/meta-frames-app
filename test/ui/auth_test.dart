@@ -692,7 +692,7 @@ void main() {
       await tester.enterText(fields.at(1), 'https://other.example');
       await tester.pump();
       await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Add'));
-      await _tapAndSettle(tester, find.widgetWithText(FilledButton, 'Save'));
+      await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Save'));
       expect(app.session.signedIn, isFalse);
       expect(app.location, Routes.login);
     });

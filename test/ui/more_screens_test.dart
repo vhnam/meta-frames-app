@@ -256,8 +256,7 @@ void main() {
     testWidgets('settings', (t) async {
       await pump(t, const SettingsScreen());
       expect(find.text('SAVED SERVERS'), findsOneWidget);
-      expect(find.byType(FilledButton), findsOneWidget);
-      expect(find.text('Save'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Save'), findsOneWidget);
     });
   });
 

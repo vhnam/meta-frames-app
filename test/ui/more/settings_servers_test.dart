@@ -6,7 +6,6 @@ import 'package:meta_frames/data/repositories/settings_repository.dart';
 import 'package:meta_frames/data/repositories/settings_repository_prefs.dart';
 import 'package:meta_frames/data/services/server_policy.dart';
 import 'package:meta_frames/data/services/session_store.dart';
-import 'package:meta_frames/ui/core/widgets/form_kit.dart';
 import 'package:meta_frames/ui/more/view_models/settings_actions.dart';
 import 'package:meta_frames/domain/models/saved_server.dart';
 import 'package:meta_frames/providers.dart';
@@ -86,7 +85,7 @@ void main() {
     testWidgets('a fixed server shows no server controls', (tester) async {
       await _pump(tester, policy: fixed);
       expect(find.byType(SegmentedButton<ThemeMode>), findsOneWidget);
-      expect(find.byType(FormSaveBar), findsNothing);
+      expect(find.widgetWithText(TextButton, 'Save'), findsNothing);
       expect(find.byIcon(Icons.add), findsNothing);
       expect(find.byIcon(Icons.radio_button_checked), findsNothing);
     });
@@ -110,7 +109,7 @@ void main() {
 
     testWidgets('a debug build shows the server controls', (tester) async {
       await _pump(tester, policy: const DebugServers());
-      expect(find.byType(FormSaveBar), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Save'), findsOneWidget);
       expect(find.byIcon(Icons.add), findsOneWidget);
     });
 
@@ -198,7 +197,7 @@ void main() {
       expect(_urls(prefs), contains(_prod));
       expect(prefs.getString('base_url'), isNull);
       expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
       await tester.pumpAndSettle();
       expect(prefs.getString('base_url'), _prod);
     });
@@ -226,7 +225,7 @@ void main() {
       await tester.pump();
       expect(prefs.getString('base_url'), isNull);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
       await tester.pumpAndSettle();
       expect(SettingsRepositoryPrefs(prefs).baseUrl, _prod);
     });
@@ -296,7 +295,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.widgetWithText(TextButton, 'Add'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
       await tester.pumpAndSettle();
 
       expect(SettingsRepositoryPrefs(prefs).baseUrl, active);
@@ -317,7 +316,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
       await tester.pumpAndSettle();
 
       expect(SettingsRepositoryPrefs(prefs).baseUrl, defaultBaseUrl);
