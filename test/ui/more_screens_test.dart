@@ -255,13 +255,9 @@ void main() {
   group('forms use the shared form kit', () {
     testWidgets('settings', (t) async {
       await pump(t, const SettingsScreen());
-      expect(find.text('SERVER URL'), findsOneWidget);
+      expect(find.text('SAVED SERVERS'), findsOneWidget);
       expect(find.byType(FilledButton), findsOneWidget);
       expect(find.text('Save'), findsOneWidget);
-      expect(
-        find.textContaining('Android emulator reaches the host machine'),
-        findsOneWidget,
-      );
     });
   });
 

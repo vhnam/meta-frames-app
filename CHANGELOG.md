@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Settings lists the saved servers in one card, with an In use mark, and Add server opens a dialog for the name and address.
+
+### Removed
+
+- More no longer lists Negatives at lab or Dashboard.
+- Settings no longer has the Dashboard URL field.
+
 ## [2.0.0] - 2026-11-15
 
 ### Added

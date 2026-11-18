@@ -452,11 +452,16 @@ void main() {
     testWidgets('a new server URL ends the session', (tester) async {
       final app = await openMore(tester);
       await _tapAndSettle(tester, find.text('Settings'));
-      await tester.enterText(
-        find.byType(TextField).first,
-        'https://other.example',
+      await _tapAndSettle(tester, find.text('Add server'));
+      final fields = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
       );
-      await _tapAndSettle(tester, find.text('Save'));
+      await tester.enterText(fields.at(0), 'Other');
+      await tester.enterText(fields.at(1), 'https://other.example');
+      await tester.pump();
+      await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Add'));
+      await _tapAndSettle(tester, find.widgetWithText(FilledButton, 'Save'));
       expect(app.session.signedIn, isFalse);
       expect(app.location, Routes.login);
     });

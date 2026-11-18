@@ -10,7 +10,7 @@ The app has three tabs.
 
 - **Shooting**: the cameras with film in them, each with its roll, shot ISO and start date. Finish a roll, or load a new one into an empty camera. Frame notes are on the roll's page.
 - **Rolls**: a roll log with a chip for each status, a Negatives at lab chip and a format filter. Film in stock lists the soonest expiry first and marks expired or expiring film. Load a roll into a camera, finish it, record the lenses used, and note frames from the roll's page. Send a roll to a lab, or record work done at home, and mark negatives and scans as received. A roll's page shows its scans: view, zoom, download and share them.
-- **More**: Gear, Film stocks, Labs, Negatives at lab, Sync status, the signed-in account, a link to the dashboard, Settings and Log out.
+- **More**: Gear, Film stocks, Labs, Sync status, the signed-in account, Settings and Log out.
 
 Gear, Film stocks and Labs are for lookup and picking. A quick add makes the minimum record that lets you continue: a camera (brand, model, and a mount or a fixed lens's focal length and aperture), a lens (focal length, aperture), a film stock (brand, name, ISO, type, process, packaging) or a lab (name).
 
@@ -93,7 +93,7 @@ In VS Code, the **Development Debug** and **Development Release** launch configu
 
 The app sends every request to a configurable base URL. The default is `http://10.0.2.2:8080`, which is the host machine's port 8080 as seen from the Android emulator.
 
-To use a different server, open **More > Settings**, change the server URL, and tap **Save**. To keep a URL for later, tap **Add to saved** and name it. To switch, tap a saved server and then tap **Save**. Changing the server ends the session. These values are stored with `shared_preferences`. For the iOS simulator, use `http://127.0.0.1:8080` to reach a server on the host machine.
+To use a different server, open **More > Settings**. To add one, tap **Add server**, enter a name and its URL, and tap Add. Tap a saved server to select it, then tap **Save** to apply it. Changing the server ends the session. These values are stored with `shared_preferences`. For the iOS simulator, use `http://127.0.0.1:8080` to reach a server on the host machine.
 
 Android allows cleartext HTTP (`android:usesCleartextTraffic="true"`), so a local server does not need TLS.
 
@@ -107,7 +107,6 @@ The Shooting tab, load, finish, roll notes and frame notes keep working without 
 - **What is queued.** Loading and finishing a roll, roll notes and frame notes are saved on the phone first, shown on the screens as "waiting to sync", and sent in order when the server can be reached. The app asks the server to confirm each one and never sends one twice; a change someone else made on the dashboard shows as a conflict with both sides, and nothing is overwritten until you choose (Use server, Keep mine or Try again, Copy mine). **More > Sync status** lists what is waiting, the drafts, and what other accounts have left on the phone.
 - **Accounts and servers.** Everything kept is filed under one account on one server, in its own file. A queued change is only ever sent to that server as that account. Logging out or changing the server with unsent changes asks whether to keep them on the phone (the default) or discard them. If the session expires, changes wait until the same account signs in again.
 - **Drafts.** The quick-create forms (camera, lens, film stock, lab, added rolls) save what you typed before the first request, so a timeout or a restart never loses it. A record is not created offline: a draft waits until the server can be reached.
-- **Dashboard.** Each saved server can have its own dashboard URL, opened from More.
 
 ### Sign in with Google
 
