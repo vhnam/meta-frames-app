@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'fixed_origin_client.dart';
 import 'session_store.dart';
 
 class ApiException implements Exception {
@@ -141,7 +142,7 @@ class ApiClient {
   String absolute(String path) => '$baseUrl$path';
 
   /// Headers that prove the session, for requests made outside this client
-  /// such as `Image.network`.
+  /// such as `SessionImage`.
   Map<String, String> get sessionHeaders {
     final token = _session.token;
     return token == null ? const {} : {'Cookie': '$_sessionCookie=$token'};
@@ -239,10 +240,15 @@ class ApiClient {
   /// Streams a server-relative [path] to [dest] without buffering it in memory.
   Future<void> download(String path, File dest) async {
     final sent = _session.token;
-    final res = await _http.send(
-      http.Request('GET', Uri.parse(absolute(path)))
-        ..headers.addAll(sessionHeaders),
-    );
+    final http.StreamedResponse res;
+    try {
+      res = await _http.send(
+        http.Request('GET', Uri.parse(absolute(path)))
+          ..headers.addAll(sessionHeaders),
+      );
+    } on BlockedRequest {
+      throw ApiException(0, 'blocked_redirect', 'Cannot download scan.');
+    }
     await _trackSession(res, sent);
     if (res.statusCode != 200) {
       throw ApiException(res.statusCode, 'error', 'Cannot download scan.');

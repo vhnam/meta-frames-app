@@ -29,8 +29,10 @@ import 'repositories/settings_repository.dart';
 import 'repositories/settings_repository_prefs.dart';
 import '../domain/models/models.dart';
 import 'services/api_client.dart';
+import 'services/fixed_origin_client.dart';
 import 'services/google_id_token.dart';
 import 'services/server_policy.dart';
+import 'services/session_image.dart';
 import 'services/session_store.dart';
 import 'sync/pending_op.dart';
 import 'sync/sync_engine.dart';
@@ -82,10 +84,21 @@ final sessionStoreProvider = Provider<SessionStore>((ref) {
   return store;
 });
 
+/// The transport of every request. A fixed build stays on its one origin.
+final httpClientProvider = Provider<http.Client>(
+  (ref) => switch (ref.watch(serverPolicyProvider)) {
+    DebugServers() => http.Client(),
+    FixedServer(:final url) => FixedOriginClient(url),
+    InvalidServerBuild() => throw StateError(
+      'API_BASE_URL must be an HTTPS origin.',
+    ),
+  },
+);
+
 final apiClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(
     () => ref.read(settingsRepositoryProvider).baseUrl,
-    null,
+    ref.watch(httpClientProvider),
     ref.watch(sessionStoreProvider),
   )..readCache = DeviceReadCache(ref.watch(partitionControllerProvider)),
 );
@@ -96,31 +109,30 @@ final localDataProvider = Provider<({DatabaseFactory factory, String dir})?>(
   (_) => null,
 );
 
-final _pinnedHttp = http.Client();
-
 /// A client bound to one server and one token, whatever the settings say
 /// later. Its own session store keeps the app's session out of its answers.
-ApiClient pinnedClient(String server, String token) =>
-    ApiClient(() => server, _pinnedHttp, SessionStore(token));
+ApiClient pinnedClient(http.Client client, String server, String token) =>
+    ApiClient(() => server, client, SessionStore(token));
 
 /// The endpoints the sync engine sends through. Tests override it.
-final syncRemoteProvider = Provider<SyncRemoteFactory>(
-  (_) => (binding, token) {
-    final api = pinnedClient(binding.server, token);
+final syncRemoteProvider = Provider<SyncRemoteFactory>((ref) {
+  final client = ref.watch(httpClientProvider);
+  return (binding, token) {
+    final api = pinnedClient(client, binding.server, token);
     return SyncRemote(
       rolls: RollRepositoryRemote(api),
       auth: AuthRepositoryRemote(api),
     );
-  },
-);
+  };
+});
 
 /// `/auth/me` for a token on a server, to bind a new session to its account.
 final verifySessionProvider =
-    Provider<Future<User> Function(String server, String token)>(
-      (_) =>
-          (server, token) =>
-              AuthRepositoryRemote(pinnedClient(server, token)).me(),
-    );
+    Provider<Future<User> Function(String server, String token)>((ref) {
+      final client = ref.watch(httpClientProvider);
+      return (server, token) =>
+          AuthRepositoryRemote(pinnedClient(client, server, token)).me();
+    });
 
 final partitionControllerProvider = Provider<PartitionController>((ref) {
   final local = ref.watch(localDataProvider);
@@ -181,10 +193,17 @@ final syncStatusProvider = Provider<SyncStatus?>((ref) {
   return engine.status.value;
 });
 
-/// For `Image.network`: scan files need the session too.
-final scanImageHeadersProvider = Provider<Map<String, String>>(
-  (ref) => ref.watch(apiClientProvider).sessionHeaders,
-);
+/// Builds the image of a scan file for the current session. Rebuilds when the
+/// session changes, so a screen on show never keeps an earlier session's image.
+final scanImageProvider = Provider<SessionImage Function(String url)>((ref) {
+  final client = ref.watch(httpClientProvider);
+  final headers = ref.watch(apiClientProvider).sessionHeaders;
+  final session = ref.watch(sessionStoreProvider);
+  void changed() => ref.invalidateSelf();
+  session.addListener(changed);
+  ref.onDispose(() => session.removeListener(changed));
+  return (url) => SessionImage(url, client: client, headers: headers);
+});
 
 // Tests override these with fakes.
 final googleIdTokenSourceProvider = Provider<GoogleIdTokenSource>(

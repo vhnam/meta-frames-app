@@ -102,11 +102,13 @@ class FrameScreen extends ConsumerWidget {
                   width: 120,
                   child: Column(
                     children: [
-                      Image.network(
-                        scanUrl(s.id),
-                        headers: ref.watch(scanImageHeadersProvider),
+                      Image(
+                        image: ResizeImage.resizeIfNeeded(
+                          null,
+                          300,
+                          ref.watch(scanImageProvider)(scanUrl(s.id)),
+                        ),
                         height: 100,
-                        cacheHeight: 300,
                         fit: BoxFit.cover,
                       ),
                       Text(
