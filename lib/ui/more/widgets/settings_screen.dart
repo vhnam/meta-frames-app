@@ -27,10 +27,6 @@ class _State extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final actions = ref.read(settingsActionsProvider);
-    final servers = actions.servers;
-    final selected = normalizeBaseUrl(_selected);
-    final inUse = normalizeBaseUrl(actions.baseUrl);
-    final unsaved = !servers.any((server) => server.url == selected);
     return Scaffold(
       appBar: formAppBar(context, 'Settings'),
       body: ListView(
@@ -49,45 +45,57 @@ class _State extends ConsumerState<SettingsScreen> {
                   ref.read(themeModeProvider.notifier).set(modes.single),
             ),
           ),
-          LabeledField(
-            label: 'Saved servers',
-            gapAfter: 8,
-            // Flexible, so a large text size wraps the label, not overflows.
-            trailing: Flexible(
-              child: TextButton.icon(
-                onPressed: () => _addServer(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add server', maxLines: 2),
-              ),
-            ),
-            child: _ServerList(
-              rows: [
-                if (unsaved)
-                  _ServerRow(
-                    name: 'Unsaved server',
-                    url: selected,
-                    selected: true,
-                    inUse: selected == inUse,
-                    onTap: () {},
-                    onSave: () => _addServer(selected),
-                  ),
-                for (final server in servers)
-                  _ServerRow(
-                    name: server.name,
-                    url: server.url,
-                    selected: server.url == selected,
-                    inUse: server.url == inUse,
-                    onTap: () => setState(() => _selected = server.url),
-                    onDelete: () => _delete(server),
-                  ),
-              ],
-            ),
-          ),
-          const FormNote('Changing the server logs you out.'),
-          FormSaveBar(label: 'Save', busy: false, onPressed: _save),
+          if (actions.canChooseServer) ..._serverControls(actions),
         ],
       ),
     );
+  }
+
+  /// Read only when the build lets the user choose a server: a malformed
+  /// saved list must not stop Appearance from opening.
+  List<Widget> _serverControls(SettingsActions actions) {
+    final servers = actions.servers;
+    final selected = normalizeBaseUrl(_selected);
+    final inUse = normalizeBaseUrl(actions.baseUrl);
+    final unsaved = !servers.any((server) => server.url == selected);
+    return [
+      LabeledField(
+        label: 'Saved servers',
+        gapAfter: 8,
+        // Flexible, so a large text size wraps the label, not overflows.
+        trailing: Flexible(
+          child: TextButton.icon(
+            onPressed: () => _addServer(),
+            icon: const Icon(Icons.add),
+            label: const Text('Add server', maxLines: 2),
+          ),
+        ),
+        child: _ServerList(
+          rows: [
+            if (unsaved)
+              _ServerRow(
+                name: 'Unsaved server',
+                url: selected,
+                selected: true,
+                inUse: selected == inUse,
+                onTap: () {},
+                onSave: () => _addServer(selected),
+              ),
+            for (final server in servers)
+              _ServerRow(
+                name: server.name,
+                url: server.url,
+                selected: server.url == selected,
+                inUse: server.url == inUse,
+                onTap: () => setState(() => _selected = server.url),
+                onDelete: () => _delete(server),
+              ),
+          ],
+        ),
+      ),
+      const FormNote('Changing the server logs you out.'),
+      FormSaveBar(label: 'Save', busy: false, onPressed: _save),
+    ];
   }
 
   Future<void> _addServer([String url = '']) async {

@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meta_frames/data/repositories/settings_repository.dart';
 import 'package:meta_frames/data/repositories/settings_repository_prefs.dart';
+import 'package:meta_frames/data/services/server_policy.dart';
 import 'package:meta_frames/data/services/session_store.dart';
+import 'package:meta_frames/ui/core/widgets/form_kit.dart';
+import 'package:meta_frames/ui/more/view_models/settings_actions.dart';
 import 'package:meta_frames/domain/models/saved_server.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/routes.dart';
@@ -24,6 +27,7 @@ Future<SharedPreferences> _pump(
   double textScale = 1,
   Future<void> Function(SettingsRepositoryPrefs repo)? seed,
   SessionStore? session,
+  ServerPolicy? policy,
 }) async {
   SharedPreferences.setMockInitialValues(values);
   final prefs = await SharedPreferences.getInstance();
@@ -39,6 +43,7 @@ Future<SharedPreferences> _pump(
     ProviderScope(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
+        if (policy != null) serverPolicyProvider.overrideWithValue(policy),
         if (session != null) sessionStoreProvider.overrideWithValue(session),
       ],
       child: MaterialApp.router(
@@ -75,6 +80,75 @@ Future<void> _fillAndAdd(WidgetTester tester, String name, String url) async {
 }
 
 void main() {
+  group('SettingsScreen under each server policy', () {
+    const fixed = FixedServer('https://api.example.com');
+
+    testWidgets('a fixed server shows no server controls', (tester) async {
+      await _pump(tester, policy: fixed);
+      expect(find.byType(SegmentedButton<ThemeMode>), findsOneWidget);
+      expect(find.byType(FormSaveBar), findsNothing);
+      expect(find.byIcon(Icons.add), findsNothing);
+      expect(find.byIcon(Icons.radio_button_checked), findsNothing);
+    });
+
+    testWidgets('fixed Appearance ignores a malformed saved server list', (
+      tester,
+    ) async {
+      const malformed = '{broken';
+      final prefs = await _pump(
+        tester,
+        policy: fixed,
+        values: {'saved_servers': malformed},
+      );
+
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Dark'));
+      await tester.pumpAndSettle();
+      expect(prefs.getString('theme_mode'), 'dark');
+      expect(prefs.getString('saved_servers'), malformed);
+    });
+
+    testWidgets('a debug build shows the server controls', (tester) async {
+      await _pump(tester, policy: const DebugServers());
+      expect(find.byType(FormSaveBar), findsOneWidget);
+      expect(find.byIcon(Icons.add), findsOneWidget);
+    });
+
+    for (final (name, policy) in [
+      ('a fixed server', fixed as ServerPolicy),
+      ('a debug build', const DebugServers() as ServerPolicy),
+    ]) {
+      testWidgets('$name keeps the theme choice and no server data', (
+        tester,
+      ) async {
+        final prefs = await _pump(tester, policy: policy);
+        await tester.tap(find.text('Dark'));
+        await tester.pumpAndSettle();
+        expect(prefs.getString('theme_mode'), 'dark');
+        expect(prefs.getKeys(), {'theme_mode'});
+      });
+    }
+
+    testWidgets('a fixed server refuses a change of server', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          prefsProvider.overrideWithValue(prefs),
+          serverPolicyProvider.overrideWithValue(fixed),
+        ],
+      );
+      addTearDown(container.dispose);
+      final actions = container.read(settingsActionsProvider);
+      expect(actions.canChooseServer, isFalse);
+      await expectLater(
+        actions.saveBaseUrl('https://other.example.com'),
+        throwsStateError,
+      );
+      expect(actions.baseUrl, 'https://api.example.com');
+    });
+  });
+
   group('SettingsRepositoryPrefs servers', () {
     test('lists the default server until the user saves one', () async {
       final repo = SettingsRepositoryPrefs(await _prefs());

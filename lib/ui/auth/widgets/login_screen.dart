@@ -8,6 +8,7 @@ import '../../../providers.dart';
 import '../../../routing/routes.dart';
 import '../../core/widgets/common.dart';
 import '../../sync/view_models/sync_actions.dart';
+import '../../more/view_models/settings_actions.dart';
 import '../../sync/widgets/sync_screen.dart';
 import '../view_models/auth_actions.dart';
 import 'auth_form.dart';
@@ -38,11 +39,14 @@ class _State extends ConsumerState<LoginScreen> {
     onGoogle: ref.read(authActionsProvider).googleAvailable
         ? ref.read(authActionsProvider).signInWithGoogle
         : null,
-    // The server URL has to be reachable before anyone can sign in.
+    // A debug build's server URL has to be reachable before anyone can sign
+    // in. A build with a fixed server has no server settings to open.
     bottom: SafeArea(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onDoubleTap: () => context.push(Routes.settings),
+        onDoubleTap: ref.read(settingsActionsProvider).canChooseServer
+            ? () => context.push(Routes.settings)
+            : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
