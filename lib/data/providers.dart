@@ -58,6 +58,23 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
   ),
 );
 
+/// Whether the startup check ended a stored session. Told once.
+class StartupNotice {
+  StartupNotice({bool sessionEnded = false}) : _pending = sessionEnded;
+  bool _pending;
+
+  bool take() {
+    final pending = _pending;
+    _pending = false;
+    return pending;
+  }
+}
+
+/// Overridden in `main()` with the outcome of the startup check.
+final sessionEndedAtStartupProvider = Provider<StartupNotice>(
+  (_) => StartupNotice(),
+);
+
 /// Overridden in `main()` with the store that keeps the session on the device.
 final sessionStoreProvider = Provider<SessionStore>((ref) {
   final store = SessionStore();

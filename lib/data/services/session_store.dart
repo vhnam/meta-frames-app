@@ -118,6 +118,10 @@ class SecureSessionStore extends SessionStore {
 
   final FlutterSecureStorage _storage;
 
+  /// The session the startup check approved, without reading storage again.
+  factory SecureSessionStore.restored(String? token, SessionBinding? binding) =>
+      SecureSessionStore._(token, binding, const FlutterSecureStorage());
+
   static Future<SecureSessionStore> load() async {
     const storage = FlutterSecureStorage();
     String? token;
@@ -151,6 +155,51 @@ class SecureSessionStore extends SessionStore {
       }
     } on Exception catch (error) {
       debugPrint('Cannot save the session: $error');
+    }
+  }
+}
+
+/// Secure storage as it is: a failure reaches the caller.
+abstract class SecureKeys {
+  Future<String?> read(String key);
+  Future<void> delete(String key);
+}
+
+class DeviceSecureKeys implements SecureKeys {
+  const DeviceSecureKeys();
+  static const _storage = FlutterSecureStorage();
+
+  @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
+}
+
+/// Thrown when a session is still in storage after it was removed.
+class SessionNotCleared implements Exception {
+  const SessionNotCleared();
+}
+
+/// The stored session for the startup check. Unlike [SecureSessionStore], which
+/// outlives a storage failure, this reports every failure, so the app never
+/// goes on without knowing what storage holds.
+class StrictSessionVault {
+  const StrictSessionVault(this._keys);
+  final SecureKeys _keys;
+
+  Future<({String? token, String? binding})> read() async => (
+    token: await _keys.read(SecureSessionStore._tokenKey),
+    binding: await _keys.read(SecureSessionStore._bindingKey),
+  );
+
+  /// Removes the token, then its binding, and confirms that neither remains.
+  Future<void> clear() async {
+    await _keys.delete(SecureSessionStore._tokenKey);
+    await _keys.delete(SecureSessionStore._bindingKey);
+    final left = await read();
+    if (left.token != null || left.binding != null) {
+      throw const SessionNotCleared();
     }
   }
 }
