@@ -329,31 +329,49 @@ void main() {
   });
 
   group('closing screens', () {
-    testWidgets('a screen opened from a link goes to Shooting when closed', (
+    for (final system in [false, true]) {
+      testWidgets(
+        'a direct servers link returns to Settings (system: $system)',
+        (tester) async {
+          final router = await pumpRouter(
+            tester,
+            location: Routes.savedServers,
+          );
+          expect(router.canPop(), isFalse);
+          if (system) {
+            await tester.binding.handlePopRoute();
+          } else {
+            await tester.tap(find.byType(BackButton));
+          }
+          await tester.pumpAndSettle();
+          expect(
+            router.routerDelegate.currentConfiguration.uri.toString(),
+            Routes.settings,
+          );
+        },
+      );
+    }
+
+    testWidgets('a server screen pushed over More returns through Settings', (
       tester,
     ) async {
-      final router = await pumpRouter(tester, location: Routes.settings);
-      expect(router.canPop(), isFalse);
-
-      await tester.tap(find.text('Save'));
-      await tester.pumpAndSettle();
-
-      expect(_location(router), Routes.shooting);
-      expect(find.byType(ShootingTab), findsOneWidget);
-    });
-
-    testWidgets('a screen pushed from a tab returns to it when closed', (
-      tester,
-    ) async {
-      final router = await pumpRouter(tester, location: Routes.rolls);
+      final router = await pumpRouter(tester, location: Routes.more);
       router.push(Routes.settings);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Server connection'));
       await tester.pumpAndSettle();
       expect(router.canPop(), isTrue);
 
-      await tester.tap(find.text('Save'));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-
-      expect(_location(router), Routes.rolls);
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(
+        find.widgetWithText(ListTile, 'Server connection'),
+        findsOneWidget,
+      );
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(_location(router), Routes.more);
     });
   });
 

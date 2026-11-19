@@ -24,6 +24,10 @@ abstract final class Routes {
   static const negativesAtLab = '/negatives-at-lab';
   static const settings = '/settings';
 
+  /// Saved servers. It uses the public Settings route: the redirect reads the
+  /// path only, so the screen opens before login too.
+  static const savedServers = '/settings?view=servers';
+
   /// Changes waiting for the server, drafts and other accounts' kept data.
   static const sync = '/sync';
 

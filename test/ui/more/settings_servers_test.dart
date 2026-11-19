@@ -12,6 +12,7 @@ import 'package:meta_frames/domain/models/saved_server.dart';
 import 'package:meta_frames/providers.dart';
 import 'package:meta_frames/routing/routes.dart';
 import 'package:meta_frames/ui/more/widgets/settings_screen.dart';
+import 'package:meta_frames/ui/more/widgets/saved_servers_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _prod = 'https://api.example.com';
@@ -29,13 +30,15 @@ Future<SharedPreferences> _pump(
   SessionStore? session,
   ServerPolicy? policy,
   ThemeData? theme,
+  bool serverView = true,
 }) async {
   SharedPreferences.setMockInitialValues(values);
   final prefs = await SharedPreferences.getInstance();
   await seed?.call(SettingsRepositoryPrefs(prefs));
   final router = GoRouter(
+    initialLocation: serverView ? Routes.savedServers : Routes.settings,
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const SettingsScreen()),
+      GoRoute(path: Routes.settings, builder: (_, _) => const SettingsScreen()),
       GoRoute(path: Routes.login, builder: (_, _) => const SizedBox()),
       GoRoute(path: Routes.shooting, builder: (_, _) => const SizedBox()),
     ],
@@ -76,14 +79,18 @@ Future<void> _pickDarkTheme(WidgetTester tester) async {
 }
 
 Future<Finder> _revealSave(WidgetTester tester) async {
-  final save = find.widgetWithText(TextButton, 'Save');
+  final save = find.widgetWithText(FilledButton, 'Save');
   await tester.scrollUntilVisible(save, 100);
   await tester.pumpAndSettle();
   return save;
 }
 
+/// The AppBar add action. Its label changes when the list is empty.
+Finder get _addButton =>
+    find.descendant(of: find.byType(AppBar), matching: find.byType(TextButton));
+
 Future<void> _openAdd(WidgetTester tester) async {
-  await tester.tap(find.text('Add server'));
+  await tester.tap(_addButton);
   await tester.pumpAndSettle();
 }
 
@@ -102,9 +109,10 @@ void main() {
     for (final policy in [fixed, const InvalidServerBuild()]) {
       testWidgets('$policy shows no server controls', (tester) async {
         await _pump(tester, policy: policy);
+        expect(find.byType(SavedServersScreen), findsNothing);
         expect(find.widgetWithText(ListTile, 'Theme'), findsOneWidget);
-        expect(find.widgetWithText(TextButton, 'Save'), findsNothing);
-        expect(find.byIcon(Icons.add), findsNothing);
+        expect(find.widgetWithText(FilledButton, 'Save'), findsNothing);
+        expect(_addButton, findsNothing);
         expect(find.byIcon(Icons.radio_button_checked), findsNothing);
       });
     }
@@ -127,7 +135,7 @@ void main() {
 
     testWidgets('a debug build shows the server controls', (tester) async {
       await _pump(tester, policy: const DebugServers());
-      final save = find.widgetWithText(TextButton, 'Save');
+      final save = find.widgetWithText(FilledButton, 'Save');
       expect(save, findsOneWidget);
       expect(
         find.descendant(of: find.byType(AppBar), matching: save),
@@ -135,7 +143,7 @@ void main() {
       );
       expect(tester.getSize(save).width, greaterThanOrEqualTo(48));
       expect(tester.getSize(save).height, greaterThanOrEqualTo(48));
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(_addButton, findsOneWidget);
     });
 
     for (final (name, policy) in [
@@ -145,7 +153,7 @@ void main() {
       testWidgets('$name keeps the theme choice and no server data', (
         tester,
       ) async {
-        final prefs = await _pump(tester, policy: policy);
+        final prefs = await _pump(tester, policy: policy, serverView: false);
         await _pickDarkTheme(tester);
         expect(prefs.getString('theme_mode'), 'dark');
         expect(prefs.getKeys(), {'theme_mode'});

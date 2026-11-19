@@ -464,12 +464,12 @@ void main() {
     });
   });
 
-  group('forms use the shared form kit', () {
-    testWidgets('settings', (t) async {
-      await pump(t, const SettingsScreen());
-      expect(find.text('SAVED SERVERS'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Save'), findsOneWidget);
-    });
+  testWidgets('ordinary Settings leaves applying a server to its own screen', (
+    tester,
+  ) async {
+    await pump(tester, const SettingsScreen());
+    expect(find.widgetWithText(ListTile, 'Server connection'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Save'), findsNothing);
   });
 
   group('filters', () {

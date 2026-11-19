@@ -221,24 +221,33 @@ void main() {
     });
   }
 
-  testWidgets('Language exposes a single informational semantics node', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
+  for (final textScale in [1.0, 2.0]) {
+    testWidgets('Language sheet offers only English at ${textScale}x', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = textScale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _open(tester, prefs);
+      await tester.tap(find.widgetWithText(ListTile, 'Language'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
 
-    await _open(tester, prefs);
-    final language = find.widgetWithText(ListTile, 'Language');
-    final node = tester.getSemantics(language).getSemanticsData();
-    expect(node.label.split(RegExp(r'\s+')), ['Language', 'English']);
-    expect(node.hasAction(SemanticsAction.tap), isFalse);
-    expect(
-      find.descendant(of: language, matching: find.byIcon(Icons.chevron_right)),
-      findsNothing,
-    );
-    await tester.tap(language);
-    await tester.pumpAndSettle();
-    expect(_choice(ThemeMode.system), findsNothing);
-    expect(prefs.getKeys(), isEmpty);
-    semantics.dispose();
-  });
+      Finder option(String name) => find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.widgetWithText(ListTile, name),
+      );
+      final vietnamese = option('Tiếng Việt');
+      await tester.tap(vietnamese, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      // Disabled: the tap neither closes the sheet nor stores a choice.
+      expect(vietnamese, findsOneWidget);
+
+      final english = option('English');
+      expect(tester.getSize(english).height, greaterThanOrEqualTo(48));
+      await tester.tap(english);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(prefs.getKeys(), isEmpty);
+    });
+  }
 }
