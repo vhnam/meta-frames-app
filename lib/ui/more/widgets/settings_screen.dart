@@ -51,20 +51,7 @@ class _State extends ConsumerState<SettingsScreen> {
     final actions = ref.read(settingsActionsProvider);
     final signedIn = _session.signedIn;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        actions: [
-          if (actions.canChooseServer)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: TextButton(
-                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                onPressed: _save,
-                child: const Text('Save'),
-              ),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -171,6 +158,7 @@ class _State extends ConsumerState<SettingsScreen> {
     final inUse = normalizeBaseUrl(actions.baseUrl);
     final unsaved = !servers.any((server) => server.url == selected);
     return [
+      const DetailLabel('Connection', top: 0),
       LabeledField(
         label: 'Saved servers',
         gapAfter: 8,
@@ -209,6 +197,16 @@ class _State extends ConsumerState<SettingsScreen> {
         ),
       ),
       const FormNote('Changing the server logs you out.'),
+      // Save applies the selected row; selecting alone changes nothing.
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          onPressed: _save,
+          child: const Text('Save'),
+        ),
+      ),
+      gap,
     ];
   }
 

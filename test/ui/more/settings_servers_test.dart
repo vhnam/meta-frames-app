@@ -6,6 +6,7 @@ import 'package:meta_frames/data/repositories/settings_repository.dart';
 import 'package:meta_frames/data/repositories/settings_repository_prefs.dart';
 import 'package:meta_frames/data/services/server_policy.dart';
 import 'package:meta_frames/data/services/session_store.dart';
+import 'package:meta_frames/ui/core/theme.dart';
 import 'package:meta_frames/ui/more/view_models/settings_actions.dart';
 import 'package:meta_frames/domain/models/saved_server.dart';
 import 'package:meta_frames/providers.dart';
@@ -27,6 +28,7 @@ Future<SharedPreferences> _pump(
   Future<void> Function(SettingsRepositoryPrefs repo)? seed,
   SessionStore? session,
   ServerPolicy? policy,
+  ThemeData? theme,
 }) async {
   SharedPreferences.setMockInitialValues(values);
   final prefs = await SharedPreferences.getInstance();
@@ -47,6 +49,7 @@ Future<SharedPreferences> _pump(
       ],
       child: MaterialApp.router(
         routerConfig: router,
+        theme: theme,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context)
               .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -82,13 +85,15 @@ void main() {
   group('SettingsScreen under each server policy', () {
     const fixed = FixedServer('https://api.example.com');
 
-    testWidgets('a fixed server shows no server controls', (tester) async {
-      await _pump(tester, policy: fixed);
-      expect(find.byType(SegmentedButton<ThemeMode>), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Save'), findsNothing);
-      expect(find.byIcon(Icons.add), findsNothing);
-      expect(find.byIcon(Icons.radio_button_checked), findsNothing);
-    });
+    for (final policy in [fixed, const InvalidServerBuild()]) {
+      testWidgets('$policy shows no server controls', (tester) async {
+        await _pump(tester, policy: policy);
+        expect(find.byType(SegmentedButton<ThemeMode>), findsOneWidget);
+        expect(find.widgetWithText(TextButton, 'Save'), findsNothing);
+        expect(find.byIcon(Icons.add), findsNothing);
+        expect(find.byIcon(Icons.radio_button_checked), findsNothing);
+      });
+    }
 
     testWidgets('fixed Appearance ignores a malformed saved server list', (
       tester,
@@ -109,7 +114,14 @@ void main() {
 
     testWidgets('a debug build shows the server controls', (tester) async {
       await _pump(tester, policy: const DebugServers());
-      expect(find.widgetWithText(TextButton, 'Save'), findsOneWidget);
+      final save = find.widgetWithText(TextButton, 'Save');
+      expect(save, findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: save),
+        findsNothing,
+      );
+      expect(tester.getSize(save).width, greaterThanOrEqualTo(48));
+      expect(tester.getSize(save).height, greaterThanOrEqualTo(48));
       expect(find.byIcon(Icons.add), findsOneWidget);
     });
 
@@ -385,5 +397,34 @@ void main() {
       await _openAdd(tester);
       expect(tester.takeException(), isNull);
     });
+
+    for (final brightness in Brightness.values) {
+      testWidgets(
+        'Add server and Save work at 2x on a narrow $brightness screen',
+        (tester) async {
+          tester.view.physicalSize = const Size(320, 640);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final prefs = await _pump(
+            tester,
+            textScale: 2,
+            theme: buildTheme(brightness),
+          );
+          await _openAdd(tester);
+          await _fillAndAdd(tester, 'Production', _prod);
+          expect(_urls(prefs), contains(_prod));
+          expect(prefs.getString('base_url'), isNull);
+
+          final save = find.widgetWithText(TextButton, 'Save');
+          await tester.scrollUntilVisible(save, 100);
+          expect(tester.getSize(save).width, greaterThanOrEqualTo(48));
+          expect(tester.getSize(save).height, greaterThanOrEqualTo(48));
+          await tester.tap(save);
+          await tester.pumpAndSettle();
+          expect(prefs.getString('base_url'), _prod);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   });
 }
