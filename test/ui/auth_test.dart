@@ -168,8 +168,9 @@ Future<_Harness> _pumpApp(
 Future<void> _enter(WidgetTester tester, String hint, String text) =>
     tester.enterText(find.widgetWithText(TextFormField, hint), text);
 
-/// Taps Log out, at the end of a list that can be longer than the screen.
+/// Opens Settings from More and taps Log out.
 Future<void> _logOut(WidgetTester tester) async {
+  await _tapAndSettle(tester, find.text('Settings'));
   await tester.scrollUntilVisible(find.text('Log out'), 100);
   await _tapAndSettle(tester, find.text('Log out'));
 }
@@ -636,10 +637,12 @@ void main() {
 
     testWidgets('logging out forgets the Google account', (tester) async {
       final google = _FakeGoogle();
-      await _pumpApp(tester, token: 'saved', google: google);
+      final app = await _pumpApp(tester, token: 'saved', google: google);
       await _tapAndSettle(tester, find.text('More'));
       await _logOut(tester);
       expect(google.signedOut, isTrue);
+      expect(app.session.token, isNull);
+      expect(app.location, Routes.login);
     });
   });
 
@@ -650,8 +653,12 @@ void main() {
       return app;
     }
 
-    testWidgets('More shows the account', (tester) async {
+    testWidgets('the account is visible in Settings instead of More', (
+      tester,
+    ) async {
       await openMore(tester);
+      expect(find.text('ansel@example.com'), findsNothing);
+      await _tapAndSettle(tester, find.text('Settings'));
       expect(find.text('Ansel'), findsOneWidget);
       expect(find.text('ansel@example.com'), findsOneWidget);
     });
@@ -660,6 +667,7 @@ void main() {
       final app = await openMore(tester);
       await _logOut(tester);
       expect(app.auth.loggedOut, isTrue);
+      expect(app.session.token, isNull);
       expect(app.location, Routes.login);
     });
 

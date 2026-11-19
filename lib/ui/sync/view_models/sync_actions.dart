@@ -13,8 +13,14 @@ class SyncActions {
 
   LocalStore? get _store => _ref.read(localStoreProvider);
 
-  /// Sends what is waiting now, instead of at the next retry.
-  Future<void> syncNow() => _ref.read(partitionControllerProvider).sync();
+  /// Sends what is waiting now, instead of at the next retry. Reads the queues
+  /// again first: a failed read does not retry by itself.
+  Future<void> syncNow() {
+    _ref
+      ..invalidate(openOpsProvider)
+      ..invalidate(draftsProvider);
+    return _ref.read(partitionControllerProvider).sync();
+  }
 
   /// "Use server" (or "Discard"): drops the change. Nothing that was based on
   /// it is sent; each becomes a conflict to look at again.
