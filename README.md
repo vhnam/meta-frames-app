@@ -36,6 +36,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 - Android Studio with an Android emulator, or Xcode with an iOS simulator
 - A running MetaFrames API server
 - [Trivy](https://trivy.dev/) (`brew install trivy`) for the security scan
+- [Gitleaks](https://github.com/gitleaks/gitleaks) (`brew install gitleaks`) for the secret scan
 
 ## Getting started
 
@@ -238,3 +239,14 @@ git config core.hooksPath .githooks
 ```
 
 To accept a finding, add its ID to `.trivyignore` with a comment that says why.
+
+### Secret scan
+
+Gitleaks checks the git history for secrets. The same `core.hooksPath` setting enables the pre-commit
+hook, which scans the staged changes and blocks the commit when it finds a secret.
+
+```bash
+gitleaks git --redact --no-banner
+```
+
+To accept a false positive, add its fingerprint to `.gitleaksignore`.
