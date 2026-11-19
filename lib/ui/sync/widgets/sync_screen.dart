@@ -12,6 +12,7 @@ import '../../core/widgets/common.dart';
 import '../../labs/widgets/lab_dialog.dart';
 import '../view_models/drafts.dart';
 import '../view_models/sync_actions.dart';
+import '../view_models/sync_summary.dart';
 import 'op_status.dart';
 
 /// Sync status: what this phone holds that the server does not have yet, for
@@ -23,7 +24,8 @@ class SyncScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(localStoreProvider);
-    final status = ref.watch(syncStatusProvider);
+    // The summary claims "Up to date" only when both lists read empty.
+    final summary = ref.watch(syncSummaryProvider);
     final opsRead = ref.watch(openOpsProvider);
     final draftsRead = ref.watch(draftsProvider);
     final ops = opsRead.value ?? const <PendingOp>[];
@@ -80,8 +82,7 @@ class SyncScreen extends ConsumerWidget {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
-            if (opsNotice == null)
-              Text(syncStatusLine(status, ops.length), style: muted),
+            if (summary != null) Text(summary.line, style: muted),
             const DetailLabel('CHANGES'),
             if (opsNotice != null)
               opsNotice

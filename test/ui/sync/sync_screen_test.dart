@@ -209,4 +209,37 @@ void main() {
       expect(draftAction, findsOneWidget);
     },
   );
+
+  testWidgets('Up to date requires both queue reads to succeed and be empty', (
+    tester,
+  ) async {
+    final store = QueueStore();
+    await showSync(tester, store);
+    final upToDate = find.textContaining('Up to date');
+    store.opsRead.complete([]);
+    await tester.pumpAndSettle();
+    expect(upToDate, findsNothing);
+
+    store.draftsRead.completeError(Exception('drafts unavailable'));
+    await tester.pumpAndSettle();
+    expect(upToDate, findsNothing);
+
+    store.draftsRead = Completer<List<Draft>>()
+      ..complete([
+        Draft(
+          id: 'draft',
+          kind: DraftKind.rolls,
+          json: const {},
+          updatedAt: DateTime.utc(2026),
+        ),
+      ]);
+    store.changes.value++;
+    await tester.pumpAndSettle();
+    expect(upToDate, findsNothing);
+
+    store.draftsRead = Completer<List<Draft>>()..complete([]);
+    store.changes.value++;
+    await tester.pumpAndSettle();
+    expect(upToDate, findsOneWidget);
+  });
 }
