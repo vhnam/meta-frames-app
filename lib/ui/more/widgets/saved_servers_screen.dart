@@ -100,7 +100,11 @@ class _State extends ConsumerState<SavedServersScreen> {
             ),
             const FormNote('Changing the server logs you out.'),
             // Save applies the selected row; selecting alone changes nothing.
-            FormSaveBar(label: 'Save', busy: false, onPressed: _save),
+            FormSaveBar(
+              label: 'Save',
+              busy: false,
+              onPressed: _saving ? null : _save,
+            ),
           ],
         ),
       ),
@@ -145,18 +149,36 @@ class _State extends ConsumerState<SavedServersScreen> {
         : PartitionKey(binding.server, binding.userId);
   }
 
+  /// True from the Save tap until its confirmation and write end.
+  bool _saving = false;
+
+  /// One Save at a time, across screen instances: a second one could write
+  /// another server while the first is still pending.
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref.read(settingsActionsProvider).exclusiveServerSave(_apply);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   /// A confirmation belongs to the session that opened it: its answer is
   /// ignored once that session ends or changes, so it never discards another
   /// account's work.
-  Future<void> _save() async {
+  Future<void> _apply() async {
     final router = GoRouter.of(context);
     final session = ref.read(sessionStoreProvider);
     final generation = session.generation;
     final bound = _bound(session);
     final actions = ref.read(settingsActionsProvider);
+    // Read before any await: a row tap, Add or Delete while the queue read or
+    // the dialog is pending must not change the server Save writes.
+    final target = _selected;
     var discard = false;
     final changing =
-        normalizeBaseUrl(_selected) != normalizeBaseUrl(actions.baseUrl);
+        normalizeBaseUrl(target) != normalizeBaseUrl(actions.baseUrl);
     if (changing && session.signedIn) {
       // The confirmation counts the open store's work: a store that lags the
       // binding would count, and discard, another account's.
@@ -182,7 +204,7 @@ class _State extends ConsumerState<SavedServersScreen> {
     }
     final String saved;
     try {
-      saved = await actions.saveBaseUrl(_selected, discardKept: discard);
+      saved = await actions.saveBaseUrl(target, discardKept: discard);
     } catch (error) {
       // A failed save stays on this screen: no success notice, no navigation.
       if (mounted) toast(context, 'Could not save the server. $error');

@@ -20,6 +20,21 @@ class SettingsActions {
   /// False in a build whose server was fixed when it was built.
   bool get canChooseServer => _ref.read(serverPolicyProvider) is DebugServers;
 
+  bool _savingServer = false;
+
+  /// Runs [body] unless another server save is in progress, on any screen
+  /// instance. This object outlives the screen, so Back and reopen cannot
+  /// start a second write. The state clears when [body] ends or throws.
+  Future<void> exclusiveServerSave(Future<void> Function() body) async {
+    if (_savingServer) return;
+    _savingServer = true;
+    try {
+      await body();
+    } finally {
+      _savingServer = false;
+    }
+  }
+
   /// Saves the server URL and drops cached data from the old server. A new URL
   /// ends the session: its token must never reach a different server. What
   /// this phone keeps for the old server's account stays in its partition

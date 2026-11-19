@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meta_frames/data/local/local_store.dart';
 import 'package:meta_frames/data/local/partition_controller.dart';
+import 'package:meta_frames/data/repositories/settings_repository.dart'
+    show defaultBaseUrl;
 import 'package:meta_frames/data/repositories/settings_repository_prefs.dart';
 import 'package:meta_frames/domain/models/saved_server.dart';
 import 'package:meta_frames/ui/more/view_models/settings_actions.dart';
@@ -105,9 +107,11 @@ class _DeferredSettings extends SettingsRepositoryPrefs {
   _DeferredSettings(super.prefs);
 
   final write = Completer<void>();
+  final requestedUrls = <String>[];
 
   @override
   Future<void> setBaseUrl(String url) async {
+    requestedUrls.add(url);
     await write.future;
     await super.setBaseUrl(url);
   }
@@ -752,6 +756,101 @@ void main() {
     expect(repo.baseUrl, _other);
     expect(session.signedIn, isFalse);
     expect(_path(app.router), Routes.login);
+  });
+
+  testWidgets('Save accepts one request while a server write is pending', (
+    tester,
+  ) async {
+    final session = SessionStore();
+    addTearDown(session.dispose);
+    late _DeferredSettings repo;
+    await _open(
+      tester,
+      session,
+      location: Routes.savedServers,
+      setupServers: true,
+      settings: (prefs) => repo = _DeferredSettings(prefs),
+    );
+
+    final save = find.widgetWithText(FilledButton, 'Save');
+    await tester.scrollUntilVisible(save, 100);
+    await tester.pumpAndSettle();
+    await tester.tap(save);
+    await tester.pump();
+    await tester.tap(find.text(_other));
+    await tester.pump();
+    if (save.hitTestable().evaluate().isNotEmpty) {
+      await tester.tap(save);
+      await tester.pump();
+    }
+
+    final requestedUrls = List.of(repo.requestedUrls);
+    repo.write.complete();
+    await tester.pumpAndSettle();
+    expect(requestedUrls, [server]);
+    expect(repo.baseUrl, server);
+  });
+
+  testWidgets('reopening Server connection cannot overlap a pending write', (
+    tester,
+  ) async {
+    final session = SessionStore();
+    addTearDown(session.dispose);
+    late _DeferredSettings repo;
+    final app = await _open(
+      tester,
+      session,
+      setupServers: true,
+      settings: (prefs) => repo = _DeferredSettings(prefs),
+    );
+
+    app.router.push(Routes.savedServers);
+    await tester.pumpAndSettle();
+    await _serverSave(tester, change: false);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    app.router.push(Routes.savedServers);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(_other));
+    await tester.pump();
+    final save = find.widgetWithText(FilledButton, 'Save').hitTestable();
+    if (save.evaluate().isNotEmpty) {
+      await tester.tap(save);
+      await tester.pump();
+    }
+
+    final requestedUrls = List.of(repo.requestedUrls);
+    repo.write.complete();
+    await tester.pumpAndSettle();
+    expect(requestedUrls, [server]);
+    expect(repo.baseUrl, server);
+  });
+
+  testWidgets('changing selection during the queue read cannot retarget Save', (
+    tester,
+  ) async {
+    final session = await boundSession();
+    addTearDown(session.dispose);
+    final store = _Store();
+    final app = await _open(
+      tester,
+      session,
+      location: Routes.savedServers,
+      store: store,
+      setupServers: true,
+    );
+
+    await _serverSave(tester);
+    expect(store.countReads, 1);
+    await tester.tap(find.text(defaultBaseUrl));
+    store.countResult.complete((open: 1, attention: 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Keep on this phone'));
+    await tester.pumpAndSettle();
+
+    expect(app.container.read(settingsRepositoryProvider).baseUrl, _other);
+    expect(session.signedIn, isFalse);
   });
 
   for (final succeeds in [true, false]) {
