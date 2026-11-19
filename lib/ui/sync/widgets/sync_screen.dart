@@ -90,8 +90,8 @@ class SyncScreen extends ConsumerWidget {
             else if (ops.isEmpty)
               const EmptyCard(
                 icon: Icons.cloud_done_outlined,
-                title: 'All synced',
-                text: 'Everything is on the server.',
+                title: 'No changes waiting',
+                text: 'No changes are waiting to go to the server.',
               )
             else
               for (final op in ops) ...[

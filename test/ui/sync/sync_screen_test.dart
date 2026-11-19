@@ -58,7 +58,7 @@ class IdleController implements PartitionController {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-const opsEmpty = 'Everything is on the server.';
+const opsEmpty = 'No changes are waiting to go to the server.';
 const draftsEmpty = 'No unsent drafts.';
 
 void expectNoEmptyClaims() {
