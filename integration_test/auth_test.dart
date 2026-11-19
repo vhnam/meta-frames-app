@@ -30,6 +30,9 @@ void main() {
 
     await pumpUntilFound(tester, find.byType(NavigationBar));
     await tapOn(tester, find.text(Ui.moreTab));
+    await tapOn(tester, find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text(Ui.logOut), 100);
     await tapOn(tester, find.text(Ui.logOut));
     await pumpUntil(tester, () => session.token == null);
 

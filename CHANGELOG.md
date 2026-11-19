@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A profile or release build talks to one fixed server. Settings shows Appearance only, the login screen's hidden route to Settings is off, and connection errors no longer link to Settings or tell you to change the URL.
 - When the stored session does not match the build's server, the app signs you out once and shows a notice. Your offline work stays on the phone. When the same account signs in on the original server, the app sends the eligible pending changes. You open each draft in Sync status and send it yourself.
 - Scan images load through the same server check as the API and refuse a redirect to another origin in a profile or release build.
-- In a debug build, Settings lists the saved servers in one card, with an In use mark. Add server opens a dialog for the name and address. Save is in the navigation bar.
+- In a debug build, Settings lists the saved servers in one card, with an In use mark. Add server opens a dialog for the name and address. Save is in the Connection group, under the saved servers.
+- More lists Gear, Film stocks, Labs and Settings. Your account, sync status and Log out are in Settings. The Settings row in More shows when a change needs your attention. When Sync status cannot read the changes or drafts on this phone, it shows a notice in place of that list, not an empty list, and Sync now reads them again.
 
 ### Removed
 
