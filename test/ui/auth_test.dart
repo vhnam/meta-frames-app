@@ -194,6 +194,7 @@ void main() {
     test('a visitor goes to login from anywhere but signed-out screens', () {
       expect(check(false, Routes.shooting), Routes.login);
       expect(check(false, Routes.camera('c1')), Routes.login);
+      expect(check(false, Routes.help), Routes.login);
       expect(check(false, Routes.login), isNull);
       expect(check(false, Routes.register), isNull);
       expect(check(false, Routes.recover), isNull);
