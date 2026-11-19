@@ -5,10 +5,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../domain/models/saved_server.dart';
+import '../../../providers.dart';
 import '../../core/theme.dart';
 import '../../../routing/routes.dart';
+import '../../auth/view_models/auth_actions.dart';
+import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/form_kit.dart';
+import '../../sync/view_models/sync_summary.dart';
 import '../../sync/widgets/sync_screen.dart';
 import '../view_models/settings_actions.dart';
 
@@ -24,9 +28,28 @@ class _State extends ConsumerState<SettingsScreen> {
   /// The server the Save button applies. Rows change it; Save writes it.
   late String _selected = ref.read(settingsActionsProvider).baseUrl;
 
+  /// Settings stays open without a session, so the account groups follow the
+  /// token while the screen shows.
+  late final _session = ref.read(sessionStoreProvider);
+
+  @override
+  void initState() {
+    super.initState();
+    _session.addListener(_sessionChanged);
+  }
+
+  @override
+  void dispose() {
+    _session.removeListener(_sessionChanged);
+    super.dispose();
+  }
+
+  void _sessionChanged() => setState(() {});
+
   @override
   Widget build(BuildContext context) {
     final actions = ref.read(settingsActionsProvider);
+    final signedIn = _session.signedIn;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -45,6 +68,7 @@ class _State extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (signedIn) ..._accountGroups(),
           LabeledField(
             label: 'Appearance',
             child: SegmentedButton<ThemeMode>(
@@ -59,9 +83,84 @@ class _State extends ConsumerState<SettingsScreen> {
             ),
           ),
           if (actions.canChooseServer) ..._serverControls(actions),
+          if (signedIn)
+            CardList(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Log out'),
+                  onTap: _logOut,
+                ),
+              ],
+            ),
         ],
       ),
     );
+  }
+
+  /// Account and Sync, for a signed-in session only. The profile does not
+  /// gate them: a failed read must not hide the way to log out.
+  List<Widget> _accountGroups() {
+    final profile = ref.watch(currentUserProvider);
+    // A profile still loading may be the previous account's.
+    final user = profile.isLoading || profile.hasError ? null : profile.value;
+    final summary = ref.watch(syncSummaryProvider);
+    final cs = Theme.of(context).colorScheme;
+    return [
+      if (user != null) ...[
+        const DetailLabel('Account', top: 0),
+        CardList(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: Text(
+                user.name?.isNotEmpty == true ? user.name! : user.email,
+              ),
+              subtitle: user.name?.isNotEmpty == true ? Text(user.email) : null,
+            ),
+          ],
+        ),
+      ],
+      if (summary != null) ...[
+        DetailLabel('Sync', top: user == null ? 0 : 20),
+        CardList(
+          children: [
+            Semantics(
+              hint: 'Opens Sync status',
+              child: ListTile(
+                leading: Icon(
+                  summary.attention
+                      ? Icons.error_outline
+                      : Icons.cloud_sync_outlined,
+                  color: summary.attention ? cs.error : null,
+                ),
+                title: const Text('Sync status'),
+                subtitle: Text(
+                  summary.line,
+                  style: summary.attention ? TextStyle(color: cs.error) : null,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(Routes.sync),
+              ),
+            ),
+          ],
+        ),
+      ],
+      gap,
+    ];
+  }
+
+  /// Logs out after the keep-or-discard choice, then opens Login: Settings
+  /// is open without a session, so the router does not leave it.
+  Future<void> _logOut() async {
+    final discard = await askKeepOrDiscard(context, ref, action: 'Log out');
+    // Leaving Settings during the unsynced check cancels the logout.
+    if (discard == null || !mounted) return;
+    try {
+      await ref.read(authActionsProvider).logout(discardKept: discard);
+    } finally {
+      if (mounted && !_session.signedIn) context.go(Routes.login);
+    }
   }
 
   /// Read only when the build lets the user choose a server: a malformed
