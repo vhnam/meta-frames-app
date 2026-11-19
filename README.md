@@ -35,6 +35,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 - Flutter 3.47 or later, with Dart SDK `^3.13.4`
 - Android Studio with an Android emulator, or Xcode with an iOS simulator
 - A running MetaFrames API server
+- [Trivy](https://trivy.dev/) (`brew install trivy`) for the security scan
 
 ## Getting started
 
@@ -218,3 +219,22 @@ flutter analyze
 ```
 
 The tests use fake repositories from `test/testing/` and a mock `http.Client`. They cover view models, actions, repositories, `ApiClient`, and smoke tests for the main screens.
+
+### Security scan
+
+Trivy checks `pubspec.lock` and the iOS `Package.resolved` files for known vulnerabilities, and the
+repository for secrets and misconfigurations. Settings are in `trivy.yaml`.
+
+```bash
+trivy fs .
+```
+
+Run this once per clone to use the git hooks in `.githooks/`. The pre-push hook runs the scan and
+blocks the push on a HIGH or CRITICAL secret or misconfiguration, or a HIGH or CRITICAL vulnerability
+that has a fix:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+To accept a finding, add its ID to `.trivyignore` with a comment that says why.

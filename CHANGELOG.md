@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Trivy security scan. `trivy fs .` checks `pubspec.lock` and the iOS `Package.resolved` files for known vulnerabilities and the repository for secrets and misconfigurations (`trivy.yaml`). After `git config core.hooksPath .githooks`, the pre-push hook runs it and blocks the push on a HIGH or CRITICAL secret or misconfiguration, or a HIGH or CRITICAL vulnerability that has a fix.
 - A profile or release build reads its API server from `--dart-define=API_BASE_URL=<HTTPS origin>`. A build with a missing or invalid value shows a blocking message at startup and does not use any other server.
 - The Development Release launch configuration prompts for the API origin.
 
