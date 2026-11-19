@@ -68,6 +68,20 @@ Finder get _dialog => find.byType(AlertDialog);
 Finder get _dialogFields =>
     find.descendant(of: _dialog, matching: find.byType(TextField));
 
+Future<void> _pickDarkTheme(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(ListTile, 'Theme'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(ListTile, 'Dark'));
+  await tester.pumpAndSettle();
+}
+
+Future<Finder> _revealSave(WidgetTester tester) async {
+  final save = find.widgetWithText(TextButton, 'Save');
+  await tester.scrollUntilVisible(save, 100);
+  await tester.pumpAndSettle();
+  return save;
+}
+
 Future<void> _openAdd(WidgetTester tester) async {
   await tester.tap(find.text('Add server'));
   await tester.pumpAndSettle();
@@ -88,7 +102,7 @@ void main() {
     for (final policy in [fixed, const InvalidServerBuild()]) {
       testWidgets('$policy shows no server controls', (tester) async {
         await _pump(tester, policy: policy);
-        expect(find.byType(SegmentedButton<ThemeMode>), findsOneWidget);
+        expect(find.widgetWithText(ListTile, 'Theme'), findsOneWidget);
         expect(find.widgetWithText(TextButton, 'Save'), findsNothing);
         expect(find.byIcon(Icons.add), findsNothing);
         expect(find.byIcon(Icons.radio_button_checked), findsNothing);
@@ -106,8 +120,7 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Dark'));
-      await tester.pumpAndSettle();
+      await _pickDarkTheme(tester);
       expect(prefs.getString('theme_mode'), 'dark');
       expect(prefs.getString('saved_servers'), malformed);
     });
@@ -133,8 +146,7 @@ void main() {
         tester,
       ) async {
         final prefs = await _pump(tester, policy: policy);
-        await tester.tap(find.text('Dark'));
-        await tester.pumpAndSettle();
+        await _pickDarkTheme(tester);
         expect(prefs.getString('theme_mode'), 'dark');
         expect(prefs.getKeys(), {'theme_mode'});
       });
@@ -209,7 +221,7 @@ void main() {
       expect(_urls(prefs), contains(_prod));
       expect(prefs.getString('base_url'), isNull);
       expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
-      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.tap(await _revealSave(tester));
       await tester.pumpAndSettle();
       expect(prefs.getString('base_url'), _prod);
     });
@@ -237,7 +249,7 @@ void main() {
       await tester.pump();
       expect(prefs.getString('base_url'), isNull);
 
-      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.tap(await _revealSave(tester));
       await tester.pumpAndSettle();
       expect(SettingsRepositoryPrefs(prefs).baseUrl, _prod);
     });
@@ -307,7 +319,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.widgetWithText(TextButton, 'Add'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.tap(await _revealSave(tester));
       await tester.pumpAndSettle();
 
       expect(SettingsRepositoryPrefs(prefs).baseUrl, active);
@@ -328,7 +340,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.tap(await _revealSave(tester));
       await tester.pumpAndSettle();
 
       expect(SettingsRepositoryPrefs(prefs).baseUrl, defaultBaseUrl);
@@ -415,8 +427,7 @@ void main() {
           expect(_urls(prefs), contains(_prod));
           expect(prefs.getString('base_url'), isNull);
 
-          final save = find.widgetWithText(TextButton, 'Save');
-          await tester.scrollUntilVisible(save, 100);
+          final save = await _revealSave(tester);
           expect(tester.getSize(save).width, greaterThanOrEqualTo(48));
           expect(tester.getSize(save).height, greaterThanOrEqualTo(48));
           await tester.tap(save);

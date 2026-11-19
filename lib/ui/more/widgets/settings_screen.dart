@@ -51,25 +51,39 @@ class _State extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final actions = ref.read(settingsActionsProvider);
     final signedIn = _session.signedIn;
+    final theme = ref.watch(themeModeProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           if (signedIn) ..._accountGroups(),
-          LabeledField(
-            label: 'Appearance',
-            child: SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(value: ThemeMode.system, label: Text('System')),
-                ButtonSegment(value: ThemeMode.light, label: Text('Light')),
-                ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
-              ],
-              selected: {ref.watch(themeModeProvider)},
-              onSelectionChanged: (modes) =>
-                  ref.read(themeModeProvider.notifier).set(modes.single),
-            ),
+          const DetailLabel('Appearance', top: 0),
+          CardList(
+            children: [
+              Semantics(
+                hint: 'Opens a choice of System, Light or Dark',
+                child: ListTile(
+                  title: const Text('Theme'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_themeName(theme)),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () => _pickTheme(theme),
+                ),
+              ),
+              const MergeSemantics(
+                child: ListTile(
+                  title: Text('Language'),
+                  trailing: Text('English'),
+                ),
+              ),
+            ],
           ),
+          gap,
           if (actions.canChooseServer) ..._serverControls(actions),
           if (signedIn)
             CardList(
@@ -84,6 +98,17 @@ class _State extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  /// A dismissed sheet returns null and changes nothing.
+  Future<void> _pickTheme(ThemeMode current) async {
+    final mode = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => _ThemeSheet(current: current),
+    );
+    if (mode == null || mode == current) return;
+    await ref.read(themeModeProvider.notifier).set(mode);
   }
 
   /// Account and Sync, for a signed-in session only. The profile does not
@@ -254,6 +279,54 @@ class _State extends ConsumerState<SettingsScreen> {
     } else {
       context.go(Routes.login);
     }
+  }
+}
+
+String _themeName(ThemeMode mode) => switch (mode) {
+  ThemeMode.system => 'System',
+  ThemeMode.light => 'Light',
+  ThemeMode.dark => 'Dark',
+};
+
+/// The three theme choices. The mark is an icon, so it does not rely on color.
+class _ThemeSheet extends StatelessWidget {
+  const _ThemeSheet({required this.current});
+  final ThemeMode current;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Theme', style: TextStyle(fontSize: 18)),
+              ),
+            ),
+            for (final mode in ThemeMode.values)
+              Semantics(
+                selected: mode == current,
+                inMutuallyExclusiveGroup: true,
+                child: ListTile(
+                  minTileHeight: 48,
+                  selected: mode == current,
+                  leading: Icon(
+                    mode == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  title: Text(_themeName(mode)),
+                  onTap: () => Navigator.of(context).pop(mode),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

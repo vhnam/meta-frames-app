@@ -128,12 +128,16 @@ _open(
 }
 
 Future<void> _logout(WidgetTester tester) async {
-  final target = find.text('Log out');
+  final target = find.widgetWithText(ListTile, 'Log out');
   await tester.scrollUntilVisible(
     target,
     120,
-    scrollable: find.byType(Scrollable).last,
+    scrollable: find.descendant(
+      of: find.byType(SettingsScreen),
+      matching: find.byType(Scrollable),
+    ),
   );
+  await tester.pumpAndSettle();
   await tester.tap(target);
   await tester.pumpAndSettle();
 }
