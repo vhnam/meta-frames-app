@@ -1,19 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/server_policy.dart';
 import '../../../domain/models/saved_server.dart';
 import '../../../providers.dart';
-
-/// Opens [uri] in the system browser. False when nothing could open it.
-typedef UrlOpener = Future<bool> Function(Uri uri);
-
-final urlOpenerProvider = Provider<UrlOpener>(
-  (_) =>
-      (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
-);
 
 class SettingsActions {
   SettingsActions(this._ref);

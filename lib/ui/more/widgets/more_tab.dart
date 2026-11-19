@@ -8,11 +8,7 @@ import '../../../routing/routes.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../../sync/view_models/sync_summary.dart';
-import '../view_models/settings_actions.dart';
 import 'settings_screen.dart';
-
-// shortcut: placeholder until the real help page exists; replace the URL then.
-final _helpUrl = Uri.parse('https://example.com');
 
 /// Everything that is not a main tab: the profile, then gear, film stocks and
 /// labs, then settings and help. Sync status and log out are in Settings.
@@ -20,16 +16,6 @@ final _helpUrl = Uri.parse('https://example.com');
 /// reachable by link.
 class MoreTab extends ConsumerWidget {
   const MoreTab({super.key});
-
-  Future<void> _openHelp(BuildContext context, WidgetRef ref) async {
-    bool opened;
-    try {
-      opened = await ref.read(urlOpenerProvider)(_helpUrl);
-    } on Object {
-      opened = false;
-    }
-    if (!opened && context.mounted) toast(context, 'Could not open help');
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,8 +77,8 @@ class MoreTab extends ConsumerWidget {
                       ListTile(
                         leading: const Icon(Icons.help_outline),
                         title: const Text('Help'),
-                        trailing: const Icon(Icons.open_in_new),
-                        onTap: () => _openHelp(context, ref),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push(Routes.help),
                       ),
                     ],
                   ),

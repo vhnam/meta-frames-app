@@ -10,7 +10,6 @@ import 'package:meta_frames/ui/core/widgets/common.dart';
 import 'package:meta_frames/ui/film/widgets/film_tab.dart';
 import 'package:meta_frames/ui/labs/widgets/labs_screen.dart';
 import 'package:meta_frames/ui/labs/widgets/negatives_at_lab.dart';
-import 'package:meta_frames/ui/more/view_models/settings_actions.dart';
 import 'package:meta_frames/ui/more/widgets/settings_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/expiry_screen.dart';
 import 'package:meta_frames/ui/rolls/widgets/roll_card.dart';
@@ -35,7 +34,6 @@ Future<void> pump(
   FakeFilmStockRepository? stocks,
   FakeScannerRepository? scanners,
   Future<User> Function()? readProfile,
-  UrlOpener? openUrl,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -45,7 +43,6 @@ Future<void> pump(
         prefsProvider.overrideWithValue(prefs),
         if (readProfile != null)
           currentUserProvider.overrideWith((_) => readProfile()),
-        if (openUrl != null) urlOpenerProvider.overrideWithValue(openUrl),
         rollRepositoryProvider.overrideWithValue(rolls ?? FakeRollRepository()),
         labRepositoryProvider.overrideWithValue(labs ?? FakeLabRepository()),
         scannerRepositoryProvider.overrideWithValue(
@@ -131,34 +128,6 @@ void main() {
       expect(account, findsNothing);
     },
   );
-
-  for (final outcome in [true, false, null]) {
-    testWidgets(
-      'Help reports the result of opening its URL (result: $outcome)',
-      (tester) async {
-        final opened = <Uri>[];
-        await pump(
-          tester,
-          const MoreTab(),
-          readProfile: () async =>
-              User.fromJson({'id': 'u1', 'email': 'account@example.com'}),
-          openUrl: (uri) async {
-            opened.add(uri);
-            return outcome ?? (throw StateError('browser unavailable'));
-          },
-        );
-        final help = find.byIcon(Icons.help_outline);
-        await tester.scrollUntilVisible(help, 100);
-        await tester.tap(help);
-        await tester.pump();
-        expect(opened, [Uri.parse('https://example.com')]);
-        expect(
-          find.text('Could not open help'),
-          outcome == true ? findsNothing : findsOneWidget,
-        );
-      },
-    );
-  }
 
   testWidgets('More attention follows the active partition queue', (
     tester,

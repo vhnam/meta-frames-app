@@ -23,6 +23,7 @@ abstract final class Routes {
   static const labs = '/labs';
   static const negativesAtLab = '/negatives-at-lab';
   static const settings = '/settings';
+  static const help = '/help';
 
   /// Saved servers. It uses the public Settings route: the redirect reads the
   /// path only, so the screen opens before login too.
