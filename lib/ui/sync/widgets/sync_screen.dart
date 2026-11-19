@@ -77,17 +77,22 @@ class SyncScreen extends ConsumerWidget {
               style: muted,
             )
           else ...[
-            Text(
-              '${binding?.email ?? ''} · ${store.key.server}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            CardList(
+              children: [
+                DetailInfoRow('Account', binding?.email),
+                DetailInfoRow('Server', store.key.server),
+                if (summary != null) DetailInfoRow('Status', summary.line),
+              ],
             ),
-            const SizedBox(height: 4),
-            if (summary != null) Text(summary.line, style: muted),
             const DetailLabel('CHANGES'),
             if (opsNotice != null)
               opsNotice
             else if (ops.isEmpty)
-              Text('Everything is on the server.', style: muted)
+              const EmptyCard(
+                icon: Icons.cloud_done_outlined,
+                title: 'No changes waiting',
+                text: 'No changes are waiting to go to the server.',
+              )
             else
               for (final op in ops) ...[
                 OpStatusCard(op: op),
@@ -97,7 +102,11 @@ class SyncScreen extends ConsumerWidget {
             if (draftsNotice != null)
               draftsNotice
             else if (drafts.isEmpty)
-              Text('No unsent drafts.', style: muted)
+              const EmptyCard(
+                icon: Icons.edit_note_outlined,
+                title: 'No drafts',
+                text: 'No unsent drafts.',
+              )
             else
               CardList(
                 children: [
@@ -282,49 +291,85 @@ class _TypedConfirmState extends State<_TypedConfirm> {
 /// server does not have for the account, asks what to do with it. Keeping is
 /// the default and needs one tap; discarding needs DISCARD typed. Returns
 /// null when the user cancels, otherwise whether to discard.
+///
+/// The question belongs to the session that asked it: once that session ends
+/// or changes, an open dialog closes and the answer is null, so another
+/// account's counts never show and its work is never discarded.
 Future<bool?> askKeepOrDiscard(
   BuildContext context,
   WidgetRef ref, {
   required String action,
 }) async {
+  final session = ref.read(sessionStoreProvider);
+  final generation = session.generation;
+  final navigator = Navigator.of(context, rootNavigator: true);
+  bool ended() => session.generation != generation;
+  Future<T> whileLive<T>(Future<T> dialog) async {
+    // [dialog] has just pushed its route: read the top route without popping.
+    Route<Object?>? owned;
+    navigator.popUntil((route) {
+      owned = route;
+      return true;
+    });
+    void changed() {
+      final route = owned;
+      // Closes this dialog only, even under another popup; its future gets null.
+      if (ended() && route != null && route.isActive && navigator.mounted) {
+        navigator.removeRoute(route);
+      }
+    }
+
+    session.addListener(changed);
+    try {
+      return await dialog;
+    } finally {
+      session.removeListener(changed);
+    }
+  }
+
   final kept = await ref.read(syncActionsProvider).unsynced();
+  if (!context.mounted || ended()) return null;
   if (kept.changes == 0 && kept.drafts == 0) return false;
-  if (!context.mounted) return null;
   final what = [
     if (kept.changes > 0)
       '${kept.changes} change${kept.changes == 1 ? '' : 's'} not synced',
     if (kept.drafts > 0) '${kept.drafts} draft${kept.drafts == 1 ? '' : 's'}',
   ].join(' and ');
-  final choice = await showDialog<String>(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: Text('$action?'),
-      content: Text(
-        'This phone has $what for this account. Keep them here to sync when you sign in to this account on this server again, or discard them.',
+  final choice = await whileLive(
+    showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('$action?'),
+        content: Text(
+          'This phone has $what for this account. Keep them here to sync when you sign in to this account on this server again, or discard them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, 'discard'),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            autofocus: true,
+            onPressed: () => Navigator.pop(c, 'keep'),
+            child: const Text('Keep on this phone'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(c),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(c, 'discard'),
-          child: const Text('Discard'),
-        ),
-        FilledButton(
-          autofocus: true,
-          onPressed: () => Navigator.pop(c, 'keep'),
-          child: const Text('Keep on this phone'),
-        ),
-      ],
     ),
   );
-  if (choice == null || !context.mounted) return null;
+  if (choice == null || !context.mounted || ended()) return null;
   if (choice == 'keep') return false;
-  final sure = await confirmDiscard(
-    context,
-    'Discard $what?',
-    'They will be deleted from this phone and never reach the server.',
+  final sure = await whileLive(
+    confirmDiscard(
+      context,
+      'Discard $what?',
+      'They will be deleted from this phone and never reach the server.',
+    ),
   );
+  if (!context.mounted || ended()) return null;
   return sure ? true : null;
 }

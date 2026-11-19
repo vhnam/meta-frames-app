@@ -194,6 +194,7 @@ void main() {
     test('a visitor goes to login from anywhere but signed-out screens', () {
       expect(check(false, Routes.shooting), Routes.login);
       expect(check(false, Routes.camera('c1')), Routes.login);
+      expect(check(false, Routes.help), Routes.login);
       expect(check(false, Routes.login), isNull);
       expect(check(false, Routes.register), isNull);
       expect(check(false, Routes.recover), isNull);
@@ -320,6 +321,10 @@ void main() {
 
       await _tapAndSettle(tester, find.text('Server settings'));
       expect(app.location, Routes.settings);
+      await _tapAndSettle(
+        tester,
+        find.widgetWithText(ListTile, 'Server connection'),
+      );
 
       await _tapAndSettle(tester, find.text('Save'));
       expect(app.location, Routes.login);
@@ -344,6 +349,10 @@ void main() {
       await tester.tap(copyright);
       await tester.pumpAndSettle();
       expect(app.location, Routes.settings);
+      await _tapAndSettle(
+        tester,
+        find.widgetWithText(ListTile, 'Server connection'),
+      );
       await _tapAndSettle(tester, find.text('Save'));
       expect(app.location, Routes.login);
     });
@@ -653,11 +662,9 @@ void main() {
       return app;
     }
 
-    testWidgets('the account is visible in Settings instead of More', (
-      tester,
-    ) async {
+    testWidgets('the account is visible in More and Settings', (tester) async {
       await openMore(tester);
-      expect(find.text('ansel@example.com'), findsNothing);
+      expect(find.text('ansel@example.com'), findsOneWidget);
       await _tapAndSettle(tester, find.text('Settings'));
       expect(find.text('Ansel'), findsOneWidget);
       expect(find.text('ansel@example.com'), findsOneWidget);
@@ -691,7 +698,17 @@ void main() {
     testWidgets('a new server URL ends the session', (tester) async {
       final app = await openMore(tester);
       await _tapAndSettle(tester, find.text('Settings'));
-      await _tapAndSettle(tester, find.text('Add server'));
+      await _tapAndSettle(
+        tester,
+        find.widgetWithText(ListTile, 'Server connection'),
+      );
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byType(TextButton),
+        ),
+      );
       final fields = find.descendant(
         of: find.byType(AlertDialog),
         matching: find.byType(TextField),
@@ -700,7 +717,7 @@ void main() {
       await tester.enterText(fields.at(1), 'https://other.example');
       await tester.pump();
       await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Add'));
-      await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Save'));
+      await _tapAndSettle(tester, find.widgetWithText(FilledButton, 'Save'));
       expect(app.session.signedIn, isFalse);
       expect(app.location, Routes.login);
     });
@@ -708,9 +725,13 @@ void main() {
     testWidgets('saving the same server URL keeps the session', (tester) async {
       final app = await openMore(tester);
       await _tapAndSettle(tester, find.text('Settings'));
+      await _tapAndSettle(
+        tester,
+        find.widgetWithText(ListTile, 'Server connection'),
+      );
       await _tapAndSettle(tester, find.text('Save'));
       expect(app.session.signedIn, isTrue);
-      expect(app.location, Routes.more);
+      expect(app.location, Routes.settings);
     });
 
     testWidgets('switching to a saved server ends the session', (tester) async {
@@ -718,6 +739,10 @@ void main() {
       final actions = app.container.read(settingsActionsProvider);
       await actions.saveServer('Production', 'https://other.example');
       await _tapAndSettle(tester, find.text('Settings'));
+      await _tapAndSettle(
+        tester,
+        find.widgetWithText(ListTile, 'Server connection'),
+      );
       await _tapAndSettle(tester, find.text('Production'));
       await _tapAndSettle(tester, find.text('Save'));
       expect(actions.baseUrl, 'https://other.example');

@@ -1,19 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/server_policy.dart';
 import '../../../domain/models/saved_server.dart';
 import '../../../providers.dart';
-
-/// Opens [uri] in the system browser. False when nothing could open it.
-typedef UrlOpener = Future<bool> Function(Uri uri);
-
-final urlOpenerProvider = Provider<UrlOpener>(
-  (_) =>
-      (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
-);
 
 class SettingsActions {
   SettingsActions(this._ref);
@@ -29,27 +20,20 @@ class SettingsActions {
   /// False in a build whose server was fixed when it was built.
   bool get canChooseServer => _ref.read(serverPolicyProvider) is DebugServers;
 
-  /// The dashboard of the server [server] (the current one by default).
-  String? dashboardUrl([String? server]) =>
-      _ref.read(settingsRepositoryProvider).dashboardUrl(server ?? baseUrl);
+  bool _savingServer = false;
 
-  /// Opens the current server's dashboard in the browser. False when this
-  /// server has no usable http(s) address set or the browser could not open
-  /// it; the caller then offers the address to copy.
-  Future<bool> openDashboard() async {
-    final url = dashboardUrl();
-    final stored = url == null ? null : validDashboardUrl(url);
-    if (stored == null) return false;
+  /// Runs [body] unless another server save is in progress, on any screen
+  /// instance. This object outlives the screen, so Back and reopen cannot
+  /// start a second write. The state clears when [body] ends or throws.
+  Future<void> exclusiveServerSave(Future<void> Function() body) async {
+    if (_savingServer) return;
+    _savingServer = true;
     try {
-      return await _ref.read(urlOpenerProvider)(Uri.parse(stored));
-    } on Object {
-      return false;
+      await body();
+    } finally {
+      _savingServer = false;
     }
   }
-
-  /// Throws a [FormatException] for anything but an http(s) URL.
-  Future<void> setDashboardUrl(String server, String? url) =>
-      _ref.read(settingsRepositoryProvider).setDashboardUrl(server, url);
 
   /// Saves the server URL and drops cached data from the old server. A new URL
   /// ends the session: its token must never reach a different server. What

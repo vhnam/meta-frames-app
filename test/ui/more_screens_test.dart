@@ -1,3 +1,5 @@
+import 'dart:async' show Completer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +33,7 @@ Future<void> pump(
   FakeProcessingRepository? processing,
   FakeFilmStockRepository? stocks,
   FakeScannerRepository? scanners,
+  Future<User> Function()? readProfile,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -38,6 +41,8 @@ Future<void> pump(
     ProviderScope(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
+        if (readProfile != null)
+          currentUserProvider.overrideWith((_) => readProfile()),
         rollRepositoryProvider.overrideWithValue(rolls ?? FakeRollRepository()),
         labRepositoryProvider.overrideWithValue(labs ?? FakeLabRepository()),
         scannerRepositoryProvider.overrideWithValue(
@@ -93,6 +98,37 @@ List<PendingOp> _pendingChange(OpState state) {
 }
 
 void main() {
+  testWidgets(
+    'More hides the profile during loading and after a failed refresh',
+    (tester) async {
+      var profileRead = Completer<User>();
+      await pump(
+        tester,
+        const MoreTab(),
+        readProfile: () => profileRead.future,
+      );
+      final account = find.byType(AccountCard);
+      expect(account, findsNothing);
+
+      profileRead.complete(
+        User.fromJson({'id': 'u1', 'email': 'account@example.com'}),
+      );
+      await tester.pumpAndSettle();
+      expect(account, findsOneWidget);
+
+      profileRead = Completer<User>();
+      final scope = ProviderScope.containerOf(
+        tester.element(find.byType(MoreTab)),
+      );
+      scope.invalidate(currentUserProvider);
+      await tester.pumpAndSettle();
+      expect(account, findsNothing);
+      profileRead.completeError(StateError('profile unavailable'));
+      await tester.pumpAndSettle();
+      expect(account, findsNothing);
+    },
+  );
+
   testWidgets('More attention follows the active partition queue', (
     tester,
   ) async {
@@ -107,6 +143,10 @@ void main() {
         overrides: [
           prefsProvider.overrideWithValue(prefs),
           sessionStoreProvider.overrideWithValue(session),
+          currentUserProvider.overrideWith(
+            (_) async =>
+                User.fromJson({'id': 'u1', 'email': 'account@example.com'}),
+          ),
           localStoreProvider.overrideWithValue(_MoreStore()),
           syncStatusProvider.overrideWithValue(const SyncStatus()),
           openOpsProvider.overrideWith((ref) async {
@@ -124,7 +164,6 @@ void main() {
     expect(attention, findsOneWidget);
     expect(find.byIcon(Icons.logout), findsNothing);
     expect(find.byIcon(Icons.cloud_sync_outlined), findsNothing);
-    expect(find.byIcon(Icons.person_outline), findsNothing);
 
     changes.value = [];
     await tester.pumpAndSettle();
@@ -394,12 +433,12 @@ void main() {
     });
   });
 
-  group('forms use the shared form kit', () {
-    testWidgets('settings', (t) async {
-      await pump(t, const SettingsScreen());
-      expect(find.text('SAVED SERVERS'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Save'), findsOneWidget);
-    });
+  testWidgets('ordinary Settings leaves applying a server to its own screen', (
+    tester,
+  ) async {
+    await pump(tester, const SettingsScreen());
+    expect(find.widgetWithText(ListTile, 'Server connection'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Save'), findsNothing);
   });
 
   group('filters', () {

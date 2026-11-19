@@ -23,6 +23,7 @@ import '../ui/labs/widgets/negatives_at_lab.dart';
 import '../ui/labs/widgets/processing_detail.dart';
 import '../ui/labs/widgets/send_roll.dart';
 import '../ui/more/widgets/more_tab.dart';
+import '../ui/more/widgets/help_screen.dart';
 import '../ui/more/widgets/settings_screen.dart';
 import '../ui/rolls/widgets/add_rolls.dart';
 import '../ui/rolls/widgets/expiry_screen.dart';
@@ -113,6 +114,7 @@ GoRouter buildRouter({
     _route(Routes.negativesAtLab, (_) => const NegativesAtLabScreen()),
     _route(Routes.settings, (_) => const SettingsScreen()),
     _route(Routes.sync, (_) => const SyncScreen()),
+    _route(Routes.help, (_) => const HelpScreen()),
 
     // Cameras. `new` is declared before `:id` so it is not read as an id.
     _route(

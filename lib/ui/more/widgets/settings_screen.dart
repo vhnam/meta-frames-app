@@ -3,20 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:go_router/go_router.dart';
 
-import '../../../data/repositories/settings_repository.dart';
-import '../../../domain/models/saved_server.dart';
+import '../../../domain/models/models.dart';
 import '../../../providers.dart';
-import '../../core/theme.dart';
 import '../../../routing/routes.dart';
 import '../../auth/view_models/auth_actions.dart';
+import '../../core/theme.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/form_kit.dart';
 import '../../sync/view_models/sync_summary.dart';
 import '../../sync/widgets/sync_screen.dart';
 import '../view_models/settings_actions.dart';
-
-import '../../../routing/navigation.dart';
+import 'saved_servers_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -25,9 +22,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _State extends ConsumerState<SettingsScreen> {
-  /// The server the Save button applies. Rows change it; Save writes it.
-  late String _selected = ref.read(settingsActionsProvider).baseUrl;
-
   /// Settings stays open without a session, so the account groups follow the
   /// token while the screen shows.
   late final _session = ref.read(sessionStoreProvider);
@@ -49,40 +43,99 @@ class _State extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final actions = ref.read(settingsActionsProvider);
+    // A fixed-server build shows ordinary Settings for the servers link.
+    if (actions.canChooseServer && _view(context) == 'servers') {
+      return const SavedServersScreen();
+    }
     final signedIn = _session.signedIn;
+    final theme = ref.watch(themeModeProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           if (signedIn) ..._accountGroups(),
-          LabeledField(
-            label: 'Appearance',
-            child: SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(value: ThemeMode.system, label: Text('System')),
-                ButtonSegment(value: ThemeMode.light, label: Text('Light')),
-                ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
-              ],
-              selected: {ref.watch(themeModeProvider)},
-              onSelectionChanged: (modes) =>
-                  ref.read(themeModeProvider.notifier).set(modes.single),
-            ),
+          const DetailLabel('Appearance', top: 0),
+          CardList(
+            children: [
+              Semantics(
+                hint: 'Opens a choice of System, Light or Dark',
+                child: ListTile(
+                  title: const Text('Theme'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_themeName(theme)),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () => _pickTheme(theme),
+                ),
+              ),
+              Semantics(
+                hint: 'Opens a choice of language',
+                child: ListTile(
+                  title: const Text('Language'),
+                  trailing: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text('English'), Icon(Icons.chevron_right)],
+                  ),
+                  onTap: _pickLanguage,
+                ),
+              ),
+            ],
           ),
-          if (actions.canChooseServer) ..._serverControls(actions),
-          if (signedIn)
+          gap,
+          if (actions.canChooseServer) ...[
+            const DetailLabel('Connection', top: 0),
             CardList(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.logout),
-                  title: const Text('Log out'),
-                  onTap: _logOut,
+                  title: const Text('Server connection'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(Routes.savedServers),
                 ),
               ],
             ),
+            gap,
+          ],
+          if (signedIn) ...[
+            // Extra space on top of the group gap keeps Log out apart.
+            gap,
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.error,
+                  width: kHairline,
+                ),
+              ),
+              onPressed: _logOut,
+              child: const Text('Log out', textAlign: TextAlign.center),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  /// English is the only language for now; Tiếng Việt is listed, not yet usable.
+  Future<void> _pickLanguage() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (_) => const _LanguageSheet(),
+  );
+
+  /// A dismissed sheet returns null and changes nothing.
+  Future<void> _pickTheme(ThemeMode current) async {
+    final mode = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => _ThemeSheet(current: current),
+    );
+    if (mode == null || mode == current) return;
+    await ref.read(themeModeProvider.notifier).set(mode);
   }
 
   /// Account and Sync, for a signed-in session only. The profile does not
@@ -96,17 +149,7 @@ class _State extends ConsumerState<SettingsScreen> {
     return [
       if (user != null) ...[
         const DetailLabel('Account', top: 0),
-        CardList(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text(
-                user.name?.isNotEmpty == true ? user.name! : user.email,
-              ),
-              subtitle: user.name?.isNotEmpty == true ? Text(user.email) : null,
-            ),
-          ],
-        ),
+        AccountCard(user),
       ],
       if (summary != null) ...[
         DetailLabel('Sync', top: user == null ? 0 : 20),
@@ -149,349 +192,139 @@ class _State extends ConsumerState<SettingsScreen> {
       if (mounted && !_session.signedIn) context.go(Routes.login);
     }
   }
-
-  /// Read only when the build lets the user choose a server: a malformed
-  /// saved list must not stop Appearance from opening.
-  List<Widget> _serverControls(SettingsActions actions) {
-    final servers = actions.servers;
-    final selected = normalizeBaseUrl(_selected);
-    final inUse = normalizeBaseUrl(actions.baseUrl);
-    final unsaved = !servers.any((server) => server.url == selected);
-    return [
-      const DetailLabel('Connection', top: 0),
-      LabeledField(
-        label: 'Saved servers',
-        gapAfter: 8,
-        // Flexible, so a large text size wraps the label, not overflows.
-        trailing: Flexible(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _addServer(),
-              icon: const Icon(Icons.add),
-              label: const Text('Add server', maxLines: 2),
-            ),
-          ),
-        ),
-        child: _ServerList(
-          rows: [
-            if (unsaved)
-              _ServerRow(
-                name: 'Unsaved server',
-                url: selected,
-                selected: true,
-                inUse: selected == inUse,
-                onTap: () {},
-                onSave: () => _addServer(selected),
-              ),
-            for (final server in servers)
-              _ServerRow(
-                name: server.name,
-                url: server.url,
-                selected: server.url == selected,
-                inUse: server.url == inUse,
-                onTap: () => setState(() => _selected = server.url),
-                onDelete: () => _delete(server),
-              ),
-          ],
-        ),
-      ),
-      const FormNote('Changing the server logs you out.'),
-      // Save applies the selected row; selecting alone changes nothing.
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton(
-          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-          onPressed: _save,
-          child: const Text('Save'),
-        ),
-      ),
-      gap,
-    ];
-  }
-
-  Future<void> _addServer([String url = '']) async {
-    final actions = ref.read(settingsActionsProvider);
-    final added = await showDialog<({String name, String url})>(
-      context: context,
-      builder: (_) => _AddServerDialog(url: url, saved: actions.servers),
-    );
-    if (added == null) return;
-    await actions.saveServer(added.name, added.url);
-    if (mounted) setState(() => _selected = added.url);
-  }
-
-  Future<void> _delete(SavedServer server) async {
-    final ok = await confirm(
-      context,
-      'Delete ${server.name}?',
-      'This removes it from the saved servers.',
-      ok: 'Delete',
-    );
-    if (!ok || !mounted) return;
-    final actions = ref.read(settingsActionsProvider);
-    await actions.deleteServer(server.url);
-    if (!mounted) return;
-    // A deleted row must not stay selected for Save to switch to.
-    setState(() {
-      if (normalizeBaseUrl(_selected) == server.url) {
-        _selected = actions.baseUrl;
-      }
-    });
-  }
-
-  Future<void> _save() async {
-    final actions = ref.read(settingsActionsProvider);
-    var discard = false;
-    final changing =
-        normalizeBaseUrl(_selected) != normalizeBaseUrl(actions.baseUrl);
-    if (changing && actions.signedIn) {
-      final choice = await askKeepOrDiscard(
-        context,
-        ref,
-        action: 'Change server',
-      );
-      if (choice == null) return;
-      discard = choice;
-    }
-    final saved = await actions.saveBaseUrl(_selected, discardKept: discard);
-    if (!mounted) return;
-    toast(context, 'Saved. Server URL: $saved');
-    // Without a session, the screens under this one need one too.
-    if (actions.signedIn) {
-      context.closeScreen();
-    } else {
-      context.go(Routes.login);
-    }
-  }
 }
 
-/// The saved servers in one bordered card, divided by hairlines.
-class _ServerList extends StatelessWidget {
-  const _ServerList({required this.rows});
-  final List<Widget> rows;
+/// The `view` query of this route. Null outside a router, as in a screen test.
+String? _view(BuildContext context) => GoRouter.maybeOf(context) == null
+    ? null
+    : GoRouterState.of(context).uri.queryParameters['view'];
+
+String _themeName(ThemeMode mode) => switch (mode) {
+  ThemeMode.system => 'System',
+  ThemeMode.light => 'Light',
+  ThemeMode.dark => 'Dark',
+};
+
+/// The three theme choices. The mark is an icon, so it does not rely on color.
+class _ThemeSheet extends StatelessWidget {
+  const _ThemeSheet({required this.current});
+  final ThemeMode current;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        border: Border.all(color: cs.outlineVariant, width: kHairline),
-        borderRadius: BorderRadius.circular(kStampRadius),
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < rows.length; index++) ...[
-            if (index > 0) const Divider(),
-            rows[index],
-          ],
-          if (rows.isEmpty)
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('No saved servers.'),
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Theme', style: TextStyle(fontSize: 18)),
+              ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ServerRow extends StatelessWidget {
-  const _ServerRow({
-    required this.name,
-    required this.url,
-    required this.selected,
-    required this.inUse,
-    required this.onTap,
-    this.onDelete,
-    this.onSave,
-  });
-  final String name, url;
-  final bool selected, inUse;
-  final VoidCallback onTap;
-
-  /// Set on a saved server; null on the unsaved row.
-  final VoidCallback? onDelete;
-
-  /// Set on the unsaved row only.
-  final VoidCallback? onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Semantics(
-      selected: selected,
-      child: Material(
-        color: selected ? cs.primary.withValues(alpha: 0.08) : cs.surface,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: Row(
-                children: [
-                  Icon(
-                    selected
+            for (final mode in ThemeMode.values)
+              Semantics(
+                selected: mode == current,
+                inMutuallyExclusiveGroup: true,
+                child: ListTile(
+                  minTileHeight: 48,
+                  selected: mode == current,
+                  leading: Icon(
+                    mode == current
                         ? Icons.radio_button_checked
                         : Icons.radio_button_unchecked,
-                    color: selected ? cs.primary : cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                name,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              if (inUse)
-                                StampBadge('In use', color: cs.primary),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            url,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: monoStyle(
-                              fontSize: 12,
-                              letterSpacing: 0,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (onSave != null)
-                    Flexible(
-                      child: TextButton(
-                        onPressed: onSave,
-                        child: const Text('Add to saved', maxLines: 2),
-                      ),
-                    ),
-                  if (onDelete != null)
-                    IconButton(
-                      tooltip: 'Delete $name',
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: onDelete,
-                    )
-                  else
-                    const SizedBox(width: 4),
-                ],
+                  title: Text(_themeName(mode)),
+                  onTap: () => Navigator.of(context).pop(mode),
+                ),
               ),
-            ),
-          ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Asks for a server's name and URL. Returns both (the URL normalized), or
-/// null when cancelled.
-class _AddServerDialog extends StatefulWidget {
-  const _AddServerDialog({required this.url, required this.saved});
-  final String url;
-  final List<SavedServer> saved;
-
-  @override
-  State<_AddServerDialog> createState() => _AddServerDialogState();
-}
-
-class _AddServerDialogState extends State<_AddServerDialog> {
-  final _name = TextEditingController();
-  late final _url = TextEditingController(text: widget.url);
-  String? _error;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _url.dispose();
-    super.dispose();
-  }
-
-  void _add() {
-    final valid = validDashboardUrl(_url.text);
-    if (valid == null) {
-      setState(() => _error = 'Enter an http:// or https:// address');
-      return;
-    }
-    for (final server in widget.saved) {
-      if (validDashboardUrl(server.url) == valid) {
-        setState(() => _error = 'Already saved as ${server.name}');
-        return;
-      }
-    }
-    // validDashboardUrl only accepts; the stored form keeps the typed host
-    // and port, so an active URL is not rewritten into a server change.
-    Navigator.of(context)
-        .pop((name: _name.text.trim(), url: normalizeBaseUrl(_url.text)));
-  }
+class _LanguageSheet extends StatelessWidget {
+  const _LanguageSheet();
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AlertDialog(
-      title: const Text('Add server'),
-      scrollable: true,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // labelText, not LabeledField: a screen reader hears each name once.
-          TextField(
-            controller: _name,
-            autofocus: true,
-            decoration: formInputDecoration('Production', cs).copyWith(
-              labelText: 'Name',
-              floatingLabelBehavior: FloatingLabelBehavior.always,
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Language', style: TextStyle(fontSize: 18)),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _url,
-            decoration: formInputDecoration(defaultBaseUrl, cs).copyWith(
-              labelText: 'Server URL',
-              floatingLabelBehavior: FloatingLabelBehavior.always,
-              errorText: _error,
+            Semantics(
+              selected: true,
+              inMutuallyExclusiveGroup: true,
+              child: ListTile(
+                minTileHeight: 48,
+                selected: true,
+                leading: const Icon(Icons.radio_button_checked),
+                title: const Text('English'),
+                onTap: () => Navigator.of(context).pop(),
+              ),
             ),
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            onChanged: (_) {
-              if (_error != null) setState(() => _error = null);
-            },
-          ),
-          const SizedBox(height: 8),
-          const FormNote(
-            'Android emulator reaches the host machine at 10.0.2.2.',
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+            Semantics(
+              selected: false,
+              inMutuallyExclusiveGroup: true,
+              child: const ListTile(
+                minTileHeight: 48,
+                enabled: false,
+                leading: Icon(Icons.radio_button_unchecked),
+                title: Text('Tiếng Việt'),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
-        ListenableBuilder(
-          listenable: Listenable.merge([_name, _url]),
-          builder: (context, _) => TextButton(
-            onPressed: _name.text.trim().isEmpty || _url.text.trim().isEmpty
-                ? null
-                : _add,
-            child: const Text('Add'),
-          ),
+      ),
+    );
+  }
+}
+
+/// The signed-in profile, in More and in Settings. It does nothing on tap.
+class AccountCard extends ConsumerWidget {
+  const AccountCard(this.user, {super.key});
+  final User user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final named = user.name?.isNotEmpty == true;
+    const icon = Icon(Icons.person_outline);
+    final url = user.avatarUrl;
+    return CardList(
+      children: [
+        ListTile(
+          leading: url == null
+              ? icon
+              : ClipOval(
+                  child: SizedBox.square(
+                    dimension: 40,
+                    child: Image(
+                      key: ValueKey(url),
+                      image: ref.watch(avatarImageProvider)(url),
+                      fit: BoxFit.cover,
+                      excludeFromSemantics: true,
+                      frameBuilder: (_, child, frame, _) =>
+                          frame == null ? icon : child,
+                      errorBuilder: (_, _, _) => icon,
+                    ),
+                  ),
+                ),
+          title: Text(named ? user.name! : user.email),
+          subtitle: named ? Text(user.email) : null,
         ),
       ],
     );

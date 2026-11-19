@@ -58,7 +58,7 @@ class IdleController implements PartitionController {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-const opsEmpty = 'Everything is on the server.';
+const opsEmpty = 'No changes are waiting to go to the server.';
 const draftsEmpty = 'No unsent drafts.';
 
 void expectNoEmptyClaims() {
@@ -241,5 +241,24 @@ void main() {
     store.changes.value++;
     await tester.pumpAndSettle();
     expect(upToDate, findsOneWidget);
+  });
+
+  testWidgets('the account card and empty lists fit at 2x on a narrow screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final store = QueueStore();
+    await showSync(tester, store);
+    store.opsRead.complete([]);
+    store.draftsRead.complete([]);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(find.text(draftsEmpty), 100);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }
