@@ -1,0 +1,25 @@
+# Trivy config, loaded by `trivy fs .` from the repository root.
+severity:
+  - HIGH
+  - CRITICAL
+exit-code: 1
+vulnerability:
+  ignore-unfixed: true
+scan:
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+  skip-dirs:
+    - build
+    - .dart_tool
+    - ios/Pods
+    - ios/Flutter/ephemeral
+    - .gitnexus
+  # Local secret files: env files and gitignored OAuth client settings.
+  skip-files:
+    - .env
+    - .env.*
+    - google_sign_in.json
+    - ios/Flutter/GoogleSignIn.xcconfig
+    - android/local.properties
