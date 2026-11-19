@@ -39,7 +39,7 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
-        <!-- The Dashboard entry in More opens the configured http(s) address. -->
+        <!-- Help in More opens an http(s) address in the browser. -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>

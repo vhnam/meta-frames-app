@@ -653,11 +653,9 @@ void main() {
       return app;
     }
 
-    testWidgets('the account is visible in Settings instead of More', (
-      tester,
-    ) async {
+    testWidgets('the account is visible in More and Settings', (tester) async {
       await openMore(tester);
-      expect(find.text('ansel@example.com'), findsNothing);
+      expect(find.text('ansel@example.com'), findsOneWidget);
       await _tapAndSettle(tester, find.text('Settings'));
       expect(find.text('Ansel'), findsOneWidget);
       expect(find.text('ansel@example.com'), findsOneWidget);

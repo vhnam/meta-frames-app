@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/settings_repository.dart';
+import '../../../domain/models/models.dart';
 import '../../../domain/models/saved_server.dart';
 import '../../../providers.dart';
 import '../../core/theme.dart';
@@ -96,17 +97,7 @@ class _State extends ConsumerState<SettingsScreen> {
     return [
       if (user != null) ...[
         const DetailLabel('Account', top: 0),
-        CardList(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text(
-                user.name?.isNotEmpty == true ? user.name! : user.email,
-              ),
-              subtitle: user.name?.isNotEmpty == true ? Text(user.email) : null,
-            ),
-          ],
-        ),
+        AccountCard(user),
       ],
       if (summary != null) ...[
         DetailLabel('Sync', top: user == null ? 0 : 20),
@@ -263,6 +254,26 @@ class _State extends ConsumerState<SettingsScreen> {
     } else {
       context.go(Routes.login);
     }
+  }
+}
+
+/// The signed-in profile, in More and in Settings. It does nothing on tap.
+class AccountCard extends StatelessWidget {
+  const AccountCard(this.user, {super.key});
+  final User user;
+
+  @override
+  Widget build(BuildContext context) {
+    final named = user.name?.isNotEmpty == true;
+    return CardList(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.person_outline),
+          title: Text(named ? user.name! : user.email),
+          subtitle: named ? Text(user.email) : null,
+        ),
+      ],
+    );
   }
 }
 
@@ -423,18 +434,18 @@ class _AddServerDialogState extends State<_AddServerDialog> {
   }
 
   void _add() {
-    final valid = validDashboardUrl(_url.text);
+    final valid = validServerUrl(_url.text);
     if (valid == null) {
       setState(() => _error = 'Enter an http:// or https:// address');
       return;
     }
     for (final server in widget.saved) {
-      if (validDashboardUrl(server.url) == valid) {
+      if (validServerUrl(server.url) == valid) {
         setState(() => _error = 'Already saved as ${server.name}');
         return;
       }
     }
-    // validDashboardUrl only accepts; the stored form keeps the typed host
+    // validServerUrl only accepts; the stored form keeps the typed host
     // and port, so an active URL is not rewritten into a server change.
     Navigator.of(context)
         .pop((name: _name.text.trim(), url: normalizeBaseUrl(_url.text)));
