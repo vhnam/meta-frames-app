@@ -1,3 +1,4 @@
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -208,6 +209,11 @@ final scanImageProvider = Provider<SessionImage Function(String url)>((ref) {
   ref.onDispose(() => session.removeListener(changed));
   return (url) => SessionImage(url, client: client, headers: headers);
 });
+
+/// Builds the profile picture image. It sends no session headers; tests override it.
+final avatarImageProvider = Provider<ImageProvider Function(String url)>(
+  (_) => NetworkImage.new,
+);
 
 // Tests override these with fakes.
 final googleIdTokenSourceProvider = Provider<GoogleIdTokenSource>(

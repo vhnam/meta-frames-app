@@ -258,17 +258,34 @@ class _State extends ConsumerState<SettingsScreen> {
 }
 
 /// The signed-in profile, in More and in Settings. It does nothing on tap.
-class AccountCard extends StatelessWidget {
+class AccountCard extends ConsumerWidget {
   const AccountCard(this.user, {super.key});
   final User user;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final named = user.name?.isNotEmpty == true;
+    const icon = Icon(Icons.person_outline);
+    final url = user.avatarUrl;
     return CardList(
       children: [
         ListTile(
-          leading: const Icon(Icons.person_outline),
+          leading: url == null
+              ? icon
+              : ClipOval(
+                  child: SizedBox.square(
+                    dimension: 40,
+                    child: Image(
+                      key: ValueKey(url),
+                      image: ref.watch(avatarImageProvider)(url),
+                      fit: BoxFit.cover,
+                      excludeFromSemantics: true,
+                      frameBuilder: (_, child, frame, _) =>
+                          frame == null ? icon : child,
+                      errorBuilder: (_, _, _) => icon,
+                    ),
+                  ),
+                ),
           title: Text(named ? user.name! : user.email),
           subtitle: named ? Text(user.email) : null,
         ),

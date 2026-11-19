@@ -224,9 +224,28 @@ class User {
   User.fromJson(Map<String, dynamic> j)
     : id = j['id'],
       email = j['email'],
-      name = j['name'];
+      name = j['name'],
+      avatarUrl = _avatarUrl(j['avatarUrl']);
   final String id, email;
   final String? name;
+
+  /// The Google profile picture. Null unless it is an absolute https URL with a
+  /// host and no credentials; a bad value never fails the profile read.
+  final String? avatarUrl;
+
+  static String? _avatarUrl(Object? value) {
+    if (value is! String) return null;
+    final uri = Uri.tryParse(value);
+    if (uri == null ||
+        !uri.isAbsolute ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.host.contains('%') || // Uri percent-encodes an invalid host char
+        uri.userInfo.isNotEmpty) {
+      return null;
+    }
+    return value;
+  }
 }
 
 class Camera {
