@@ -76,7 +76,7 @@ For an Android phone, enable USB debugging and connect it with a cable. Forward 
 
 ```bash
 adb -s <device-id> reverse tcp:8080 tcp:8080
-flutter run -d <device-id> --dart-define-from-file=google_sign_in.json
+flutter run -d <device-id> --dart-define-from-file=env.json
 ```
 
 In a debug build, double-tap the copyright line at the bottom of the login screen to open Settings, and set the server URL to `http://127.0.0.1:8080`. Keep the cable connected. If the connection drops, run the `adb reverse` command again.
@@ -84,7 +84,7 @@ In a debug build, double-tap the copyright line at the bottom of the login scree
 For an iPhone, select your development team under **Signing & Capabilities** in `ios/Runner.xcworkspace`, then run the app:
 
 ```bash
-flutter run -d <device-id> --dart-define-from-file=google_sign_in.json
+flutter run -d <device-id> --dart-define-from-file=env.json
 ```
 
 An iPhone cannot use `adb reverse`. Set the server URL to an address that the phone can reach, such as your computer's address on the same network.
@@ -114,7 +114,7 @@ flutter build appbundle --dart-define=API_BASE_URL=https://api.example.com
 flutter build ipa --dart-define=API_BASE_URL=https://api.example.com
 ```
 
-Add `--dart-define-from-file=google_sign_in.json` to each command when you need Google sign-in. It is a separate argument.
+Add `--dart-define-from-file=env.json` to each command when you need Google sign-in. It is a separate argument.
 
 To install a release build on a connected Android device without Google Play, build an APK and install it over the existing app:
 
@@ -123,7 +123,7 @@ flutter build apk --release --dart-define=API_BASE_URL=https://api.example.com
 adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-Add `--dart-define-from-file=google_sign_in.json` to the build command when you need Google sign-in.
+Add `--dart-define-from-file=env.json` to the build command when you need Google sign-in.
 
 `install -r` keeps the app's data. The update works only when the installed app has the same application ID, a compatible signing certificate, and a version code that is not higher than this build. This APK is signed with the debug key of the computer that builds it, and Google Play does not accept it. If `adb` reports a signature or version mismatch, do not uninstall the app: uninstalling deletes held offline work.
 
@@ -167,14 +167,14 @@ The app uses the device's Google account picker and sends the resulting ID token
 2. Create your local config files. Git ignores both of them:
 
    ```bash
-   cp google_sign_in.example.json google_sign_in.json
+   cp env.example.json env.json
    cp ios/Flutter/GoogleSignIn.example.xcconfig ios/Flutter/GoogleSignIn.xcconfig
    ```
 
-   Fill in `google_sign_in.json`. The app reads `GOOGLE_IOS_CLIENT_ID`. `GOOGLE_ANDROID_CLIENT_ID` is for reference only: Android finds its client by package name and SHA-1. The web client id is not stored here: the app reads it from the server's `GET /auth/google/config` when the user taps the button.
+   Fill in `env.json`. The app reads `GOOGLE_IOS_CLIENT_ID`. `GOOGLE_ANDROID_CLIENT_ID` is for reference only: Android finds its client by package name and SHA-1. The web client id is not stored here: the app reads it from the server's `GET /auth/google/config` when the user taps the button.
 3. Set `GOOGLE_REVERSED_CLIENT_ID` in `ios/Flutter/GoogleSignIn.xcconfig` to the iOS client id with its parts reversed, such as `com.googleusercontent.apps.1234-abcd`.
 4. Set the server's `GOOGLE_MOBILE_CLIENT_IDS` to the iOS client id.
-5. Build with `--dart-define-from-file=google_sign_in.json`. The VS Code launch configurations already pass it. A profile or release build also needs `--dart-define=API_BASE_URL=...`.
+5. Build with `--dart-define-from-file=env.json`. The VS Code launch configurations already pass it. A profile or release build also needs `--dart-define=API_BASE_URL=...`.
 
 On an Android emulator, Google sign-in needs a **Google Play** system image with updated Play services. A `google_apis` image can fail with `No credentials available`.
 

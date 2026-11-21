@@ -20,6 +20,6 @@ scan:
   skip-files:
     - .env
     - .env.*
-    - google_sign_in.json
+    - env.json
     - ios/Flutter/GoogleSignIn.xcconfig
     - android/local.properties
