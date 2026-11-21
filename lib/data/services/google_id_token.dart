@@ -18,7 +18,7 @@ abstract class GoogleIdTokenSource {
   Future<void> signOut();
 }
 
-/// The iOS client id comes from `google_sign_in.json` through
+/// The iOS client id comes from `env.json` through
 /// `--dart-define-from-file`. See "Sign in with Google" in the README.
 class NativeGoogleIdTokenSource implements GoogleIdTokenSource {
   static const _iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');

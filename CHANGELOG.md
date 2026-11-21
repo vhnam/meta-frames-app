@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scan images load through the same server check as the API and refuse a redirect to another origin in a profile or release build.
 - In a debug build, Server connection opens from the Connection group in Settings, on a screen of its own. It lists the saved servers in one card, with an In use mark. + Add in the top bar (+ Server when no server is saved) opens a dialog for the name and address. Save is under the saved servers. A keep-or-discard question closes and changes nothing when the session ends or changes while it is open. A failed Save shows an error and stays on the screen.
 - More shows your profile at the top, then Gear, Film stocks and Labs under Library, then Settings and Help under App. Your profile, sync status and Log out are in Settings. Help opens the help page inside the app, under a Help title bar. Links to other sites, email and phone links do not open there and show a notice. The Settings row in More shows when a change needs your attention. When Sync status cannot read the changes or drafts on this phone, it shows a notice in place of that list, not an empty list, and Sync now reads them again.
+- The local Google sign-in config file is now `env.json` (template: `env.example.json`), not `google_sign_in.json`. Rename your local copy and pass `--dart-define-from-file=env.json`.
+- Internal: `CLAUDE.md` contains only `@AGENTS.md`, and the GitNexus rules live in `AGENTS.md`. The impact check no longer applies to comment, docs, and formatting edits.
 
 ### Removed
 
