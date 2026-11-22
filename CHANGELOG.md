@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The app has a new slate and emerald look in light and dark mode. Text sizes follow the new type scale, corners are rounder, and filled and outlined buttons have a minimum height of 48. The fonts are unchanged.
 - The account card in More and Settings shows the Google profile picture when the account has one.
 - Appearance in Settings has Theme, which opens a choice of System, Light or Dark, and Language, which opens a choice with English. Tiếng Việt shows there but is not available yet.
 - Log out in Settings is a separate button at the bottom.
