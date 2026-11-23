@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The app imports the `material_ui` package instead of `flutter/material.dart`.
+- Notes in the film stock and processing job screens use a Markdown style sheet built from the app theme. It styles paragraphs, links, headings 1 to 3, bold, italic, code, quotes and list bullets.
 - The app has a new slate and emerald look in light and dark mode. Text sizes follow the new type scale, corners are rounder, and filled and outlined buttons have a minimum height of 48. The fonts are unchanged.
 - The account card in More and Settings shows the Google profile picture when the account has one.
 - Appearance in Settings has Theme, which opens a choice of System, Light or Dark, and Language, which opens a choice with English. Tiếng Việt shows there but is not available yet.

@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
@@ -146,15 +145,7 @@ class JobNotes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return MarkdownBody(
-      data: notes,
-      // A line break typed in the form stays a line break.
-      softLineBreak: true,
-      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-        p: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface),
-      ),
-    );
+    return NotesMarkdown(notes);
   }
 }
 

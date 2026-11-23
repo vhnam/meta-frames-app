@@ -1,9 +1,9 @@
 // GENERATED FILE. DO NOT EDIT.
 // Source: meta-frames-design-tokens/tokens/tokens.json (not in Git), sha256 04e51a389123747a5b4dbfbe13e6f47d7083e28c4aaf02469a1fc46b1217baa9
-// Generator: sha256 20c4c53347e0d85746a374a0cad35fb2b68d96f1abccbd71807aa503c053b52e of package.json, pnpm-lock.yaml, src/build.ts, src/hooks.ts, tokens/bindings.json (meta-frames-design-tokens/, sorted by path)
+// Generator: sha256 8fa663d20413784b122609c50741f6233612018badebae05dd3f5fddfa07f45f of package.json, pnpm-lock.yaml, src/build.ts, src/hooks.ts, tokens/bindings.json (meta-frames-design-tokens/, sorted by path)
 // Regenerate: node meta-frames-design-tokens/src/build.ts. Verify: node meta-frames-design-tokens/src/build.ts --check
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class DesignTokens {
   static const double semanticSpaceInsetXs = 4.0;

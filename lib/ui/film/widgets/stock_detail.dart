@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
@@ -164,8 +163,7 @@ class _NotesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       child: Column(
@@ -176,18 +174,7 @@ class _NotesRow extends StatelessWidget {
             style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
-          MarkdownBody(
-            data: notes,
-            // A line break typed in the form stays a line break.
-            softLineBreak: true,
-            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-              p: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-          ),
+          NotesMarkdown(notes, fontWeight: FontWeight.w500),
         ],
       ),
     );
