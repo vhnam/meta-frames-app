@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
-/// Vintage darkroom look: flat paper surfaces, hairline rules, square corners,
-/// Space Grotesk headings, Geist Mono body, JetBrains Mono for labels and data.
+import 'design_tokens.g.dart';
+
+/// Slate and emerald look from the design tokens: hairline rules, Space Grotesk
+/// headings, Geist Mono body, JetBrains Mono for labels and data.
 
 /// Corner radius for surfaces (cards, inputs, buttons, sheets).
-const kRadius = 4.0;
+const kRadius = DesignTokens.semanticRadiusSurface;
 
 /// Corner radius for stamps (badges, tags, chips).
 const kStampRadius = 2.0;
@@ -14,88 +16,15 @@ const kHairline = 1.0;
 
 BorderRadius get kCorners => BorderRadius.circular(kRadius);
 
-// Tokens converted from the oklch theme (zinc neutrals + orange primary).
-const _light = ColorScheme(
-  brightness: Brightness.light,
-  primary: Color(0xFFCA3500),
-  onPrimary: Color(0xFFFFF7ED),
-  primaryContainer: Color(0xFFFFEDD5),
-  onPrimaryContainer: Color(0xFFAA2C00),
-  secondary: Color(0xFFF4F4F5),
-  onSecondary: Color(0xFF18181B),
-  secondaryContainer: Color(0xFFF4F4F5),
-  onSecondaryContainer: Color(0xFF18181B),
-  tertiary: Color(0xFF52525C),
-  onTertiary: Color(0xFFFAFAFA),
-  tertiaryContainer: Color(0xFFE4E4E7),
-  onTertiaryContainer: Color(0xFF27272A),
-  error: Color(0xFFE7000B),
-  onError: Color(0xFFFFFFFF),
-  errorContainer: Color(0xFFFEE2E2),
-  onErrorContainer: Color(0xFF9F0712),
-  surface: Color(0xFFFFFFFF),
-  onSurface: Color(0xFF09090B),
-  onSurfaceVariant: Color(0xFF71717B),
-  outline: Color(0xFF9F9FA9),
-  outlineVariant: Color(0xFFC4C4CA),
-  surfaceContainerLowest: Color(0xFFFFFFFF),
-  surfaceContainerLow: Color(0xFFFFFFFF),
-  surfaceContainer: Color(0xFFF4F4F5),
-  surfaceContainerHigh: Color(0xFFF4F4F5),
-  surfaceContainerHighest: Color(0xFFE4E4E7),
-  inverseSurface: Color(0xFF18181B),
-  onInverseSurface: Color(0xFFFAFAFA),
-  inversePrimary: Color(0xFFFF6900),
-  shadow: Color(0xFF000000),
-  scrim: Color(0xFF000000),
-);
-
-const _dark = ColorScheme(
-  brightness: Brightness.dark,
-  // Light orange fill with dark text: 9.4:1. As text on cards: 8.1:1.
-  primary: Color(0xFFFFAA73),
-  onPrimary: Color(0xFF25160F),
-  primaryContainer: Color(0xFF3A1405),
-  // Same light orange for text, icons and selected-chip borders.
-  onPrimaryContainer: Color(0xFFFFAA73),
-  secondary: Color(0xFF30323A),
-  onSecondary: Color(0xFFF1F1F3),
-  secondaryContainer: Color(0xFF30323A),
-  onSecondaryContainer: Color(0xFFF1F1F3),
-  tertiary: Color(0xFFD4D4D8),
-  onTertiary: Color(0xFF17181C),
-  tertiaryContainer: Color(0xFF3F3F46),
-  onTertiaryContainer: Color(0xFFE4E4E7),
-  error: Color(0xFFFF6467),
-  onError: Color(0xFF17181C),
-  errorContainer: Color(0xFF4A1416),
-  onErrorContainer: Color(0xFFFFB3B5),
-  // Screen background; primary text 15.7:1.
-  surface: Color(0xFF17181C),
-  onSurface: Color(0xFFF1F1F3),
-  // Secondary text: 8.8:1 on cards.
-  onSurfaceVariant: Color(0xFFC4C5CF),
-  outline: Color(0xFF71717B),
-  // Stronger than oklch(1 0 0 / 10%) so card borders read on dark surfaces.
-  outlineVariant: Color(0xFF3A3C45),
-  surfaceContainerLowest: Color(0xFF17181C),
-  // Card, dialog and menu background.
-  surfaceContainerLow: Color(0xFF24262D),
-  surfaceContainer: Color(0xFF2A2C33),
-  surfaceContainerHigh: Color(0xFF30323A),
-  surfaceContainerHighest: Color(0xFF30323A),
-  inverseSurface: Color(0xFFF1F1F3),
-  onInverseSurface: Color(0xFF24262D),
-  inversePrimary: Color(0xFFCA3500),
-  shadow: Color(0xFF000000),
-  scrim: Color(0xFF000000),
-);
+/// Corner radius for controls (buttons, inputs, segments, nav indicator).
+BorderRadius get _controlCorners =>
+    BorderRadius.circular(DesignTokens.semanticRadiusControl);
 
 // Bundled variable fonts (assets/fonts, declared in pubspec.yaml); nothing is
 // fetched at runtime.
-const _heading = 'SpaceGrotesk';
-const _mono = 'JetBrainsMono';
-const _body = 'GeistMono';
+const _heading = DesignTokens.semanticTextDisplayFontFamily;
+const _mono = DesignTokens.semanticTextLabelFontFamily;
+const _body = DesignTokens.semanticTextBodyFontFamily;
 
 /// Heading face (Space Grotesk).
 TextStyle headingStyle({
@@ -115,7 +44,7 @@ TextStyle headingStyle({
 
 /// Small uppercase-style label / data face (JetBrains Mono).
 TextStyle monoStyle({
-  double fontSize = 11,
+  double fontSize = DesignTokens.semanticTextCaptionFontSize,
   FontWeight fontWeight = FontWeight.w500,
   double letterSpacing = 1.0,
   double? height,
@@ -140,50 +69,150 @@ const _transitions = PageTransitionsTheme(
 TextTheme _textTheme(ColorScheme cs) {
   final base = ThemeData(brightness: cs.brightness).textTheme
       .apply(bodyColor: cs.onSurface, displayColor: cs.onSurface);
-  TextStyle? b(TextStyle? s) => s?.copyWith(fontFamily: _body);
-  TextStyle? h(TextStyle? s) => s?.copyWith(
-    fontFamily: _heading,
-    fontWeight: FontWeight.w600,
-    letterSpacing: -0.3,
+  TextStyle? role(
+    TextStyle? style,
+    String family,
+    double size,
+    double height,
+    FontWeight weight,
+    double? letterSpacing,
+  ) => style?.copyWith(
+    fontFamily: family,
+    fontSize: size,
+    height: height,
+    fontWeight: weight,
+    letterSpacing: letterSpacing,
   );
-  TextStyle? m(TextStyle? s) =>
-      s?.copyWith(fontFamily: _mono, letterSpacing: 0.8);
+  TextStyle? display(TextStyle? style) => role(
+    style,
+    _heading,
+    DesignTokens.semanticTextDisplayFontSize,
+    DesignTokens.semanticTextDisplayLineHeight,
+    DesignTokens.semanticTextDisplayFontWeight,
+    -0.3,
+  );
+  TextStyle? heading1(TextStyle? style) => role(
+    style,
+    _heading,
+    DesignTokens.semanticTextHeading1FontSize,
+    DesignTokens.semanticTextHeading1LineHeight,
+    DesignTokens.semanticTextHeading1FontWeight,
+    -0.3,
+  );
+  TextStyle? heading2(TextStyle? style) => role(
+    style,
+    _heading,
+    DesignTokens.semanticTextHeading2FontSize,
+    DesignTokens.semanticTextHeading2LineHeight,
+    DesignTokens.semanticTextHeading2FontWeight,
+    -0.3,
+  );
+  TextStyle? heading3(TextStyle? style) => role(
+    style,
+    _heading,
+    DesignTokens.semanticTextHeading3FontSize,
+    DesignTokens.semanticTextHeading3LineHeight,
+    DesignTokens.semanticTextHeading3FontWeight,
+    -0.3,
+  );
+  TextStyle? body(TextStyle? style) => role(
+    style,
+    _body,
+    DesignTokens.semanticTextBodyFontSize,
+    DesignTokens.semanticTextBodyLineHeight,
+    DesignTokens.semanticTextBodyFontWeight,
+    null, // Flutter keeps the Material body spacing (0.5, 0.25, 0.4)
+  );
+  TextStyle? bodySm(TextStyle? style) => role(
+    style,
+    _body,
+    DesignTokens.semanticTextBodySmFontSize,
+    DesignTokens.semanticTextBodySmLineHeight,
+    DesignTokens.semanticTextBodySmFontWeight,
+    null, // Flutter keeps the Material body spacing (0.5, 0.25, 0.4)
+  );
+  TextStyle? caption(TextStyle? style, String family) => role(
+    style,
+    family,
+    DesignTokens.semanticTextCaptionFontSize,
+    DesignTokens.semanticTextCaptionLineHeight,
+    DesignTokens.semanticTextCaptionFontWeight,
+    family == _mono ? 0.8 : null,
+  );
+  TextStyle? label(TextStyle? style) => role(
+    style,
+    _mono,
+    DesignTokens.semanticTextLabelFontSize,
+    DesignTokens.semanticTextLabelLineHeight,
+    DesignTokens.semanticTextLabelFontWeight,
+    0.8,
+  );
   return TextTheme(
-    displayLarge: h(base.displayLarge),
-    displayMedium: h(base.displayMedium),
-    displaySmall: h(base.displaySmall),
-    headlineLarge: h(base.headlineLarge),
-    headlineMedium: h(base.headlineMedium),
-    headlineSmall: h(base.headlineSmall),
-    titleLarge: h(base.titleLarge),
-    titleMedium: h(base.titleMedium),
-    titleSmall: m(base.titleSmall),
-    bodyLarge: b(base.bodyLarge),
-    bodyMedium: b(base.bodyMedium),
-    bodySmall: b(base.bodySmall),
-    labelLarge: m(base.labelLarge),
-    labelMedium: m(base.labelMedium),
-    labelSmall: m(base.labelSmall),
+    displayLarge: display(base.displayLarge),
+    displayMedium: display(base.displayMedium),
+    displaySmall: display(base.displaySmall),
+    headlineLarge: heading1(base.headlineLarge),
+    headlineMedium: heading1(base.headlineMedium),
+    headlineSmall: heading1(base.headlineSmall),
+    titleLarge: heading2(base.titleLarge),
+    titleMedium: heading3(base.titleMedium),
+    titleSmall: label(base.titleSmall),
+    bodyLarge: body(base.bodyLarge),
+    bodyMedium: bodySm(base.bodyMedium),
+    bodySmall: caption(base.bodySmall, _body),
+    labelLarge: label(base.labelLarge),
+    labelMedium: label(base.labelMedium),
+    labelSmall: caption(base.labelSmall, _mono),
   );
 }
 
 ThemeData buildTheme(Brightness brightness) {
-  final cs = brightness == Brightness.light ? _light : _dark;
+  final light = brightness == Brightness.light;
+  final cs = light
+      ? DesignTokensLight.colorScheme
+      : DesignTokensDark.colorScheme;
   final text = _textTheme(cs);
   final rule = BorderSide(color: cs.outlineVariant, width: kHairline);
-  final shape = RoundedRectangleBorder(borderRadius: kCorners);
+  final shape = RoundedRectangleBorder(borderRadius: _controlCorners);
   final stamp = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(kStampRadius),
   );
-  final dark = brightness == Brightness.dark;
-  final navBg = dark ? cs.surfaceContainerLow : const Color(0xFF18181B);
-  const navFg = Color(0xFFFAFAFA);
-  const navFgMuted = Color(0xFFA1A1AA);
   final buttonText = monoStyle(
-    fontSize: 12.5,
-    fontWeight: FontWeight.w600,
+    fontSize: DesignTokens.componentButtonFontSize,
+    fontWeight: DesignTokens.componentButtonFontWeight,
     letterSpacing: 0.6,
   );
+  const buttonSize = Size(0, DesignTokens.componentButtonHeightLg);
+  const buttonPadding = EdgeInsets.symmetric(
+    horizontal: DesignTokens.componentButtonPaddingX,
+  );
+  final disabled = cs.onSurface.withValues(
+    alpha: DesignTokens.semanticOpacityDisabled,
+  );
+  final navBg = light
+      ? DesignTokensLight.componentNavBg
+      : DesignTokensDark.componentNavBg;
+  final navIndicator = light
+      ? DesignTokensLight.componentNavIndicator
+      : DesignTokensDark.componentNavIndicator;
+  final navFg = light
+      ? DesignTokensLight.componentNavItemFg
+      : DesignTokensDark.componentNavItemFg;
+  final navFgActive = light
+      ? DesignTokensLight.componentNavItemFgActive
+      : DesignTokensDark.componentNavItemFgActive;
+  final onAccent = light
+      ? DesignTokensLight.semanticColorFgOnAccent
+      : DesignTokensDark.semanticColorFgOnAccent;
+  final cardBg = light
+      ? DesignTokensLight.componentCardBg
+      : DesignTokensDark.componentCardBg;
+  final dialogBg = light
+      ? DesignTokensLight.componentDialogBg
+      : DesignTokensDark.componentDialogBg;
+  final inputFocus = light
+      ? DesignTokensLight.componentInputBorderFocus
+      : DesignTokensDark.componentInputBorderFocus;
 
   return ThemeData(
     useMaterial3: true,
@@ -209,13 +238,13 @@ ThemeData buildTheme(Brightness brightness) {
       centerTitle: false,
       shape: Border(bottom: rule),
       titleTextStyle: headingStyle(
-        fontSize: 19,
+        fontSize: DesignTokens.semanticTextHeading2FontSize,
         letterSpacing: -0.2,
         color: cs.onSurface,
       ),
     ),
     cardTheme: CardThemeData(
-      color: cs.surfaceContainerLow,
+      color: cardBg,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -226,27 +255,26 @@ ThemeData buildTheme(Brightness brightness) {
       subtitleTextStyle: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      // Dark "film canister" bar: stands apart from the page in both modes.
       backgroundColor: navBg,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       height: 64,
-      indicatorColor: cs.primary,
+      indicatorColor: navIndicator,
       indicatorShape: shape,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => monoStyle(
-          fontSize: 10.5,
+          fontSize: DesignTokens.semanticTextCaptionFontSize,
           fontWeight: s.contains(WidgetState.selected)
               ? FontWeight.w700
               : FontWeight.w500,
           letterSpacing: 0.8,
-          color: s.contains(WidgetState.selected) ? navFg : navFgMuted,
+          color: s.contains(WidgetState.selected) ? navFgActive : navFg,
         ),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
         (s) => IconThemeData(
           size: 22,
-          color: s.contains(WidgetState.selected) ? cs.onPrimary : navFgMuted,
+          color: s.contains(WidgetState.selected) ? onAccent : navFg,
         ),
       ),
     ),
@@ -255,7 +283,8 @@ ThemeData buildTheme(Brightness brightness) {
         shape: shape,
         textStyle: buttonText,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: buttonPadding,
+        minimumSize: buttonSize,
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -263,7 +292,8 @@ ThemeData buildTheme(Brightness brightness) {
         shape: shape,
         textStyle: buttonText,
         side: BorderSide(color: cs.outline, width: kHairline),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: buttonPadding,
+        minimumSize: buttonSize,
       ),
     ),
     textButtonTheme: TextButtonThemeData(
@@ -272,8 +302,8 @@ ThemeData buildTheme(Brightness brightness) {
         textStyle: buttonText,
         foregroundColor: cs.primary,
         iconColor: cs.primary,
-        disabledForegroundColor: cs.onSurface.withValues(alpha: 0.38),
-        disabledIconColor: cs.onSurface.withValues(alpha: 0.38),
+        disabledForegroundColor: disabled,
+        disabledIconColor: disabled,
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -288,7 +318,10 @@ ThemeData buildTheme(Brightness brightness) {
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: SegmentedButton.styleFrom(
         shape: shape,
-        textStyle: monoStyle(fontSize: 12, letterSpacing: 0.4),
+        textStyle: monoStyle(
+          fontSize: DesignTokens.semanticTextCaptionFontSize,
+          letterSpacing: 0.4,
+        ),
         side: BorderSide(color: cs.outline, width: kHairline),
         selectedBackgroundColor: cs.primaryContainer,
         selectedForegroundColor: cs.onPrimaryContainer,
@@ -297,51 +330,63 @@ ThemeData buildTheme(Brightness brightness) {
     chipTheme: ChipThemeData(
       shape: stamp,
       side: BorderSide(color: cs.outline, width: kHairline),
-      labelStyle: monoStyle(fontSize: 11.5, letterSpacing: 0.6),
+      labelStyle: monoStyle(
+        fontSize: DesignTokens.semanticTextCaptionFontSize,
+        letterSpacing: 0.6,
+      ),
     ),
     inputDecorationTheme: InputDecorationThemeData(
       floatingLabelBehavior: FloatingLabelBehavior.always,
       labelStyle: monoStyle(
-        fontSize: 13,
+        fontSize: DesignTokens.semanticTextLabelFontSize,
         letterSpacing: 0.4,
         color: cs.onSurfaceVariant,
       ),
       border: OutlineInputBorder(
-        borderRadius: kCorners,
+        borderRadius: _controlCorners,
         borderSide: BorderSide(color: cs.outline, width: kHairline),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: kCorners,
+        borderRadius: _controlCorners,
         borderSide: BorderSide(color: cs.outline, width: kHairline),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: kCorners,
-        borderSide: BorderSide(color: cs.primary, width: 1.5),
+        borderRadius: _controlCorners,
+        borderSide: BorderSide(
+          color: inputFocus,
+          width: DesignTokens.componentFocusRingWidth,
+        ),
       ),
     ),
     tabBarTheme: TabBarThemeData(
       labelColor: cs.onSurface,
       unselectedLabelColor: cs.onSurfaceVariant,
       labelStyle: monoStyle(
-        fontSize: 11.5,
+        fontSize: DesignTokens.semanticTextCaptionFontSize,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.2,
       ),
-      unselectedLabelStyle: monoStyle(fontSize: 11.5, letterSpacing: 1.2),
+      unselectedLabelStyle: monoStyle(
+        fontSize: DesignTokens.semanticTextCaptionFontSize,
+        letterSpacing: 1.2,
+      ),
       indicatorColor: cs.primary,
       indicatorSize: TabBarIndicatorSize.label,
       dividerColor: cs.outlineVariant,
       dividerHeight: kHairline,
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: cs.surfaceContainerLow,
+      backgroundColor: dialogBg,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: kCorners,
         side: BorderSide(color: cs.outline, width: kHairline),
       ),
-      titleTextStyle: headingStyle(fontSize: 19, color: cs.onSurface),
+      titleTextStyle: headingStyle(
+        fontSize: DesignTokens.semanticTextHeading2FontSize,
+        color: cs.onSurface,
+      ),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: cs.surface,

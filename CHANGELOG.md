@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-24
+
 ### Added
 
 - Trivy security scan. `trivy fs .` checks `pubspec.lock` and the iOS `Package.resolved` files for known vulnerabilities and the repository for secrets and misconfigurations (`trivy.yaml`). After `git config core.hooksPath .githooks`, the pre-push hook runs it and blocks the push on a HIGH or CRITICAL finding.
@@ -16,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The app imports the `material_ui` package instead of `flutter/material.dart`.
+- Notes in the film stock and processing job screens use a Markdown style sheet built from the app theme. It styles paragraphs, links, headings 1 to 3, bold, italic, code, quotes and list bullets.
+- The app has a new slate and emerald look in light and dark mode. Text sizes follow the new type scale, corners are rounder, and filled and outlined buttons have a minimum height of 48. The fonts are unchanged.
 - The account card in More and Settings shows the Google profile picture when the account has one.
 - Appearance in Settings has Theme, which opens a choice of System, Light or Dark, and Language, which opens a choice with English. Tiếng Việt shows there but is not available yet.
 - Log out in Settings is a separate button at the bottom.
@@ -147,7 +152,8 @@ These workflows left the phone. The data stays on the server. Use the dashboard.
 - Camera, lens, roll, and film stock details with one card-based layout, an Edit button, and action rows for activate, deactivate, and delete.
 - Failed API requests print a curl command and the response in debug builds.
 
-[Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/vhnam/meta-frames-app/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/vhnam/meta-frames-app/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/vhnam/meta-frames-app/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/vhnam/meta-frames-app/releases/tag/v1.0.0

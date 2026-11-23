@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../data/services/api_client.dart';
 import '../../../domain/models/models.dart';
@@ -620,3 +621,40 @@ InputDecoration deco(String label, {String? hint}) => InputDecoration(
   hintText: hint,
   border: const OutlineInputBorder(),
 );
+
+/// Markdown notes. flutter_markdown_plus builds its sheet from the SDK
+/// ThemeData, which is not the material_ui one, so the sheet is built from
+/// the app theme here.
+class NotesMarkdown extends StatelessWidget {
+  const NotesMarkdown(this.notes, {this.fontWeight, super.key});
+  final String notes;
+  final FontWeight? fontWeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final cs = theme.colorScheme;
+    return MarkdownBody(
+      data: notes,
+      // A line break typed in the form stays a line break.
+      softLineBreak: true,
+      styleSheet: MarkdownStyleSheet(
+        p: TextStyle(fontSize: 14, fontWeight: fontWeight, color: cs.onSurface),
+        a: TextStyle(color: cs.primary),
+        h1: text.headlineSmall,
+        h2: text.titleLarge,
+        h3: text.titleMedium,
+        strong: const TextStyle(fontWeight: FontWeight.bold),
+        em: const TextStyle(fontStyle: FontStyle.italic),
+        code: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 13,
+          color: cs.onSurface,
+        ),
+        blockquote: TextStyle(color: cs.onSurfaceVariant),
+        listBullet: TextStyle(fontSize: 14, color: cs.onSurface),
+      ),
+    );
+  }
+}

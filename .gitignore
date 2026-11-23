@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+devtools_options.yaml
 
 # Symbolication related
 app.*.symbols
@@ -61,3 +62,5 @@ skills-lock.json
 # Google OAuth client ids. Copy the *.example files to create them.
 /env.json
 /ios/Flutter/GoogleSignIn.xcconfig
+
+

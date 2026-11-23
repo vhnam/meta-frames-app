@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -60,6 +60,8 @@ Future<_Rolls> _pump(WidgetTester tester, {LocalStore? store}) async {
   );
   router.push('/frame');
   await tester.pump();
+  // The page slides in; a spinner is on screen, so pumpAndSettle would hang.
+  await tester.pump(const Duration(seconds: 1));
   return rolls;
 }
 
