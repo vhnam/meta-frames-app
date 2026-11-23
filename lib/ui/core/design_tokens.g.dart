@@ -1,6 +1,6 @@
 // GENERATED FILE. DO NOT EDIT.
 // Source: meta-frames-design-tokens/v2/tokens.json (not in Git), sha256 04e51a389123747a5b4dbfbe13e6f47d7083e28c4aaf02469a1fc46b1217baa9
-// Generator: sha256 5e0a7c04cf1be2ed8518a8a80f945404e3c69d333376d5a68f214353727c7ef1 of .node-version, bindings.json, build.mjs, build.ts, hooks.ts, package-lock.json, package.json (meta-frames-design-tokens/, sorted by path)
+// Generator: sha256 c76238e0e30df0b837cf484015b0f5c4d8328bf810d0b1ba295406dbc332f04a of .node-version, bindings.json, build.mjs, build.ts, hooks.ts, package-lock.json, package.json (meta-frames-design-tokens/, sorted by path)
 // Regenerate: node meta-frames-design-tokens/build.mjs. Verify: node meta-frames-design-tokens/build.mjs --check
 
 import 'package:flutter/material.dart';
