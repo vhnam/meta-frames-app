@@ -49,6 +49,7 @@ dependencies:
   path: ^1.9.1
   webview_flutter: ^4.14.1
 
+  material_ui: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
