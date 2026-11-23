@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-24
+
 ### Added
 
 - Trivy security scan. `trivy fs .` checks `pubspec.lock` and the iOS `Package.resolved` files for known vulnerabilities and the repository for secrets and misconfigurations (`trivy.yaml`). After `git config core.hooksPath .githooks`, the pre-push hook runs it and blocks the push on a HIGH or CRITICAL finding.
@@ -150,7 +152,8 @@ These workflows left the phone. The data stays on the server. Use the dashboard.
 - Camera, lens, roll, and film stock details with one card-based layout, an Edit button, and action rows for activate, deactivate, and delete.
 - Failed API requests print a curl command and the response in debug builds.
 
-[Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/vhnam/meta-frames-app/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/vhnam/meta-frames-app/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/vhnam/meta-frames-app/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/vhnam/meta-frames-app/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/vhnam/meta-frames-app/releases/tag/v1.0.0
