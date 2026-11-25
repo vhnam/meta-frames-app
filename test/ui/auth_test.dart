@@ -43,6 +43,13 @@ class _FakeAuth implements AuthRepository {
     if (password == 'offline') {
       throw ApiException(0, 'network', 'Cannot reach the server.');
     }
+    if (password == 'locked') {
+      throw ApiException(
+        429,
+        'account_locked',
+        'Too many attempts. Try later.',
+      );
+    }
     if (password != 'right') {
       throw ApiException(401, 'invalid_credentials', 'Invalid Credentials');
     }
@@ -80,6 +87,13 @@ class _FakeAuth implements AuthRepository {
     required String password,
     String? name,
   }) async {
+    if (email == 'taken@example.com') {
+      throw ApiException(
+        409,
+        'email_taken',
+        'An account with this email already exists.',
+      );
+    }
     registeredName = name;
     await session.setToken('token');
   }
@@ -270,6 +284,43 @@ void main() {
       expect(find.text('Server settings'), findsNothing);
       expect(app.location, Routes.login);
     });
+
+    testWidgets(
+      'a locked account shows the server message and stays signed out',
+      (tester) async {
+        final app = await _pumpApp(tester);
+        await _enter(tester, 'you@example.com', 'a@b.co');
+        await _enter(tester, 'Enter your password', 'locked');
+        await _tapAndSettle(tester, find.text('Log in'));
+        expect(find.text('Too many attempts. Try later.'), findsOneWidget);
+        expect(find.text('Server settings'), findsNothing);
+        expect(app.session.signedIn, isFalse);
+        expect(app.location, Routes.login);
+      },
+    );
+
+    testWidgets(
+      'registering a taken email shows the server message and stays signed out',
+      (tester) async {
+        final app = await _pumpApp(tester);
+        await _tapAndSettle(
+          tester,
+          find.text('New to the darkroom? Create an account'),
+        );
+        await _enter(tester, 'e.g. Ansel Adams', 'Ansel');
+        await _enter(tester, 'you@example.com', 'taken@example.com');
+        await _enter(tester, 'At least 8 characters', 'Aaaaaaa1!');
+        await _enter(tester, 'Repeat the password', 'Aaaaaaa1!');
+        await _tapAndSettle(tester, find.text('Create account'));
+        expect(
+          find.text('An account with this email already exists.'),
+          findsOneWidget,
+        );
+        expect(app.auth.registeredName, isNull);
+        expect(app.session.signedIn, isFalse);
+        expect(app.location, Routes.register);
+      },
+    );
 
     testWidgets('a correct login opens the app', (tester) async {
       final app = await _pumpApp(tester);
