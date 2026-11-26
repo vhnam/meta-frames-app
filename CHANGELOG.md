@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - When the server requires a verified email, creating an account shows the server message and opens the login screen instead of signing in.
+- Roll status, film process and lab step colors now come from the design tokens and match the dashboard.
 
 ## [3.0.0] - 2026-11-24
 

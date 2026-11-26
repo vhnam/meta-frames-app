@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/models.dart';
 import '../../../providers.dart';
+import '../../core/design_tokens.g.dart';
 import '../../core/widgets/cards.dart';
 import '../../core/widgets/common.dart';
 import '../view_models/job_steps.dart';
@@ -158,8 +159,14 @@ class _StepRow extends StatelessWidget {
   Color _tone(ColorScheme cs) {
     final dark = cs.brightness == Brightness.dark;
     return switch (step.tone) {
-      JobStepTone.done => dark ? Colors.green.shade300 : Colors.green.shade800,
-      JobStepTone.late => dark ? Colors.amber.shade300 : Colors.amber.shade900,
+      JobStepTone.done =>
+        dark
+            ? DesignTokensDark.semanticColorStatusSuccessFg
+            : DesignTokensLight.semanticColorStatusSuccessFg,
+      JobStepTone.late =>
+        dark
+            ? DesignTokensDark.semanticColorStatusWarningFg
+            : DesignTokensLight.semanticColorStatusWarningFg,
       JobStepTone.overdue => cs.error,
       JobStepTone.due => cs.onSurface,
       JobStepTone.pending => cs.onSurfaceVariant,
