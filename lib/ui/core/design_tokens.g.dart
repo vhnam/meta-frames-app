@@ -1,5 +1,5 @@
 // GENERATED FILE. DO NOT EDIT.
-// Source: meta-frames-design-tokens/tokens/tokens.json (not in Git), sha256 04e51a389123747a5b4dbfbe13e6f47d7083e28c4aaf02469a1fc46b1217baa9
+// Source: meta-frames-design-tokens/tokens/tokens.json (not in Git), sha256 0091b2da032f6b25b135c2472e881ee57dbcfd808775e8052188af962a105cf8
 // Generator: sha256 225f8f17d3599819963ea2915e0ed12faa7158e0082927ea4da1b399cf7cd521 of package.json, pnpm-lock.yaml, src/build.ts, src/hooks.ts, tokens/bindings.json (meta-frames-design-tokens/, sorted by path)
 // Regenerate: node meta-frames-design-tokens/src/build.ts. Verify: node meta-frames-design-tokens/src/build.ts --check
 
@@ -147,6 +147,28 @@ abstract final class DesignTokensLight {
   static const Color semanticColorChart3 = Color(0xFFF59E0B);
   static const Color semanticColorChart4 = Color(0xFF0284C7);
   static const Color semanticColorChart5 = Color(0xFFEF4444);
+  static const Color semanticColorProcessC41Bg = Color(0xFFFEF3C7);
+  static const Color semanticColorProcessC41Fg = Color(0xFF451A03);
+  static const Color semanticColorProcessE6Bg = Color(0xFFE0F2FE);
+  static const Color semanticColorProcessE6Fg = Color(0xFF082F49);
+  static const Color semanticColorProcessEcn2Bg = Color(0xFFEDE9FE);
+  static const Color semanticColorProcessEcn2Fg = Color(0xFF2E1065);
+  static const Color semanticColorProcessBwBg = Color(0xFFE2E8F0);
+  static const Color semanticColorProcessBwFg = Color(0xFF1E293B);
+  static const Color semanticColorHighlightBg = Color(0xFFFFFBEB);
+  static const Color semanticColorHighlightFg = Color(0xFF451A03);
+  static const Color semanticColorHighlightBorder = Color(0xFFFCD34D);
+  static const Color semanticColorActivateBg = Color(0xFFECFDF5);
+  static const Color semanticColorActivateFg = Color(0xFF065F46);
+  static const Color semanticColorActivateBorder = Color(0xFF6EE7B7);
+  static const Color semanticColorActivateBgHover = Color(0xFFD1FAE5);
+  static const Color semanticColorActivateFgHover = Color(0xFF064E3B);
+  static const Color semanticColorDeactivateBg = Color(0xFFFFFBEB);
+  static const Color semanticColorDeactivateFg = Color(0xFF92400E);
+  static const Color semanticColorDeactivateBorder = Color(0xFFFCD34D);
+  static const Color semanticColorDeactivateBgHover = Color(0xFFFEF3C7);
+  static const Color semanticColorDeactivateFgHover = Color(0xFF78350F);
+  static const Color semanticColorBrandStripe = Color(0xFF511805);
   static const Color componentButtonPrimaryBg = Color(0xFF334155);
   static const Color componentButtonPrimaryBgHover = Color(0xFF1E293B);
   static const Color componentButtonPrimaryFg = Color(0xFFFFFFFF);
@@ -163,6 +185,16 @@ abstract final class DesignTokensLight {
   static const Color componentButtonDangerBg = Color(0xFFDC2626);
   static const Color componentButtonDangerBgHover = Color(0xFFB91C1C);
   static const Color componentButtonDangerFg = Color(0xFFFFFFFF);
+  static const Color componentButtonActivateBg = Color(0xFFECFDF5);
+  static const Color componentButtonActivateFg = Color(0xFF065F46);
+  static const Color componentButtonActivateBorder = Color(0xFF6EE7B7);
+  static const Color componentButtonActivateBgHover = Color(0xFFD1FAE5);
+  static const Color componentButtonActivateFgHover = Color(0xFF064E3B);
+  static const Color componentButtonDeactivateBg = Color(0xFFFFFBEB);
+  static const Color componentButtonDeactivateFg = Color(0xFF92400E);
+  static const Color componentButtonDeactivateBorder = Color(0xFFFCD34D);
+  static const Color componentButtonDeactivateBgHover = Color(0xFFFEF3C7);
+  static const Color componentButtonDeactivateFgHover = Color(0xFF78350F);
   static const Color componentInputBg = Color(0xFFFFFFFF);
   static const Color componentInputFg = Color(0xFF0F172A);
   static const Color componentInputPlaceholder = Color(0xFF64748B);
@@ -188,6 +220,10 @@ abstract final class DesignTokensLight {
   static const Color componentBadgeDangerFg = Color(0xFFB91C1C);
   static const Color componentBadgeInfoBg = Color(0xFFF0F9FF);
   static const Color componentBadgeInfoFg = Color(0xFF0369A1);
+  static const Color componentChipHighlightBg = Color(0xFFFFFBEB);
+  static const Color componentChipHighlightFg = Color(0xFF451A03);
+  static const Color componentChipHighlightBorder = Color(0xFFFCD34D);
+  static const Color componentAuthCardStripe = Color(0xFF511805);
   static const Color componentTableHeaderBg = Color(0xFFF1F5F9);
   static const Color componentTableHeaderFg = Color(0xFF475569);
   static const Color componentTableRowBorder = Color(0xFFE2E8F0);
@@ -276,6 +312,28 @@ abstract final class DesignTokensDark {
   static const Color semanticColorChart3 = Color(0xFFFBBF24);
   static const Color semanticColorChart4 = Color(0xFF38BDF8);
   static const Color semanticColorChart5 = Color(0xFFF87171);
+  static const Color semanticColorProcessC41Bg = Color(0xFF451A03);
+  static const Color semanticColorProcessC41Fg = Color(0xFFFEF3C7);
+  static const Color semanticColorProcessE6Bg = Color(0xFF082F49);
+  static const Color semanticColorProcessE6Fg = Color(0xFFE0F2FE);
+  static const Color semanticColorProcessEcn2Bg = Color(0xFF2E1065);
+  static const Color semanticColorProcessEcn2Fg = Color(0xFFEDE9FE);
+  static const Color semanticColorProcessBwBg = Color(0xFF334155);
+  static const Color semanticColorProcessBwFg = Color(0xFFF1F5F9);
+  static const Color semanticColorHighlightBg = Color(0xFF451A03);
+  static const Color semanticColorHighlightFg = Color(0xFFFEF3C7);
+  static const Color semanticColorHighlightBorder = Color(0xFF92400E);
+  static const Color semanticColorActivateBg = Color(0xFF022C22);
+  static const Color semanticColorActivateFg = Color(0xFFA7F3D0);
+  static const Color semanticColorActivateBorder = Color(0xFF065F46);
+  static const Color semanticColorActivateBgHover = Color(0xFF064E3B);
+  static const Color semanticColorActivateFgHover = Color(0xFFA7F3D0);
+  static const Color semanticColorDeactivateBg = Color(0xFF451A03);
+  static const Color semanticColorDeactivateFg = Color(0xFFFDE68A);
+  static const Color semanticColorDeactivateBorder = Color(0xFF92400E);
+  static const Color semanticColorDeactivateBgHover = Color(0xFF78350F);
+  static const Color semanticColorDeactivateFgHover = Color(0xFFFDE68A);
+  static const Color semanticColorBrandStripe = Color(0xFF511805);
   static const Color componentButtonPrimaryBg = Color(0xFFE2E8F0);
   static const Color componentButtonPrimaryBgHover = Color(0xFFCBD5E1);
   static const Color componentButtonPrimaryFg = Color(0xFF0F172A);
@@ -292,6 +350,16 @@ abstract final class DesignTokensDark {
   static const Color componentButtonDangerBg = Color(0xFFF87171);
   static const Color componentButtonDangerBgHover = Color(0xFFFCA5A5);
   static const Color componentButtonDangerFg = Color(0xFF020617);
+  static const Color componentButtonActivateBg = Color(0xFF022C22);
+  static const Color componentButtonActivateFg = Color(0xFFA7F3D0);
+  static const Color componentButtonActivateBorder = Color(0xFF065F46);
+  static const Color componentButtonActivateBgHover = Color(0xFF064E3B);
+  static const Color componentButtonActivateFgHover = Color(0xFFA7F3D0);
+  static const Color componentButtonDeactivateBg = Color(0xFF451A03);
+  static const Color componentButtonDeactivateFg = Color(0xFFFDE68A);
+  static const Color componentButtonDeactivateBorder = Color(0xFF92400E);
+  static const Color componentButtonDeactivateBgHover = Color(0xFF78350F);
+  static const Color componentButtonDeactivateFgHover = Color(0xFFFDE68A);
   static const Color componentInputBg = Color(0xFF0F172A);
   static const Color componentInputFg = Color(0xFFF8FAFC);
   static const Color componentInputPlaceholder = Color(0xFF94A3B8);
@@ -317,6 +385,10 @@ abstract final class DesignTokensDark {
   static const Color componentBadgeDangerFg = Color(0xFFF87171);
   static const Color componentBadgeInfoBg = Color(0xFF082F49);
   static const Color componentBadgeInfoFg = Color(0xFF38BDF8);
+  static const Color componentChipHighlightBg = Color(0xFF451A03);
+  static const Color componentChipHighlightFg = Color(0xFFFEF3C7);
+  static const Color componentChipHighlightBorder = Color(0xFF92400E);
+  static const Color componentAuthCardStripe = Color(0xFF511805);
   static const Color componentTableHeaderBg = Color(0xFF1E293B);
   static const Color componentTableHeaderFg = Color(0xFFCBD5E1);
   static const Color componentTableRowBorder = Color(0xFF1E293B);
