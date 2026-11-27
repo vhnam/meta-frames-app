@@ -28,15 +28,25 @@ class AuthRepositoryRemote implements AuthRepository {
       _api.send('POST', '/auth/google/token', body: {'idToken': idToken});
 
   @override
-  Future<void> register({
+  Future<String?> register({
     required String email,
     required String password,
     String? name,
-  }) => _api.send(
-    'POST',
-    '/auth/register',
-    body: {'email': email, 'password': password, 'name': ?name},
-  );
+  }) async {
+    final result = await _api.send(
+      'POST',
+      '/auth/register',
+      body: {'email': email, 'password': password, 'name': ?name},
+    );
+    if (result is! Map || result['verificationRequired'] != true) return null;
+    final message = result['message'];
+    if (message is String && message.isNotEmpty) return message;
+    throw ApiException(
+      201,
+      'invalid_response',
+      'Your account was created. Check your email to verify it, then sign in.',
+    );
+  }
 
   @override
   Future<void> logout() => _api.send('POST', '/auth/logout');

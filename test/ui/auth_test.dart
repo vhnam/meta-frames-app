@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meta_frames/data/repositories/auth_repository.dart';
+import 'package:meta_frames/data/repositories/auth_repository_remote.dart';
 import 'package:meta_frames/data/services/api_client.dart';
 import 'package:meta_frames/data/services/google_id_token.dart';
 import 'package:meta_frames/data/services/server_policy.dart';
@@ -30,6 +31,7 @@ class _FakeAuth implements AuthRepository {
   bool logoutFails = false;
   bool googleNotConfigured = false;
   bool loggedOut = false;
+  bool verificationRequired = false;
 
   @override
   Future<User> me() async => User.fromJson({
@@ -48,6 +50,13 @@ class _FakeAuth implements AuthRepository {
         429,
         'account_locked',
         'Too many attempts. Try later.',
+      );
+    }
+    if (password == 'unverified') {
+      throw ApiException(
+        403,
+        'email_verification_required',
+        'Verify your email address to log in.',
       );
     }
     if (password != 'right') {
@@ -82,7 +91,7 @@ class _FakeAuth implements AuthRepository {
   }
 
   @override
-  Future<void> register({
+  Future<String?> register({
     required String email,
     required String password,
     String? name,
@@ -95,7 +104,9 @@ class _FakeAuth implements AuthRepository {
       );
     }
     registeredName = name;
+    if (verificationRequired) return 'Check your inbox to verify your email.';
     await session.setToken('token');
+    return null;
   }
 
   @override
@@ -201,6 +212,77 @@ Future<void> _tapAndSettle(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  group('remote registration', () {
+    for (final (label, body, token, notice) in const [
+      (
+        'verification required',
+        '{"message":"Server verification notice","verificationRequired":true}',
+        null,
+        'Server verification notice',
+      ),
+      ('session started', '{"message":"Registered"}', 'session-token', null),
+      ('the body is empty', '', null, null),
+      (
+        'the answer holds a user',
+        '{"message":"x","user":{"id":"u1"}}',
+        'session-token',
+        null,
+      ),
+    ]) {
+      test('keeps the expected session and notice when $label', () async {
+        final session = SessionStore();
+        final client = MockClient(
+          (_) async => http.Response(
+            body,
+            201,
+            headers: {
+              if (token != null)
+                'set-cookie': 'metaframes_session=$token; Path=/',
+            },
+          ),
+        );
+        addTearDown(client.close);
+        final auth = AuthRepositoryRemote(
+          ApiClient(() => 'https://api.example.test', client, session),
+        );
+
+        expect(
+          await auth.register(email: 'a@b.co', password: 'Aaaaaaa1!'),
+          notice,
+        );
+        expect(session.token, token);
+      });
+    }
+
+    for (final (label, body) in const [
+      ('the message is missing', '{"verificationRequired":true}'),
+      (
+        'the message is not a string',
+        '{"message":5,"verificationRequired":true}',
+      ),
+      ('the message is empty', '{"message":"","verificationRequired":true}'),
+    ]) {
+      test('throws an API error when verification is required and $label', () {
+        final client = MockClient((_) async => http.Response(body, 201));
+        addTearDown(client.close);
+        final auth = AuthRepositoryRemote(
+          ApiClient(() => 'https://api.example.test', client, SessionStore()),
+        );
+
+        expect(
+          auth.register(email: 'a@b.co', password: 'Aaaaaaa1!'),
+          throwsA(
+            isA<ApiException>().having(
+              (error) => error.code,
+              'code',
+              'invalid_response',
+            ),
+          ),
+        );
+      });
+    }
+  });
+
   group('authRedirect', () {
     String? check(bool signedIn, String location) =>
         authRedirect(signedIn: signedIn, location: location);
@@ -353,6 +435,39 @@ void main() {
       await _tapAndSettle(tester, find.text('Create account'));
       expect(app.auth.registeredName, 'Ansel');
       expect(app.location, Routes.shooting);
+    });
+
+    testWidgets('registering with verification required opens login', (
+      tester,
+    ) async {
+      final app = await _pumpApp(tester);
+      app.auth.verificationRequired = true;
+      await _tapAndSettle(
+        tester,
+        find.text('New to the darkroom? Create an account'),
+      );
+      await _enter(tester, 'e.g. Ansel Adams', 'Ansel');
+      await _enter(tester, 'you@example.com', 'a@b.co');
+      await _enter(tester, 'At least 8 characters', 'Aaaaaaa1!');
+      await _enter(tester, 'Repeat the password', 'Aaaaaaa1!');
+      await _tapAndSettle(tester, find.text('Create account'));
+      expect(app.auth.registeredName, 'Ansel');
+      expect(app.session.signedIn, isFalse);
+      expect(app.location, Routes.login);
+      expect(
+        find.text('Check your inbox to verify your email.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an unverified email cannot log in', (tester) async {
+      final app = await _pumpApp(tester);
+      await _enter(tester, 'you@example.com', 'a@b.co');
+      await _enter(tester, 'Enter your password', 'unverified');
+      await _tapAndSettle(tester, find.text('Log in'));
+      expect(find.text('Verify your email address to log in.'), findsOneWidget);
+      expect(app.session.signedIn, isFalse);
+      expect(app.location, Routes.login);
     });
 
     testWidgets('recovery shows the server message', (tester) async {

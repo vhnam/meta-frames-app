@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- When the server requires a verified email, creating an account shows the server message and opens the login screen instead of signing in.
+
 ## [3.0.0] - 2026-11-24
 
 ### Added

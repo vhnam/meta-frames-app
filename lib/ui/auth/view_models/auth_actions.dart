@@ -26,7 +26,9 @@ class AuthActions {
     await auth.loginWithGoogle(idToken);
   }
 
-  Future<void> register({
+  /// Returns the server's message when the account needs email verification
+  /// and has no session, otherwise `null`.
+  Future<String?> register({
     required String name,
     required String email,
     required String password,
