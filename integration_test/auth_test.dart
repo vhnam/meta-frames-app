@@ -49,4 +49,19 @@ void main() {
     await pumpUntil(tester, () => session.token != null);
     expect((await server.me(session.token!))['email'], email);
   });
+
+  // E06: a signed-in phone is still signed in after the app starts again.
+  testWidgets('E06 a signed-in session survives a restart', (tester) async {
+    final email = newEmail('e06');
+    const password = 'Zone-System5';
+    final token = await server.register(email, password);
+    final device = await newDevice(token: token);
+    await launch(tester, device);
+    await pumpUntilFound(tester, find.byType(NavigationBar));
+
+    await restart(tester, device);
+    await pumpUntilFound(tester, find.byType(NavigationBar));
+    expect(device.session.token, token);
+    expect((await server.me(token))['email'], email);
+  });
 }

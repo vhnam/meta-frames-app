@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          flutter-version: "3.50.1"
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze
+      - run: flutter test
+
+  tokens:
+    runs-on: ubuntu-latest
+    steps:
+      # Sibling repos use the branch named like the PR head branch, else main.
+      - name: Pick sibling refs
+        id: refs
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          for repo in design-tokens dashboard; do
+            ref=main
+            if [ -n "$HEAD_BRANCH" ]; then
+              status=0
+              refs=$(git ls-remote --heads "https://github.com/vhnam/meta-frames-$repo.git" "refs/heads/$HEAD_BRANCH") || status=$?
+              if [ "$status" -ne 0 ]; then
+                echo "error: cannot look up branch '$HEAD_BRANCH' in sibling meta-frames-$repo (git ls-remote exit $status)" >&2
+                exit 1
+              fi
+              # ls-remote patterns also match after any "/", so compare the ref field exactly.
+              if printf '%s\n' "$refs" | cut -f2 | grep -xF "refs/heads/$HEAD_BRANCH" >/dev/null; then
+                ref="$HEAD_BRANCH"
+              fi
+            fi
+            echo "sibling $repo: using ref $ref"
+            echo "$repo=$ref" >> "$GITHUB_OUTPUT"
+          done
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: meta-frames-app
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: vhnam/meta-frames-design-tokens
+          ref: ${{ steps.refs.outputs.design-tokens }}
+          path: meta-frames-design-tokens
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: vhnam/meta-frames-dashboard
+          ref: ${{ steps.refs.outputs.dashboard }}
+          path: meta-frames-dashboard
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.1
+        with:
+          package_json_file: meta-frames-design-tokens/package.json
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "26.13.1"
+      - name: Install
+        working-directory: meta-frames-design-tokens
+        run: pnpm install --frozen-lockfile
+      - name: Check generated files
+        working-directory: meta-frames-design-tokens
+        run: pnpm check
