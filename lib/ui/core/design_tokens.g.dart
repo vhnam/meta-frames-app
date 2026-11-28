@@ -1,6 +1,6 @@
 // GENERATED FILE. DO NOT EDIT.
 // Source: meta-frames-design-tokens/tokens/tokens.json (not in Git), sha256 ad9868c2dde00f25d599d23d7c494b5d412909549b979806762a56ec6db9385a
-// Generator: sha256 27fbb33eec4c5f09f60c35320294a0dc787249951abf0432dd40f1af6fd2355b of package.json, pnpm-lock.yaml, src/build.ts, src/hooks.ts, tokens/bindings.json (meta-frames-design-tokens/, sorted by path)
+// Generator: sha256 afc89c6b2773fc473a735dc87886087780dc5cc17e59f13e335c18abaec857a7 of package.json, pnpm-lock.yaml, src/build.ts, src/hooks.ts, tokens/bindings.json (meta-frames-design-tokens/, sorted by path)
 // Regenerate: node meta-frames-design-tokens/src/build.ts. Verify: node meta-frames-design-tokens/src/build.ts --check
 
 import 'package:material_ui/material_ui.dart';
