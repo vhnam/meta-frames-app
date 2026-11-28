@@ -208,7 +208,7 @@ lib/
 - The three tabs (Shooting, Rolls, More) sit in a stateful shell. Every other screen is a root-level route that takes ids in its path and loads its own data.
 - Build paths with `Routes`, for example `context.push(Routes.roll(id))`.
 
-[docs/improvement-plan.md](docs/improvement-plan.md) records the architecture and performance work and what is still open.
+`docs/improvement-plan.md` in the workspace root (outside this repository) records the architecture and performance work and what is still open.
 
 ## Testing
 

@@ -6,6 +6,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../../../data/services/api_client.dart';
 import '../../../domain/models/models.dart';
 import '../../more/view_models/settings_actions.dart';
+import '../design_tokens.g.dart';
 import '../theme.dart';
 import '../../../routing/routes.dart';
 
@@ -359,18 +360,30 @@ class InfoRow extends StatelessWidget {
   );
 }
 
-/// Colour for a roll status, readable on both light and dark surfaces.
+/// Colour for a roll status, the same mapping as the dashboard status badge.
 Color statusTone(BuildContext context, RollStatus status) {
-  final cs = Theme.of(context).colorScheme;
-  final dark = cs.brightness == Brightness.dark;
-  Color tone(MaterialColor c) => dark ? c.shade300 : c.shade800;
+  final dark = Theme.of(context).brightness == Brightness.dark;
   return switch (status) {
-    RollStatus.inStock => cs.onSurfaceVariant,
-    RollStatus.inCamera => cs.onPrimaryContainer,
-    RollStatus.doneShooting => cs.tertiary,
-    RollStatus.atLab => tone(Colors.orange),
-    RollStatus.developed => tone(Colors.teal),
-    RollStatus.scanned => tone(Colors.green),
+    RollStatus.inStock || RollStatus.scanned =>
+      dark
+          ? DesignTokensDark.semanticColorStatusNeutralFg
+          : DesignTokensLight.semanticColorStatusNeutralFg,
+    RollStatus.inCamera =>
+      dark
+          ? DesignTokensDark.semanticColorStatusInfoFg
+          : DesignTokensLight.semanticColorStatusInfoFg,
+    RollStatus.doneShooting =>
+      dark
+          ? DesignTokensDark.semanticColorStatusWarningFg
+          : DesignTokensLight.semanticColorStatusWarningFg,
+    RollStatus.atLab =>
+      dark
+          ? DesignTokensDark.semanticColorStatusDangerFg
+          : DesignTokensLight.semanticColorStatusDangerFg,
+    RollStatus.developed =>
+      dark
+          ? DesignTokensDark.semanticColorStatusSuccessFg
+          : DesignTokensLight.semanticColorStatusSuccessFg,
   };
 }
 
@@ -416,10 +429,22 @@ class ProcessBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final fg = switch (process) {
-      Process.c41 => dark ? const Color(0xFFFFB1C8) : const Color(0xFF8A2D4E),
-      Process.e6 => dark ? const Color(0xFFFFE08A) : const Color(0xFF6B5200),
-      Process.ecn2 => dark ? const Color(0xFF9CCBFF) : const Color(0xFF1D4F7C),
-      Process.bw => dark ? const Color(0xFFD4D4D8) : const Color(0xFF3F3F46),
+      Process.c41 =>
+        dark
+            ? DesignTokensDark.semanticColorProcessC41Fg
+            : DesignTokensLight.semanticColorProcessC41Fg,
+      Process.e6 =>
+        dark
+            ? DesignTokensDark.semanticColorProcessE6Fg
+            : DesignTokensLight.semanticColorProcessE6Fg,
+      Process.ecn2 =>
+        dark
+            ? DesignTokensDark.semanticColorProcessEcn2Fg
+            : DesignTokensLight.semanticColorProcessEcn2Fg,
+      Process.bw =>
+        dark
+            ? DesignTokensDark.semanticColorProcessBwFg
+            : DesignTokensLight.semanticColorProcessBwFg,
     };
     return StampBadge(process == Process.bw ? 'B&W' : process.wire, color: fg);
   }

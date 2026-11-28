@@ -13,6 +13,13 @@
 
 - Do not use single-character variable names, including callback parameters, loop indices and destructured values. Name the thing it holds: `roll`, `stock`, `index`, `event`, not `r`, `s`, `i`, `e`. `_` for an unused parameter is allowed. `flutter analyze` does not enforce this.
 
+## Design system rules
+
+- Use `lib/ui/core/widgets` first, before you build a new widget.
+- Use colors only through `DesignTokens` (`lib/ui/core/design_tokens.g.dart`) or the theme `ColorScheme`.
+- Feature code has no `Colors.*` and no `Color(0x…)` outside `design_tokens.g.dart`.
+- Do not edit `design_tokens.g.dart` by hand. Change `meta-frames-design-tokens` and regenerate.
+
 <!-- gitnexus:start -->
 
 # GitNexus — Code Intelligence
