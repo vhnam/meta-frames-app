@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `design_tokens.g.dart` has the new color roles (process, highlight, activate, deactivate and brand stripe) and a doc comment on each semantic token that says when to use it.
+
 ### Changed
 
 - When the server requires a verified email, creating an account shows the server message and opens the login screen instead of signing in.
