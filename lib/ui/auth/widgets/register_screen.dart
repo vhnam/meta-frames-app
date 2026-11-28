@@ -1,8 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../domain/auth_validators.dart';
 import '../../../routing/navigation.dart';
+import '../../../routing/routes.dart';
+import '../../core/widgets/common.dart';
 import '../view_models/auth_actions.dart';
 import 'auth_form.dart';
 
@@ -35,13 +39,18 @@ class _State extends ConsumerState<RegisterScreen> {
     onGoogle: ref.read(authActionsProvider).googleAvailable
         ? ref.read(authActionsProvider).signInWithGoogle
         : null,
-    onSubmit: () => ref
-        .read(authActionsProvider)
-        .register(
-          name: _name.text,
-          email: _email.text,
-          password: _password.text,
-        ),
+    onSubmit: () async {
+      final notice = await ref
+          .read(authActionsProvider)
+          .register(
+            name: _name.text,
+            email: _email.text,
+            password: _password.text,
+          );
+      if (notice == null || !context.mounted) return;
+      toast(context, notice);
+      context.go(Routes.login);
+    },
     fields: [
       AuthField(
         label: 'Full name',

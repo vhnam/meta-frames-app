@@ -14,8 +14,10 @@ abstract class AuthRepository {
   /// Starts a session from a Google ID token, creating the account if needed.
   Future<void> loginWithGoogle(String idToken);
 
-  /// Creates an account and starts its session.
-  Future<void> register({
+  /// Creates an account. Returns `null` when the server started its session
+  /// (the API client stores the cookie). Returns the server's message when the
+  /// server needs the user to verify the email address first, with no session.
+  Future<String?> register({
     required String email,
     required String password,
     String? name,
